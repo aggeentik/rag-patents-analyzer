@@ -9,5 +9,5 @@ dependencies = [
     "python-dotenv==1.0.0",
     "tiktoken>=0.7.0",
     "tqdm==4.66.1",
-    "unstructured[pdf]>=0.15.0",
+    "unstructured[pdf]>=0.18.31",
 ]
