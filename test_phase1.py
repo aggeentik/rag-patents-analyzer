@@ -2,6 +2,7 @@
 """Test script for Phase 1: PDF Parsing and Chunking."""
 
 import sys
+import json
 from pathlib import Path
 
 # Add src to path
@@ -30,12 +31,13 @@ def test_phase1():
     print(f"\n✓ Found {len(pdf_files)} PDF file(s)")
 
     # Test with first PDF
-    pdf_path = str(pdf_files[0])
-    print(f"\nTesting with: {pdf_files[0].name}")
+    pdf_file=pdf_files[2]
+    pdf_path = str(pdf_file)
+    print(f"\nTesting with: {pdf_file.name}")
     print("-" * 60)
 
     # Initialize components
-    parser = PatentPDFParser(use_hi_res=False)  # Use fast mode for testing
+    parser = PatentPDFParser(use_hi_res=True)  # Use fast mode for testing
     chunker = PatentChunker(chunk_size=500, chunk_overlap=50)
 
     try:
@@ -82,6 +84,27 @@ def test_phase1():
             print(f"     References: {chunk.references}")
             content_preview = chunk.content[:150].replace('\n', ' ')
             print(f"     Preview: {content_preview}...")
+
+        # Save chunks
+        print("\n3. Saving chunks...")
+        output_dir = Path("data/processed")
+        output_dir.mkdir(parents=True, exist_ok=True)
+        
+        output_file = output_dir / f"{patent_data['patent_id']}_chunks.json"
+        chunks_data = [
+            {
+                "chunk_id": c.chunk_id,
+                "content": c.content,
+                "metadata": c.metadata,
+                "references": c.references
+            }
+            for c in chunks
+        ]
+        
+        with open(output_file, 'w', encoding='utf-8') as f:
+            json.dump(chunks_data, f, indent=2, ensure_ascii=False)
+        
+        print(f"   ✓ Saved to: {output_file}")
 
         print("\n" + "=" * 60)
         print("✅ Phase 1 test completed successfully!")
