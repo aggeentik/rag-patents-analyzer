@@ -1,0 +1,8 @@
+# Phase 1: PDF Processing
+unstructured[pdf]==0.12.0
+pdfplumber==0.10.3
+tiktoken==0.5.2
+
+# Basic dependencies
+python-dotenv==1.0.0
+tqdm==4.66.1
