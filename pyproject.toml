@@ -10,4 +10,9 @@ dependencies = [
     "tiktoken>=0.7.0",
     "tqdm==4.66.1",
     "unstructured[pdf]>=0.18.31",
+    "networkx>=3.2.1",
+    "rank-bm25>=0.2.2",
+    "sentence-transformers>=2.3.1",
+    "faiss-cpu>=1.7.4",
+    "nltk>=3.8.1",
 ]
