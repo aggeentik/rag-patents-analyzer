@@ -15,4 +15,5 @@ dependencies = [
     "sentence-transformers>=2.3.1",
     "faiss-cpu>=1.7.4",
     "nltk>=3.8.1",
+    "litellm>=1.0.0",
 ]
