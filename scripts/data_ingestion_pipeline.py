@@ -11,7 +11,7 @@ project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
 from src.extraction.pdf_parser import PatentPDFParser
-from src.extraction.chunker import PatentChunker
+from src.chunking.chunker import PatentChunker
 from src.extraction.entity_extractor import EntityExtractor
 from src.knowledge_graph.builder import KnowledgeGraphBuilder
 from src.knowledge_graph.store import KnowledgeGraphStore

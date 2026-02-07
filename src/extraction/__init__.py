@@ -1,1 +1,1 @@
-"""PDF extraction and chunking modules."""
+"""PDF extraction module."""
