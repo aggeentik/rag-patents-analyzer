@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Patents Analyzer** - An agentic RAG system for extracting insights from patent PDFs using hybrid retrieval (BM25 + Semantic Search + Knowledge Graph). Designed for steel manufacturing patents with complex multi-column layouts, fragmented data (tables, formulas, cross-references), and technical specifications.
 
-**Current Status:** Phase 2 complete (feat/phase2 branch). Data ingestion pipeline operational with PDF parsing, entity extraction, knowledge graph construction, and BM25/FAISS indexing.
+**Current Status:** Data ingestion pipeline fully operational (feat/data-ingestion-pipeline branch). Successfully processed 10 patents → 2075 chunks with complete entity extraction, knowledge graph construction, and BM25/FAISS indexing.
 
 ## Technology Stack
 
@@ -30,7 +30,7 @@ uv run python <script.py>
 ### Data Processing Pipeline
 ```bash
 # Full extraction: PDFs → chunks → entities → indices
-uv run python scripts/extract_patents.py
+uv run python scripts/data_ingestion_pipeline.py
 
 # Rebuild indices only (requires patents.json)
 uv run python scripts/build_indices.py
@@ -41,14 +41,9 @@ uv run python scripts/demo_retrieval.py
 
 ### Testing
 ```bash
-# End-to-end pipeline test
-uv run python tests/test_ingestion_pipeline.py
-
-# Knowledge graph tests
-uv run python tests/test_phase2_kg.py
-
-# Phase 1 tests (legacy)
-uv run python scripts/test_phase1.py
+# Tests directory exists but is currently empty
+# Previous test files were removed during code refactoring
+# TODO: Add new integration tests for the complete pipeline
 ```
 
 ### Development
@@ -87,10 +82,12 @@ data/processed/
 
 ### Module Organization
 
-**`src/extraction/`** - PDF parsing and chunking
+**`src/extraction/`** - PDF parsing and entity extraction
 - `pdf_parser.py` - Layout-aware extraction using `unstructured` (handles multi-column PDFs, tables, formulas)
-- `chunker.py` - Token-based semantic chunking with cross-reference detection
 - `entity_extractor.py` - Rule-based entity extraction (no LLM needed)
+
+**`src/chunking/`** - Text chunking
+- `chunker.py` - Token-based semantic chunking with cross-reference detection (500 tokens, 50 overlap)
 
 **`src/knowledge_graph/`** - Knowledge graph construction
 - `schema.py` - 9 entity types (chemical_element, property, process, etc.), 11 relationship types
@@ -104,13 +101,13 @@ data/processed/
 - Future: `graph_retriever.py`, `hybrid_retriever.py` (RRF fusion)
 
 **`scripts/`** - Pipeline execution scripts
-- `extract_patents.py` - **Main pipeline:** PDF → entities → indices (all phases)
-- `build_indices.py` - Rebuild BM25/FAISS from existing patents.json
-- `demo_retrieval.py` - Test retrieval with sample queries
+- `data_ingestion_pipeline.py` - **Main pipeline:** PDF → chunks → entities → KG → indices (all phases)
+- `build_indices.py` - Rebuild BM25/FAISS indices from existing patents.json
+- `demo_retrieval.py` - Interactive demo of retrieval capabilities with sample queries
 
 **`tests/`** - Integration and unit tests
-- `test_ingestion_pipeline.py` - **Primary E2E test:** validates all output files
-- `test_phase2_kg.py` - Knowledge graph specific tests
+- Currently empty (tests removed during refactoring)
+- TODO: Add comprehensive integration tests
 
 ## Key Concepts
 
@@ -172,7 +169,7 @@ data/
 ### Adding New Retrievers
 1. Create class in `src/retrieval/` inheriting common interface
 2. Implement `build_index(chunks)`, `search(query, top_k)`, `save()`, `load()` methods
-3. Integrate into `extract_patents.py` build phase
+3. Integrate into `data_ingestion_pipeline.py` build phase
 4. Add to hybrid fusion in future `hybrid_retriever.py`
 
 ### Working with Knowledge Graph
@@ -200,18 +197,34 @@ store.close()
 ```
 
 ### Testing New Features
-1. Add tests to `tests/test_ingestion_pipeline.py` (preferred) or create new test file
+1. Create new test files in `tests/` directory (currently empty)
 2. Use `pytest` patterns with assertions
 3. Test with small dataset first (1-2 PDFs)
 4. Validate output file formats and indices
+5. Consider adding end-to-end pipeline tests
 
 ## Common Tasks
 
 ### Processing New Patents
 1. Place PDFs in `data/raw/`
-2. Run `uv run python scripts/extract_patents.py`
+2. Run `uv run python scripts/data_ingestion_pipeline.py`
 3. Validate output: check `data/processed/patents.json` has expected chunk count
 4. Test retrieval: `uv run python scripts/demo_retrieval.py`
+
+### Configuring PDF Extraction
+The PDF parser supports two extraction modes configured via `PatentPDFParser(use_hi_res=True/False)`:
+
+- **Hi-res mode** (default, `use_hi_res=True`):
+  - Better accuracy for complex multi-column layouts
+  - Uses OCR for scanned documents
+  - ~5+ minutes per patent
+
+- **Fast mode** (`use_hi_res=False`):
+  - Faster extraction (~30 seconds per patent)
+  - Good for text-based PDFs
+  - May miss some layout details
+
+Edit line 58 in `scripts/data_ingestion_pipeline.py` to configure.
 
 ### Debugging Extraction Issues
 - **No entities found:** Check patterns in `entity_extractor.py` against actual PDF text
@@ -236,7 +249,8 @@ store.close()
 
 ### Git Workflow
 - Main branch: `main`
-- Feature branch: `feat/phase2` (current)
+- Current branch: `feat/data-ingestion-pipeline`
+- Previous work: `feat/phase1`, `feat/phase2` (merged)
 - Data files (`data/`) excluded via `.gitignore`
 
 ### Next Phases (Not Yet Implemented)
@@ -250,7 +264,7 @@ store.close()
 → Run `uv sync` to install dependencies
 
 **Error: `FileNotFoundError: data/processed/patents.json`**
-→ Run extraction pipeline first: `uv run python scripts/extract_patents.py`
+→ Run extraction pipeline first: `uv run python scripts/data_ingestion_pipeline.py`
 
 **Empty results from retrieval**
 → Check indices exist in `data/processed/`. If missing, rebuild with `build_indices.py`
@@ -263,6 +277,18 @@ store.close()
 
 **SQLite locked error**
 → Close previous database connections: `store.close()` before reopening
+
+**Error: `ModuleNotFoundError: No module named 'src'`**
+→ Script missing path setup. Ensure these lines are at the top of your script:
+```python
+import sys
+from pathlib import Path
+project_root = Path(__file__).parent.parent
+sys.path.insert(0, str(project_root))
+```
+
+**Warning: "embeddings.position_ids | UNEXPECTED" when loading sentence-transformers**
+→ This is normal and safe to ignore. The model was trained for a different task and is being repurposed for embeddings. Does not affect quality.
 
 ## References
 
