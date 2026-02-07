@@ -2,14 +2,29 @@
 """Quick demo of retrieval capabilities."""
 
 import json
+import sys
 from pathlib import Path
-from src.retrieval.bm25_retriever import BM25Retriever
-from src.retrieval.semantic_retriever import SemanticRetriever
+
+# Add project root to path
+project_root = Path(__file__).parent.parent
+sys.path.insert(0, str(project_root))
+
+from src.retrieval import BM25Retriever, SemanticRetriever
 from src.knowledge_graph.store import KnowledgeGraphStore
+
+# Paths
+DATA_DIR = project_root / "data"
+PROCESSED_DIR = DATA_DIR / "processed"
+
+PATENTS_JSON = PROCESSED_DIR / "patents.json"
+BM25_INDEX = PROCESSED_DIR / "bm25_index.pkl"
+FAISS_INDEX = PROCESSED_DIR / "faiss.index"
+CHUNK_IDS = PROCESSED_DIR / "chunk_ids.json"
+KG_DATABASE = PROCESSED_DIR / "knowledge_graph.db"
 
 # Load data
 print("Loading indices...")
-with open("data/processed/patents.json") as f:
+with open(PATENTS_JSON) as f:
     data = json.load(f)
 
 chunks = []
@@ -17,13 +32,13 @@ for patent in data["patents"]:
     chunks.extend(patent["chunks"])
 
 # Load retrievers
-bm25 = BM25Retriever.load("data/processed/bm25_index.pkl", chunks)
+bm25 = BM25Retriever.load(str(BM25_INDEX), chunks)
 semantic = SemanticRetriever.load(
-    "data/processed/faiss.index",
-    "data/processed/chunk_ids.json",
+    str(FAISS_INDEX),
+    str(CHUNK_IDS),
     chunks
 )
-kg_store = KnowledgeGraphStore("data/processed/knowledge_graph.db")
+kg_store = KnowledgeGraphStore(str(KG_DATABASE))
 kg_store.connect()
 
 print(f"✓ Loaded {len(chunks)} chunks\n")

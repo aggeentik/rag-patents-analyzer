@@ -50,7 +50,12 @@ def main():
 
     # Initialize components
     print("Initializing components...")
-    parser = PatentPDFParser()
+
+    # Configure PDF extraction
+    # use_hi_res=True: Better accuracy, slower (~5+ min/patent), uses OCR
+    # use_hi_res=False: Faster extraction (~30s/patent), may miss some layout details
+    parser = PatentPDFParser(use_hi_res=True)
+
     chunker = PatentChunker()
     entity_extractor = EntityExtractor()
     kg_builder = KnowledgeGraphBuilder()
