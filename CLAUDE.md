@@ -6,7 +6,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Patents Analyzer** - An agentic RAG system for extracting insights from patent PDFs using hybrid retrieval (BM25 + Semantic Search + Knowledge Graph). Designed for steel manufacturing patents with complex multi-column layouts, fragmented data (tables, formulas, cross-references), and technical specifications.
 
-**Current Status:** Data ingestion pipeline fully operational (feat/data-ingestion-pipeline branch). Successfully processed 10 patents → 2075 chunks with complete entity extraction, knowledge graph construction, and BM25/FAISS indexing.
+**Current Status:** Complete RAG pipeline operational (feat/data-ingestion-pipeline branch). Successfully implemented:
+- Data ingestion: 10 patents → 2075 chunks with entity extraction and KG construction
+- Hybrid retrieval: BM25 + FAISS + Graph with RRF fusion ✓
+- LLM integration: Ollama/Bedrock support via LiteLLM ✓
 
 ## Technology Stack
 
@@ -14,6 +17,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **PDF Processing:** `unstructured[pdf]`, `pdfplumber`
 - **Knowledge Graph:** NetworkX, SQLite
 - **Retrieval:** BM25 (`rank-bm25`), FAISS (`faiss-cpu`), sentence-transformers
+- **LLM Integration:** LiteLLM (Ollama, AWS Bedrock, OpenAI)
 - **NLP:** `nltk`, `tiktoken`
 
 ## Commands
@@ -35,8 +39,11 @@ uv run python scripts/data_ingestion_pipeline.py
 # Rebuild indices only (requires patents.json)
 uv run python scripts/build_indices.py
 
-# Demo retrieval system
+# Demo retrieval system (BM25 + Semantic only)
 uv run python scripts/demo_retrieval.py
+
+# Demo hybrid retrieval + LLM answer generation
+uv run python scripts/demo_hybrid_llm.py
 ```
 
 ### Testing
@@ -78,6 +85,25 @@ data/processed/
     ├── bm25_index.pkl (keyword index)
     ├── faiss.index (semantic vectors)
     └── chunk_ids.json (FAISS mapping)
+
+Query Flow (RAG Pipeline):
+User Query
+    ↓
+[Entity Extraction] ← Extract entities from query
+    ↓
+[Hybrid Retriever]
+    ├── BM25 Retriever (keyword matching)
+    ├── Semantic Retriever (vector similarity)
+    └── Graph Retriever (entity graph traversal)
+    ↓
+[RRF Fusion] ← Combine results with weighted scores
+    ↓
+[Answer Generator]
+    ├── Context Building (top K chunks)
+    ├── Prompt Construction
+    └── LLM Generation (Ollama/Bedrock)
+    ↓
+Answer + Sources
 ```
 
 ### Module Organization
@@ -98,12 +124,18 @@ data/processed/
 **`src/retrieval/`** - Hybrid search system
 - `bm25_retriever.py` - Sparse keyword retrieval with BM25Okapi
 - `semantic_retriever.py` - Dense vector search using FAISS + sentence-transformers
-- Future: `graph_retriever.py`, `hybrid_retriever.py` (RRF fusion)
+- `graph_retriever.py` - Knowledge graph traversal with entity-based retrieval ✓
+- `hybrid_retriever.py` - RRF (Reciprocal Rank Fusion) combining all three retrievers ✓
+
+**`src/llm/`** - LLM integration and answer generation ✓
+- `llm_client.py` - Unified LLM interface using LiteLLM (Ollama/Bedrock/OpenAI)
+- `answer_generator.py` - RAG pipeline for generating answers from retrieved chunks
 
 **`scripts/`** - Pipeline execution scripts
 - `data_ingestion_pipeline.py` - **Main pipeline:** PDF → chunks → entities → KG → indices (all phases)
 - `build_indices.py` - Rebuild BM25/FAISS indices from existing patents.json
-- `demo_retrieval.py` - Interactive demo of retrieval capabilities with sample queries
+- `demo_retrieval.py` - Demo of BM25 + Semantic retrieval (Phase 3a)
+- `demo_hybrid_llm.py` - **Full RAG demo:** Hybrid retrieval + LLM answer generation ✓
 
 **`tests/`** - Integration and unit tests
 - Currently empty (tests removed during refactoring)
@@ -124,11 +156,22 @@ data/processed/
 
 **Graph Storage:** SQLite with 3 tables (entities, relationships, chunk_entities) + 6 indices for fast queries. NetworkX used for traversal algorithms (BFS, path finding).
 
-### Retrieval System (Hybrid)
+### Retrieval System (Hybrid) ✓ IMPLEMENTED
 1. **BM25** - Keyword matching for exact terms (chemical symbols, numeric values)
 2. **Semantic (FAISS)** - Dense retrieval using sentence-transformers (all-MiniLM-L6-v2, 384-dim)
-3. **Graph** - Entity-aware retrieval via knowledge graph traversal (2-hop BFS)
+3. **Graph** - Entity-aware retrieval via knowledge graph traversal (2-hop BFS, configurable decay)
 4. **Fusion** - RRF (Reciprocal Rank Fusion) combines all three with configurable weights
+   - Formula: `RRF_score = Σ weight_i / (k + rank_i)` where k=60
+   - Default weights: BM25=1.0, Semantic=1.0, Graph=0.5
+
+### LLM Integration ✓ IMPLEMENTED
+- **LiteLLM** - Unified interface for multiple LLM providers
+- **Supported providers:**
+  - Ollama (local models: llama2, mistral, etc.)
+  - AWS Bedrock (Claude, Titan, Llama)
+  - OpenAI (GPT-4, GPT-3.5)
+- **Answer Generation** - RAG pipeline with context building and prompt engineering
+- **Configuration** - Environment-based (.env file) or programmatic
 
 ### Patent Structure Handling
 - **Multi-column PDFs:** `unstructured` library with hi-res strategy
@@ -156,8 +199,10 @@ data/
 
 ### Documentation
 - `docs/DATA_INGESTION_PIPELINE.md` - **Comprehensive Phase 1-3a guide** (1030 lines)
+- `docs/HYBRID_RETRIEVAL_AND_LLM.md` - **Phase 3b-4 guide:** Hybrid retrieval + LLM integration ✓
 - `docs/patent-demo-full-plan.md` - **Original implementation plan** (all phases)
 - `docs/solution.md` - **Problem analysis and architecture** (diagrams, roadmap)
+- `.env.example` - LLM and retriever configuration template
 
 ## Development Patterns
 
@@ -194,6 +239,107 @@ related_chunks = traversal.find_related_chunks(
 )
 
 store.close()
+```
+
+### Using Hybrid Retriever
+```python
+from src.retrieval import BM25Retriever, SemanticRetriever, GraphRetriever, HybridRetriever
+from src.knowledge_graph.store import KnowledgeGraphStore
+import json
+
+# Load chunks
+with open("data/processed/patents.json") as f:
+    chunks = json.load(f)["chunks"]
+
+# Initialize retrievers
+bm25 = BM25Retriever.load("data/processed/bm25_index.pkl", chunks)
+semantic = SemanticRetriever.load(
+    "data/processed/faiss.index",
+    "data/processed/chunk_ids.json",
+    chunks
+)
+
+kg_store = KnowledgeGraphStore("data/processed/knowledge_graph.db")
+kg_store.connect()
+graph = GraphRetriever.load("", chunks, kg_store, max_hops=2, score_decay=0.5)
+
+# Create hybrid retriever
+hybrid = HybridRetriever(
+    bm25_retriever=bm25,
+    semantic_retriever=semantic,
+    graph_retriever=graph,
+    weights={"bm25": 1.0, "semantic": 1.0, "graph": 0.5},
+    rrf_k=60
+)
+
+# Search
+results = hybrid.search("What is the effect of silicon on magnetic properties?", top_k=10)
+
+# Analyze results
+for r in results:
+    print(f"RRF: {r['rrf_score']:.4f} | {r['score_breakdown']}")
+    print(f"Content: {r['content'][:100]}...")
+
+# Get statistics
+stats = hybrid.get_retriever_stats(results)
+print(f"BM25 hits: {stats['bm25_hits']}, Semantic: {stats['semantic_hits']}, Graph: {stats['graph_hits']}")
+
+kg_store.close()
+```
+
+### Using LLM Integration
+```python
+from src.llm import LLMClient, AnswerGenerator
+
+# Initialize LLM (loads from .env or defaults to ollama/llama2)
+llm = LLMClient.from_env()
+# Or explicitly:
+# llm = LLMClient(model="ollama/llama2")
+# llm = LLMClient(model="bedrock/anthropic.claude-3-sonnet-20240229-v1:0")
+
+# Create answer generator
+generator = AnswerGenerator(
+    llm_client=llm,
+    max_context_chunks=5,
+    include_metadata=True
+)
+
+# Generate answer from retrieved chunks
+result = generator.generate_answer(
+    question="What is the effect of silicon on magnetic properties?",
+    retrieved_chunks=results,  # from hybrid retriever
+    temperature=0.0,
+    stream=True  # Stream output to console
+)
+
+print(result["answer"])
+print(f"\nUsed {result['metadata']['chunk_count']} chunks")
+
+# Generate summary
+summary = generator.generate_summary(results[:5])
+
+# Compare patents
+comparison = generator.generate_comparison(
+    question="How do annealing processes differ?",
+    chunks_a=[c for c in results if c['patent_id'] == 'patent_1'],
+    chunks_b=[c for c in results if c['patent_id'] == 'patent_2']
+)
+```
+
+**Configuration (.env file):**
+```env
+# Ollama (local)
+LLM_MODEL=ollama/llama2
+OLLAMA_API_BASE=http://localhost:11434
+
+# AWS Bedrock
+# LLM_MODEL=bedrock/anthropic.claude-3-sonnet-20240229-v1:0
+# AWS_ACCESS_KEY_ID=your_key
+# AWS_SECRET_ACCESS_KEY=your_secret
+# AWS_REGION_NAME=us-east-1
+
+LLM_TEMPERATURE=0.0
+LLM_MAX_TOKENS=2048
 ```
 
 ### Testing New Features
@@ -253,10 +399,11 @@ Edit line 58 in `scripts/data_ingestion_pipeline.py` to configure.
 - Previous work: `feat/phase1`, `feat/phase2` (merged)
 - Data files (`data/`) excluded via `.gitignore`
 
-### Next Phases (Not Yet Implemented)
-- **Phase 3b:** Graph retriever + hybrid fusion with RRF
-- **Phase 4:** LLM integration (Bedrock/Ollama) for answer generation
-- **Phase 5:** Streamlit UI for interactive search
+### Implementation Status
+- **Phase 1-3a:** ✅ Data ingestion, entity extraction, KG, BM25/FAISS indices
+- **Phase 3b:** ✅ Graph retriever + hybrid fusion with RRF
+- **Phase 4:** ✅ LLM integration (Bedrock/Ollama) for answer generation
+- **Phase 5:** ⏳ Streamlit UI for interactive search (TODO)
 
 ## Troubleshooting
 
@@ -293,5 +440,7 @@ sys.path.insert(0, str(project_root))
 ## References
 
 - **Full architecture:** See `docs/solution.md` for diagrams and phase breakdown
-- **Pipeline guide:** See `docs/DATA_INGESTION_PIPELINE.md` for detailed component usage
+- **Data ingestion (Phase 1-3a):** See `docs/DATA_INGESTION_PIPELINE.md` for detailed component usage
+- **Hybrid retrieval + LLM (Phase 3b-4):** See `docs/HYBRID_RETRIEVAL_AND_LLM.md` for RRF fusion and LLM integration
 - **Implementation plan:** See `docs/patent-demo-full-plan.md` for complete code examples
+- **Configuration:** See `.env.example` for LLM and retriever settings
