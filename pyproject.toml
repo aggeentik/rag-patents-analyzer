@@ -16,4 +16,6 @@ dependencies = [
     "faiss-cpu>=1.7.4",
     "nltk>=3.8.1",
     "litellm>=1.0.0",
+    "streamlit>=1.54.0",
+    "pymupdf>=1.26.7",
 ]

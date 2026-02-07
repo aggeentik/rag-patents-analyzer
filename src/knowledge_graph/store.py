@@ -51,9 +51,9 @@ class KnowledgeGraphStore:
         self.db_path = db_path
         self.conn = None
 
-    def connect(self):
+    def connect(self, check_same_thread: bool = True):
         """Connect to database and create schema."""
-        self.conn = sqlite3.connect(self.db_path)
+        self.conn = sqlite3.connect(self.db_path, check_same_thread=check_same_thread)
         self.conn.row_factory = sqlite3.Row
         self.conn.executescript(self.SCHEMA)
         self.conn.commit()
