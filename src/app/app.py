@@ -339,11 +339,11 @@ def patent_selection_dialog(patents_info):
 
     # --- OK / Cancel buttons (bottom-right) ---
     _, col_ok, col_cancel = st.columns([0.6, 0.2, 0.2])
-    if col_ok.button("OK", type="primary", use_container_width=True):
+    if col_ok.button("OK", type="primary", width='stretch'):
         st.session_state.selected_patents = [pid for pid, v in sels.items() if v]
         _cleanup_dialog_state(all_ids)
         st.rerun()
-    if col_cancel.button("Cancel", use_container_width=True):
+    if col_cancel.button("Cancel", width='stretch'):
         _cleanup_dialog_state(all_ids)
         st.rerun()
 
@@ -374,7 +374,7 @@ def main():
     with st.sidebar:
         st.title("Patent search")
 
-        if st.button(":material/home: Home", use_container_width=True):
+        if st.button(":material/home: Home", width='stretch'):
             for key in ("last_result", "last_query", "last_elapsed",
                         "fresh_search", "selected_source"):
                 st.session_state.pop(key, None)
@@ -390,7 +390,7 @@ def main():
         n_selected = len(selected_patents)
         n_total = len(patents_info)
 
-        if st.button(f"Select patents ({n_selected}/{n_total})", use_container_width=True):
+        if st.button(f"Select patents ({n_selected}/{n_total})", width='stretch'):
             _cleanup_dialog_state(all_patent_ids)
             patent_selection_dialog(patents_info)
 
@@ -426,7 +426,11 @@ def main():
 
     search_clicked = st.button("Search", type="primary")
 
-    # --- Trigger search ---
+    # --- Trigger search (retrieval only, streaming deferred) ---
+    _pending_stream = None
+    _pending_answer_meta = None
+    _search_t0 = None
+
     if search_clicked and query.strip():
         weights = {
             "bm25": st.session_state.w_bm25,
@@ -434,7 +438,7 @@ def main():
             "graph": st.session_state.w_graph,
         }
 
-        t0 = time.perf_counter()
+        _search_t0 = time.perf_counter()
 
         # Clear previous PDF selection on new search
         st.session_state.pop("selected_source", None)
@@ -458,33 +462,29 @@ def main():
 
             results, stats = retrieval_result
 
-        # Phase 2: Streaming LLM generation
-        with st.spinner("Generating answer..."):
-            try:
-                stream, answer_meta = build_answer_stream(
-                    query=query.strip(),
-                    results=results,
-                    max_context_chunks=max_context,
-                )
-                answer_text = st.write_stream(stream)
-            except RuntimeError as exc:
-                st.error("**LLM connection error:** " + str(exc))
-                return
-            except Exception as exc:
-                st.error("**Error:** " + str(exc))
-                return
+        # Phase 2: Prepare LLM stream (consumed inside bordered container below)
+        try:
+            stream, answer_meta = build_answer_stream(
+                query=query.strip(),
+                results=results,
+                max_context_chunks=max_context,
+            )
+            _pending_stream = stream
+            _pending_answer_meta = answer_meta
+        except RuntimeError as exc:
+            st.error("**LLM connection error:** " + str(exc))
+            return
+        except Exception as exc:
+            st.error("**Error:** " + str(exc))
+            return
 
-        elapsed = time.perf_counter() - t0
-        answer_meta["answer"] = answer_text
-
-        # Persist results for re-display on reruns
+        # Persist results (answer text filled in after streaming)
         st.session_state.last_result = {
             "results": results,
             "answer": answer_meta,
             "stats": stats,
         }
         st.session_state.last_query = query.strip()
-        st.session_state.last_elapsed = elapsed
         st.session_state.fresh_search = True
 
     # --- Display results ---
@@ -495,8 +495,6 @@ def main():
         stats = result["stats"]
         elapsed = st.session_state.get("last_elapsed", 0)
 
-        # On the initial search run the answer was already streamed above,
-        # so we only re-render it on subsequent reruns (e.g. clicking View PDF).
         fresh = st.session_state.pop("fresh_search", False)
 
         has_selected = "selected_source" in st.session_state
@@ -507,7 +505,16 @@ def main():
             left_col = st.container()
 
         with left_col:
-            st.caption(f"Completed in {elapsed:.1f}s")
+          with st.container(border=True):
+            if fresh and _pending_stream is not None:
+                # Stream answer inside the bordered container
+                with st.spinner("Generating answer..."):
+                    answer_text = st.write_stream(_pending_stream)
+                answer["answer"] = answer_text
+                elapsed = time.perf_counter() - _search_t0
+                st.session_state.last_elapsed = elapsed
+
+            st.caption("Completed in " + "{:.1f}s".format(elapsed))
 
             if not fresh:
                 # Answer (re-display from session state)
@@ -526,24 +533,25 @@ def main():
 
             meta = answer["metadata"]
             st.caption(
-                f"Model: {meta.get('model', '?')}  |  "
-                f"Context: {meta.get('chunk_count', 0)}/{meta.get('total_retrieved', 0)} chunks"
+                "Model: " + meta.get('model', '?') + "  |  "
+                "Context: " + str(meta.get('chunk_count', 0)) + "/" + str(meta.get('total_retrieved', 0)) + " chunks"
             )
 
         # PDF viewer panel
         if has_selected:
             source = st.session_state.selected_source
             with right_col:
+              with st.container(border=True):
                 header_cols = st.columns([0.85, 0.15])
                 header_cols[0].subheader(
-                    f"{source['patent_id']} — Page {source['page']}"
+                    source['patent_id'] + " — Page " + str(source['page'])
                 )
                 if header_cols[1].button("Close", key="close_pdf"):
                     del st.session_state.selected_source
                     st.rerun()
 
                 if source.get("section"):
-                    st.caption(f"Section: {source['section']}  |  Source #{source['rank']}")
+                    st.caption("Section: " + source['section'] + "  |  Source #" + str(source['rank']))
 
                 pdf_path = str(RAW_DIR / source["filename"])
                 with st.spinner("Rendering PDF page..."):
@@ -552,11 +560,11 @@ def main():
                     )
 
                 if img_bytes:
-                    st.image(img_bytes, use_container_width=True)
+                    st.image(img_bytes, width='stretch')
                 else:
                     st.warning(
-                        f"Could not render page {source['page']} "
-                        f"from {source['filename']}."
+                        "Could not render page " + str(source['page'])
+                        + " from " + source['filename'] + "."
                     )
 
     elif not search_clicked:
