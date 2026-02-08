@@ -27,9 +27,7 @@ print("Loading indices...")
 with open(PATENTS_JSON) as f:
     data = json.load(f)
 
-chunks = []
-for patent in data["patents"]:
-    chunks.extend(patent["chunks"])
+chunks = data["chunks"]
 
 # Load retrievers
 bm25 = BM25Retriever.load(str(BM25_INDEX), chunks)

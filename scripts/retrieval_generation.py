@@ -31,12 +31,9 @@ def load_chunks(data_path: Path) -> list[dict]:
     with open(data_path) as f:
         data = json.load(f)
 
-    # Flatten chunks from all patents
-    all_chunks = []
-    for patent in data["patents"]:
-        all_chunks.extend(patent["chunks"])
+    all_chunks = data["chunks"]
 
-    print(f"✓ Loaded {len(all_chunks)} chunks from {data['total_patents']} patents\n")
+    print(f"Loaded {len(all_chunks)} chunks from {data['total_patents']} patents\n")
     return all_chunks
 
 

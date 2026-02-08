@@ -34,12 +34,9 @@ def main():
     with open(PATENTS_JSON, "r", encoding="utf-8") as f:
         data = json.load(f)
 
-    # Flatten chunks
-    all_chunks = []
-    for patent in data["patents"]:
-        all_chunks.extend(patent["chunks"])
+    all_chunks = data["chunks"]
 
-    print(f"✓ Loaded {len(data['patents'])} patents with {len(all_chunks)} chunks")
+    print(f"Loaded {len(data['patents'])} patents with {len(all_chunks)} chunks")
     print()
 
     # Build BM25 index

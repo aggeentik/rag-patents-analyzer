@@ -42,32 +42,35 @@ def load_patents_data():
     with open(PATENTS_PATH) as f:
         data = json.load(f)
 
+    all_chunks = data.get("chunks", [])
+    patent_files = {}  # patent_id -> filename
     patents_info = []
-    all_chunks = []
-    patent_files = {}  # patent_id → filename
+
     for patent in data["patents"]:
         patent_id = patent["patent_id"]
-        chunks = patent["chunks"]
+        filename = patent.get("metadata", {}).get("filename", "")
+        if filename:
+            patent_files[patent_id] = filename
 
-        # Extract the real patent title from (54) field in page-1 chunks
-        title = patent_id  # fallback
-        for chunk in chunks:
-            content = chunk.get("content", "")
-            if content.strip().startswith("(54)"):
-                title = content.strip().removeprefix("(54)").strip()
-                # Take only the first line / sentence
-                title = title.split("\n")[0].strip()
-                break
+        # Use title from patent summary; fall back to patent_id
+        title = patent.get("title", patent_id)
+
+        # If title is generic, try to find the real title from (54) field in chunks
+        if title in (patent_id, "Unknown Title"):
+            for chunk in all_chunks:
+                if chunk.get("patent_id") != patent_id:
+                    continue
+                content = chunk.get("content", "")
+                if content.strip().startswith("(54)"):
+                    title = content.strip().removeprefix("(54)").strip()
+                    title = title.split("\n")[0].strip()
+                    break
 
         patents_info.append({
             "patent_id": patent_id,
             "title": title,
-            "chunk_count": len(chunks),
+            "chunk_count": patent.get("num_chunks", 0),
         })
-        all_chunks.extend(chunks)
-        filename = patent.get("metadata", {}).get("filename", "")
-        if filename:
-            patent_files[patent_id] = filename
 
     return patents_info, all_chunks, patent_files
 

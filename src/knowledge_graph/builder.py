@@ -67,7 +67,7 @@ class KnowledgeGraphBuilder:
                 self._add_references(chunk, formula)
 
             # MEASURED_IN: Property in table chunk
-            if chunk.metadata.get("type") == "table":
+            if chunk.chunk_type == "table":
                 for prop in properties:
                     self._add_measured_in(prop, chunk)
 
