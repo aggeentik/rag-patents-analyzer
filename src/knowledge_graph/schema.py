@@ -38,6 +38,7 @@ class RelationType(Enum):
     SHOWN_IN = "shown_in"
     SATISFIES = "satisfies"
     REFERENCES = "references"
+    MENTIONS = "mentions"
     NEXT_STEP = "next_step"
 
 
@@ -60,8 +61,8 @@ class PatentSection(Enum):
 class ChemicalComposition(BaseModel):
     """A chemical element with its composition range."""
     element: str = Field(description="Chemical symbol, e.g. 'Si', 'Cr'")
-    value_min: Optional[float] = Field(default=None, description="Minimum value")
-    value_max: Optional[float] = Field(default=None, description="Maximum value")
+    min_val: Optional[float] = Field(default=None, description="Minimum value")
+    max_val: Optional[float] = Field(default=None, description="Maximum value")
     unit: str = Field(default="%", description="Unit of measurement")
 
 

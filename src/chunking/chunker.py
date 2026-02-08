@@ -40,6 +40,9 @@ class PatentChunker:
         re.IGNORECASE,
     )
 
+    # Page-break marker emitted by the parser (<!-- PB:N -->)
+    _PAGE_MARKER_RE = re.compile(r"<!--\s*PB:(\d+)\s*-->")
+
     # Numbered claim start: "1.", "2.", etc. at the beginning of a line
     _CLAIM_START_RE = re.compile(r"^\d+\.\s")
 
@@ -60,12 +63,15 @@ class PatentChunker:
                 )
 
         # 2. Table chunks (from Docling-extracted tables)
+        table_pages = patent_doc.metadata.get("table_pages", [])
         for idx, table_md in enumerate(patent_doc.tables_markdown):
+            page = table_pages[idx] if idx < len(table_pages) else 1
             chunk = PatentChunk(
                 patent_id=patent_doc.patent_id,
                 content=table_md,
                 section="unknown",
                 chunk_type="table",
+                page=page,
                 references=self._extract_references(table_md, patent_doc.patent_id),
             )
             chunks.append(chunk)
@@ -99,16 +105,22 @@ class PatentChunker:
             claim_blocks.append("\n".join(current).strip())
 
         chunks: list[PatentChunk] = []
+        current_page = 1
         for block in claim_blocks:
             if not block:
+                continue
+            page, clean_block = self._extract_page_and_clean(block, current_page)
+            current_page = page  # propagate to next block
+            if not clean_block:
                 continue
             chunks.append(
                 PatentChunk(
                     patent_id=patent_id,
-                    content=block,
+                    content=clean_block,
                     section=PatentSection.CLAIMS.value,
                     chunk_type="claim",
-                    references=self._extract_references(block, patent_id),
+                    page=page,
+                    references=self._extract_references(clean_block, patent_id),
                 )
             )
         return chunks
@@ -129,22 +141,29 @@ class PatentChunker:
         paragraphs = self._split_paragraphs(text)
 
         chunks: list[PatentChunk] = []
+        current_page = 1
         for para in paragraphs:
             para = para.strip()
             if not para:
                 continue
 
+            page, clean_para = self._extract_page_and_clean(para, current_page)
+            current_page = page  # propagate to next paragraph
+            if not clean_para:
+                continue
+
             chunk_type = "paragraph"
-            if self._FORMULA_RE.search(para):
+            if self._FORMULA_RE.search(clean_para):
                 chunk_type = "formula"
 
             chunks.append(
                 PatentChunk(
                     patent_id=patent_id,
-                    content=para,
+                    content=clean_para,
                     section=section_name,
                     chunk_type=chunk_type,
-                    references=self._extract_references(para, patent_id),
+                    page=page,
+                    references=self._extract_references(clean_para, patent_id),
                 )
             )
         return chunks
@@ -180,6 +199,33 @@ class PatentChunker:
         """Fallback: split on one or more blank lines."""
         blocks = re.split(r"\n\s*\n", text)
         return [b.strip() for b in blocks if b.strip()]
+
+    # ------------------------------------------------------------------
+    # Page marker handling
+    # ------------------------------------------------------------------
+
+    @classmethod
+    def _extract_page_and_clean(
+        cls, text: str, default_page: int = 1
+    ) -> tuple[int, str]:
+        """Extract page number from ``<!-- PB:N -->`` markers and strip them.
+
+        Args:
+            text: Chunk text potentially containing page markers.
+            default_page: Page number to use if no marker is found (allows
+                the caller to propagate the last known page).
+
+        Returns:
+            ``(page, cleaned_text)`` where *page* is the first marker's value
+            (or *default_page* if none found) and *cleaned_text* has all
+            markers removed.
+        """
+        match = cls._PAGE_MARKER_RE.search(text)
+        page = int(match.group(1)) if match else default_page
+        cleaned = cls._PAGE_MARKER_RE.sub("", text).strip()
+        # Collapse any double blank lines left by marker removal
+        cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
+        return page, cleaned
 
     # ------------------------------------------------------------------
     # Reference resolution

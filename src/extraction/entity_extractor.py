@@ -128,8 +128,8 @@ class EntityExtractor:
                 type=EntityType.CHEMICAL_ELEMENT,
                 name=comp.element,
                 properties={
-                    "value_min": comp.value_min,
-                    "value_max": comp.value_max,
+                    "min_val": comp.min_val,
+                    "max_val": comp.max_val,
                     "unit": comp.unit,
                     "source": "llm",
                 },
@@ -180,37 +180,83 @@ class EntityExtractor:
 
     def _extract_chemical_elements(self, text: str, chunk: PatentChunk) -> list[Entity]:
         entities: list[Entity] = []
+        seen_spans: set[tuple[int, int]] = set()  # avoid duplicate overlapping matches
+
         for symbol, name in CHEMICAL_ELEMENTS.items():
-            # Exact value pattern
-            pattern = rf"\b{symbol}\s*[:=]?\s*(\d+\.?\d*)\s*(%|mass\s*%|wt\s*%)"
-            for match in re.finditer(pattern, text, re.IGNORECASE):
-                value = float(match.group(1))
-                unit = match.group(2)
+            # --- Pattern A: element-first  "Si: 2.5%" / "Si = 2.5 mass%" ---
+            pat_a = rf"\b{symbol}\s*[:=]?\s*(\d+\.?\d*)\s*(%|mass\s*%|wt\s*%)"
+            for match in re.finditer(pat_a, text, re.IGNORECASE):
+                span = match.span()
+                if span in seen_spans:
+                    continue
+                seen_spans.add(span)
                 entities.append(Entity(
                     id=f"{chunk.patent_id}_{symbol}_{len(entities)}",
                     type=EntityType.CHEMICAL_ELEMENT,
                     name=symbol,
-                    properties={"full_name": name, "value": value, "unit": unit},
+                    properties={"full_name": name, "value": float(match.group(1)), "unit": match.group(2)},
                     patent_id=chunk.patent_id,
                     chunk_ids=[chunk.chunk_id],
                 ))
 
-            # Range pattern
-            range_pattern = rf"\b{symbol}\s*[:=]?\s*(\d+\.?\d*)\s*(?:to|-)\s*(\d+\.?\d*)\s*(%|mass\s*%)"
-            for match in re.finditer(range_pattern, text, re.IGNORECASE):
+            # --- Pattern B: element-first range  "Si: 2.5-10%" ---
+            pat_b = rf"\b{symbol}\s*[:=]?\s*(\d+\.?\d*)\s*(?:to|-)\s*(\d+\.?\d*)\s*(%|mass\s*%|wt\s*%)"
+            for match in re.finditer(pat_b, text, re.IGNORECASE):
+                span = match.span()
+                if span in seen_spans:
+                    continue
+                seen_spans.add(span)
                 entities.append(Entity(
                     id=f"{chunk.patent_id}_{symbol}_range_{len(entities)}",
                     type=EntityType.COMPOSITION_RANGE,
                     name=f"{symbol}_range",
-                    properties={
-                        "element": symbol,
-                        "min_value": float(match.group(1)),
-                        "max_value": float(match.group(2)),
-                        "unit": "%",
-                    },
+                    properties={"element": symbol, "min_val": float(match.group(1)), "max_val": float(match.group(2)), "unit": "%"},
                     patent_id=chunk.patent_id,
                     chunk_ids=[chunk.chunk_id],
                 ))
+
+            # --- Pattern C (claims): value-first range  "2.5% to 10% by mass of Si" ---
+            pat_c = (
+                rf"(\d+\.?\d*)\s*(%|mass\s*%|wt\s*%)\s*"        # min + unit
+                rf"(?:to|-)\s*"                                   # separator
+                rf"(\d+\.?\d*)\s*(%|mass\s*%|wt\s*%)"            # max + unit
+                rf"(?:\s+by\s+mass)?"                             # optional "by mass" qualifier
+                rf"\s+(?:of\s+)?\b{symbol}\b"                     # "of Si"
+            )
+            for match in re.finditer(pat_c, text, re.IGNORECASE):
+                span = match.span()
+                if span in seen_spans:
+                    continue
+                seen_spans.add(span)
+                entities.append(Entity(
+                    id=f"{chunk.patent_id}_{symbol}_range_{len(entities)}",
+                    type=EntityType.COMPOSITION_RANGE,
+                    name=f"{symbol}_range",
+                    properties={"element": symbol, "min_val": float(match.group(1)), "max_val": float(match.group(3)), "unit": "%"},
+                    patent_id=chunk.patent_id,
+                    chunk_ids=[chunk.chunk_id],
+                ))
+
+            # --- Pattern D (claims): single value-first  "0.006% by mass or less of C" ---
+            pat_d = (
+                rf"(\d+\.?\d*)\s*(%|mass\s*%|wt\s*%)"
+                rf"(?:\s+by\s+mass)?"
+                rf"\s+(?:or\s+less\s+)?(?:of\s+)?\b{symbol}\b"
+            )
+            for match in re.finditer(pat_d, text, re.IGNORECASE):
+                span = match.span()
+                if span in seen_spans:
+                    continue
+                seen_spans.add(span)
+                entities.append(Entity(
+                    id=f"{chunk.patent_id}_{symbol}_{len(entities)}",
+                    type=EntityType.CHEMICAL_ELEMENT,
+                    name=symbol,
+                    properties={"full_name": name, "value": float(match.group(1)), "unit": match.group(2)},
+                    patent_id=chunk.patent_id,
+                    chunk_ids=[chunk.chunk_id],
+                ))
+
         return entities
 
     def _extract_properties(self, text: str, chunk: PatentChunk) -> list[Entity]:

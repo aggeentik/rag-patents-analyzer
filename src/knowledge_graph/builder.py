@@ -1,14 +1,19 @@
 """Build knowledge graph from extracted entities."""
 
+import re
+
 from src.knowledge_graph.schema import Entity, Relationship, RelationType, EntityType
 
 
 class KnowledgeGraphBuilder:
     """Build knowledge graph from extracted entities."""
 
+    _TABLE_MENTION_RE = re.compile(r"Table\s*(\d+)", re.IGNORECASE)
+
     def __init__(self):
         self.entities: dict[str, Entity] = {}
         self.relationships: list[Relationship] = []
+        self._table_chunks: dict[str, str] = {}  # "Table 1" -> chunk_id
 
     def add_entities(self, entities: list[Entity]):
         """Add entities, merging duplicates."""
@@ -29,8 +34,18 @@ class KnowledgeGraphBuilder:
         - REQUIRES: Process mentioned with parameter
         - MEASURED_IN: Property with value in table chunk
         - REFERENCES: Chunk references table/formula
+        - MENTIONS: Text chunk mentions a table by name -> table chunk
         - DESCRIBED_IN: Entity appears in chunk
         """
+        # Build a lookup: normalised label -> table chunk_id
+        self._table_chunks.clear()
+        for chunk in chunks:
+            if chunk.chunk_type == "table":
+                # Try to match "Table N" in table content (caption row)
+                for m in self._TABLE_MENTION_RE.finditer(chunk.content):
+                    label = f"Table {m.group(1)}"
+                    self._table_chunks.setdefault(label, chunk.chunk_id)
+
         for chunk in chunks:
             chunk_entities = [e for e in self.entities.values()
                            if chunk.chunk_id in e.chunk_ids]
@@ -65,6 +80,14 @@ class KnowledgeGraphBuilder:
                 self._add_references(chunk, table)
             for formula in formulas:
                 self._add_references(chunk, formula)
+
+            # MENTIONS: Non-table chunk mentions "Table N" -> table chunk
+            if chunk.chunk_type != "table":
+                for m in self._TABLE_MENTION_RE.finditer(chunk.content):
+                    label = f"Table {m.group(1)}"
+                    target_id = self._table_chunks.get(label)
+                    if target_id:
+                        self._add_mentions(chunk, target_id)
 
             # MEASURED_IN: Property in table chunk
             if chunk.chunk_type == "table":
@@ -130,6 +153,22 @@ class KnowledgeGraphBuilder:
             chunk_id=chunk.chunk_id,
         )
         self.relationships.append(rel)
+
+    def _add_mentions(self, chunk, table_chunk_id: str):
+        """Add MENTIONS relationship from a text chunk to a table chunk."""
+        rel_id = f"mentions_{chunk.chunk_id}_{table_chunk_id}"
+        # Avoid duplicates within the same chunk
+        if any(r.id == rel_id for r in self.relationships):
+            return
+        self.relationships.append(Relationship(
+            id=rel_id,
+            type=RelationType.MENTIONS,
+            source_id=chunk.chunk_id,
+            target_id=table_chunk_id,
+            properties={},
+            patent_id=chunk.patent_id,
+            chunk_id=chunk.chunk_id,
+        ))
 
     def _add_measured_in(self, prop: Entity, chunk):
         """Add MEASURED_IN relationship for property in table."""
