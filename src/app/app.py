@@ -374,6 +374,12 @@ def main():
     with st.sidebar:
         st.title("Patent search")
 
+        if st.button(":material/home: Home", use_container_width=True):
+            for key in ("last_result", "last_query", "last_elapsed",
+                        "fresh_search", "selected_source"):
+                st.session_state.pop(key, None)
+            st.rerun()
+
         st.header("Content")
         # Initialize selected patents to all on first load
         all_patent_ids = [p["patent_id"] for p in patents_info]
@@ -409,11 +415,13 @@ def main():
         st.session_state.retrievers_ready = True
 
     # --- Query input ---
+    st.text("Ask a question about selected content. The answer will be generated based on relevant data from the content.")
     query = st.text_area(
-        "Ask a question about selected patents",
+        "",
         height=120,
-        placeholder="e.g. What Si content is needed for yield stress above 700 MPa?",
+        placeholder="What Si content is needed for yield stress above 700 MPa?",
         key="query_input",
+        label_visibility="collapsed",
     )
 
     search_clicked = st.button("Search", type="primary")
