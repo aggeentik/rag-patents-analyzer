@@ -417,7 +417,7 @@ def main():
     # --- Query input ---
     st.text("Ask a question about selected content. The answer will be generated based on relevant data from the content.")
     query = st.text_area(
-        "",
+        "Query",
         height=120,
         placeholder="What Si content is needed for yield stress above 700 MPa?",
         key="query_input",
@@ -440,46 +440,39 @@ def main():
         st.session_state.pop("selected_source", None)
 
         # Phase 1: Retrieval
-        progress_placeholder = st.empty()
-        progress_placeholder.caption("Searching patents...")
-        try:
-            retrieval_result = run_retrieval(
-                query=query.strip(),
-                selected_patents=selected_patents,
-                top_k=top_k,
-                weights=weights,
-            )
-        except Exception as exc:
-            progress_placeholder.empty()
-            st.error(f"**Retrieval error:** {exc}")
-            return
+        with st.spinner("Searching patents..."):
+            try:
+                retrieval_result = run_retrieval(
+                    query=query.strip(),
+                    selected_patents=selected_patents,
+                    top_k=top_k,
+                    weights=weights,
+                )
+            except Exception as exc:
+                st.error("**Retrieval error:** " + str(exc))
+                return
 
-        if retrieval_result is None:
-            progress_placeholder.empty()
-            st.error("Retrievers could not be initialized. Check data files.")
-            return
+            if retrieval_result is None:
+                st.error("Retrievers could not be initialized. Check data files.")
+                return
 
-        results, stats = retrieval_result
+            results, stats = retrieval_result
 
         # Phase 2: Streaming LLM generation
-        progress_placeholder.caption("Generating answer...")
-        try:
-            stream, answer_meta = build_answer_stream(
-                query=query.strip(),
-                results=results,
-                max_context_chunks=max_context,
-            )
-            answer_text = st.write_stream(stream)
-        except RuntimeError as exc:
-            progress_placeholder.empty()
-            st.error(f"**LLM connection error:** {exc}")
-            return
-        except Exception as exc:
-            progress_placeholder.empty()
-            st.error(f"**Error:** {exc}")
-            return
-
-        progress_placeholder.empty()
+        with st.spinner("Generating answer..."):
+            try:
+                stream, answer_meta = build_answer_stream(
+                    query=query.strip(),
+                    results=results,
+                    max_context_chunks=max_context,
+                )
+                answer_text = st.write_stream(stream)
+            except RuntimeError as exc:
+                st.error("**LLM connection error:** " + str(exc))
+                return
+            except Exception as exc:
+                st.error("**Error:** " + str(exc))
+                return
 
         elapsed = time.perf_counter() - t0
         answer_meta["answer"] = answer_text
