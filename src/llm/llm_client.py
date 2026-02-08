@@ -109,6 +109,32 @@ class LLMClient:
                 ) from e
             raise
 
+    def generate_stream(
+        self,
+        messages: list[dict],
+        temperature: Optional[float] = None,
+        max_tokens: Optional[int] = None,
+    ):
+        """
+        Yield text chunks from a streaming LLM completion.
+
+        Same arguments as generate(), but yields str chunks instead of
+        returning the full text.  Intended for use with st.write_stream().
+        """
+        kwargs = {
+            "model": self.model,
+            "messages": messages,
+            "temperature": temperature if temperature is not None else self.temperature,
+            "max_tokens": max_tokens if max_tokens is not None else self.max_tokens,
+            "stream": True,
+        }
+        if self.model.startswith("ollama/"):
+            kwargs["api_base"] = self.api_base
+
+        for chunk in completion(**kwargs):
+            if chunk.choices[0].delta.content:
+                yield chunk.choices[0].delta.content
+
     def _stream_completion(self, kwargs: dict) -> str:
         """Stream completion and return full response."""
         kwargs["stream"] = True

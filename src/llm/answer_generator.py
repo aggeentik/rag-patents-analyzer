@@ -104,6 +104,57 @@ class AnswerGenerator:
             }
         }
 
+    def stream_answer(
+        self,
+        question: str,
+        retrieved_chunks: list[dict],
+        temperature: float = 0.0,
+    ) -> tuple:
+        """
+        Prepare a streaming answer generation.
+
+        Returns:
+            (stream_generator, metadata) where stream_generator yields str
+            chunks suitable for st.write_stream(), and metadata is a dict
+            with sources and model info.
+        """
+        context_chunks = retrieved_chunks[:self.max_context_chunks]
+        context = self._build_context(context_chunks)
+        prompt = self._build_prompt(question, context)
+        system_message = self._get_system_message()
+
+        messages = [
+            {"role": "system", "content": system_message},
+            {"role": "user", "content": prompt},
+        ]
+
+        stream = self.llm_client.generate_stream(
+            messages, temperature=temperature
+        )
+
+        metadata = {
+            "answer": "",  # placeholder, filled by caller after streaming
+            "sources": [
+                {
+                    "chunk_id": chunk["chunk_id"],
+                    "patent_id": chunk.get("patent_id", "unknown"),
+                    "section": chunk.get("metadata", {}).get("section", "unknown"),
+                    "page": chunk.get("metadata", {}).get("page", "unknown"),
+                    "rrf_score": chunk.get("rrf_score", 0.0),
+                    "preview": chunk["content"][:200] + "..." if len(chunk["content"]) > 200 else chunk["content"],
+                }
+                for chunk in context_chunks
+            ],
+            "metadata": {
+                "model": self.llm_client.model,
+                "chunk_count": len(context_chunks),
+                "total_retrieved": len(retrieved_chunks),
+                "temperature": temperature,
+            },
+        }
+
+        return stream, metadata
+
     def _build_context(self, chunks: list[dict]) -> str:
         """Build context string from chunks."""
         context_parts = []
