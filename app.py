@@ -14,6 +14,7 @@ import time
 from pathlib import Path
 
 import streamlit as st
+import streamlit.components.v1 as components
 
 # --- Path setup ---
 project_root = Path(__file__).parent
@@ -27,8 +28,6 @@ BM25_PATH = DATA_DIR / "bm25_index.pkl"
 FAISS_PATH = DATA_DIR / "faiss.index"
 CHUNK_IDS_PATH = DATA_DIR / "chunk_ids.json"
 KG_PATH = DATA_DIR / "knowledge_graph.db"
-
-
 
 # ---------------------------------------------------------------------------
 # Data loading & retriever initialization (cached)
@@ -47,12 +46,24 @@ def load_patents_data():
     patent_files = {}  # patent_id → filename
     for patent in data["patents"]:
         patent_id = patent["patent_id"]
+        chunks = patent["chunks"]
+
+        # Extract the real patent title from (54) field in page-1 chunks
+        title = patent_id  # fallback
+        for chunk in chunks:
+            content = chunk.get("content", "")
+            if content.strip().startswith("(54)"):
+                title = content.strip().removeprefix("(54)").strip()
+                # Take only the first line / sentence
+                title = title.split("\n")[0].strip()
+                break
+
         patents_info.append({
             "patent_id": patent_id,
-            "title": patent.get("title", patent_id),
-            "chunk_count": len(patent["chunks"]),
+            "title": title,
+            "chunk_count": len(chunks),
         })
-        all_chunks.extend(patent["chunks"])
+        all_chunks.extend(chunks)
         filename = patent.get("metadata", {}).get("filename", "")
         if filename:
             patent_files[patent_id] = filename
@@ -251,6 +262,91 @@ def render_empty_state():
     """Show a helpful message when no search has been performed yet."""
 
 
+def _cleanup_dialog_state(all_ids: list[str]):
+    """Remove temporary dialog widget keys from session state."""
+    for key in ("_dlg_sels", "_master_cb"):
+        st.session_state.pop(key, None)
+    for pid in all_ids:
+        st.session_state.pop(f"_pat_{pid}", None)
+
+
+@st.dialog("Select patents", width="large")
+def patent_selection_dialog(patents_info):
+    """Popup dialog with tri-state master checkbox and scrollable patent list."""
+    all_ids = [p["patent_id"] for p in patents_info]
+    n_total = len(all_ids)
+
+    # Initialise dialog-local selections (once per dialog open)
+    if "_dlg_sels" not in st.session_state:
+        current = set(st.session_state.get("selected_patents", all_ids))
+        st.session_state._dlg_sels = {pid: pid in current for pid in all_ids}
+
+    sels = st.session_state._dlg_sels
+    n_selected = sum(sels.values())
+    all_checked = n_selected == n_total
+    none_checked = n_selected == 0
+    partial = not all_checked and not none_checked
+
+    # --- Master checkbox (tri-state) ---
+    if none_checked:
+        master_label = "No patents selected"
+    elif all_checked:
+        master_label = "All patents selected"
+    else:
+        master_label = f"{n_selected} patent{'s' if n_selected != 1 else ''} selected"
+
+    def _on_master_toggle():
+        new_val = st.session_state._master_cb
+        for pid in sels:
+            sels[pid] = new_val
+            st.session_state[f"_pat_{pid}"] = new_val
+
+    # Force master checkbox to computed state before rendering
+    st.session_state._master_cb = all_checked
+    st.checkbox(master_label, key="_master_cb", on_change=_on_master_toggle)
+
+    # Inject JS to show indeterminate visual state (dash) when partially selected
+    if partial:
+        components.html(
+            """<script>
+            setTimeout(function() {
+                var d = window.parent.document.querySelector('[role="dialog"]')
+                     || window.parent.document.querySelector('[data-testid="stDialog"]');
+                if (d) {
+                    var cb = d.querySelector('input[type="checkbox"]');
+                    if (cb) cb.indeterminate = true;
+                }
+            }, 50);
+            </script>""",
+            height=0,
+        )
+
+    # --- Scrollable patent list ---
+    with st.container(height=400):
+        for p in patents_info:
+            pid = p["patent_id"]
+            title = p["title"]
+            label = f"📄 **{pid}** — {title}" if title != pid else f"📄 **{pid}**"
+
+            def _make_cb(patent_id):
+                def _cb():
+                    sels[patent_id] = st.session_state[f"_pat_{patent_id}"]
+                return _cb
+
+            st.session_state[f"_pat_{pid}"] = sels[pid]
+            st.checkbox(label, key=f"_pat_{pid}", on_change=_make_cb(pid))
+
+    # --- OK / Cancel buttons (bottom-right) ---
+    _, col_ok, col_cancel = st.columns([0.6, 0.2, 0.2])
+    if col_ok.button("OK", type="primary", use_container_width=True):
+        st.session_state.selected_patents = [pid for pid, v in sels.items() if v]
+        _cleanup_dialog_state(all_ids)
+        st.rerun()
+    if col_cancel.button("Cancel", use_container_width=True):
+        _cleanup_dialog_state(all_ids)
+        st.rerun()
+
+
 # ---------------------------------------------------------------------------
 # Main app
 # ---------------------------------------------------------------------------
@@ -275,23 +371,26 @@ def main():
     # Sidebar
     # ------------------------------------------------------------------
     with st.sidebar:
-        st.header("Patent selection")
-        patent_options = {
-            f"{p['patent_id']}  ({p['chunk_count']} chunks)": p["patent_id"]
-            for p in patents_info
-        }
-        selected_labels = st.multiselect(
-            "Filter by patents",
-            options=list(patent_options.keys()),
-            default=list(patent_options.keys()),
-            label_visibility="collapsed",
-        )
-        selected_patents = [patent_options[lbl] for lbl in selected_labels]
+        st.title("Patent search")
 
-        st.header("Search settings")
+        st.header("Content")
+        # Initialize selected patents to all on first load
+        all_patent_ids = [p["patent_id"] for p in patents_info]
+        if "selected_patents" not in st.session_state:
+            st.session_state.selected_patents = list(all_patent_ids)
+
+        selected_patents = st.session_state.selected_patents
+        n_selected = len(selected_patents)
+        n_total = len(patents_info)
+
+        if st.button(f"Select patents ({n_selected}/{n_total})", use_container_width=True):
+            _cleanup_dialog_state(all_patent_ids)
+            patent_selection_dialog(patents_info)
+
+        st.header("Search")
         top_k = st.slider("Results to retrieve", 3, 20, 10, key="top_k")
 
-        with st.expander("Advanced settings"):
+        with st.expander("Settings"):
             max_context = st.slider("Context chunks", 1, 10, 5, key="max_ctx")
             w_bm25 = st.slider("BM25 weight", 0.0, 2.0, 1.0, 0.1, key="w_bm25")
             w_semantic = st.slider("Semantic weight", 0.0, 2.0, 1.0, 0.1, key="w_sem")
@@ -301,8 +400,6 @@ def main():
     # ------------------------------------------------------------------
     # Main content
     # ------------------------------------------------------------------
-    st.title("Patent search")
-
     # --- Initialise retrievers in background (show spinner once) ---
     if "retrievers_ready" not in st.session_state:
         with st.spinner("Loading retrieval indices..."):
@@ -312,8 +409,8 @@ def main():
 
     # --- Query input ---
     query = st.text_area(
-        "Ask a question about the patents",
-        height=80,
+        "Ask a question about selected patents",
+        height=120,
         placeholder="e.g. What Si content is needed for yield stress above 700 MPa?",
         key="query_input",
     )
@@ -335,7 +432,7 @@ def main():
 
         # Phase 1: Retrieval
         progress_placeholder = st.empty()
-        progress_placeholder.caption("_Searching patents..._")
+        progress_placeholder.caption("Searching patents...")
         try:
             retrieval_result = run_retrieval(
                 query=query.strip(),
@@ -356,7 +453,7 @@ def main():
         results, stats = retrieval_result
 
         # Phase 2: Streaming LLM generation
-        progress_placeholder.caption("_Generating answer..._")
+        progress_placeholder.caption("Generating answer...")
         try:
             stream, answer_meta = build_answer_stream(
                 query=query.strip(),
@@ -463,7 +560,7 @@ def main():
     elif not search_clicked:
         render_empty_state()
     elif search_clicked and not query.strip():
-        st.warning("Please enter a question.")
+        st.warning("Please type your question.")
 
 
 if __name__ == "__main__":
