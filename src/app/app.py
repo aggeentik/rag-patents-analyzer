@@ -8,6 +8,7 @@ Usage:
     uv run streamlit run app.py
 """
 
+import re
 import sys
 import json
 import time
@@ -211,6 +212,142 @@ def build_answer_stream(query: str, results: list[dict], max_context_chunks: int
 
 
 # ---------------------------------------------------------------------------
+# Inline citation helpers
+# ---------------------------------------------------------------------------
+SOURCE_REF_CSS = """
+<style>
+.source-ref {
+    display: inline;
+    background: #e8f0fe;
+    border: 1px dashed #4a90d9;
+    border-radius: 12px;
+    padding: 1px 8px;
+    font-size: 0.82em;
+    color: #1a56db;
+    cursor: pointer;
+    text-decoration: none;
+    white-space: nowrap;
+    transition: background 0.2s, box-shadow 0.2s;
+}
+.source-ref:hover {
+    background: #d0e2fc;
+    box-shadow: 0 0 4px rgba(74, 144, 217, 0.4);
+}
+</style>
+"""
+
+
+def build_source_map(answer_meta: dict, patent_files: dict[str, str]) -> dict[int, str]:
+    """Map 1-based source numbers to rich display labels.
+
+    Returns e.g. {1: "EP2390376B1 | Detailed Description | Page 4 — RRF 0.0292"}
+    """
+    source_map: dict[int, str] = {}
+    for i, src in enumerate(answer_meta.get("sources", []), start=1):
+        patent_id = src.get("patent_id", "?")
+        display_id = Path(patent_files.get(patent_id, "")).stem or patent_id
+        section = src.get("section", "")
+        page = src.get("page", "")
+        rrf = src.get("rrf_score", 0)
+        parts = [display_id]
+        if section:
+            parts.append(section)
+        if page:
+            parts.append(f"Page {page}")
+        label = " | ".join(parts) + f" — RRF {rrf:.4f}"
+        source_map[i] = label
+    return source_map
+
+
+def _make_citation_span(num: int, source_map: dict[int, str]) -> str | None:
+    """Return an HTML badge span for a source number, or None if unknown."""
+    label = source_map.get(num)
+    if label is None:
+        return None
+    idx = num - 1  # 0-based index for DOM matching
+    return (
+        f'<span class="source-ref" data-source-idx="{idx}" '
+        f'title="Click to view source">[{label}]</span>'
+    )
+
+
+def enrich_citations(text: str, source_map: dict[int, str]) -> str:
+    """Replace source citation markers with styled, clickable HTML spans.
+
+    Handles LLM citation styles:
+    - Bracketed: [Source 1], [Source 1, Source 2]
+    - Unbracketed: Source 3, Source 3 (Section: ..., Page: 7)
+    """
+    # Pass 1: Bracketed forms — [Source X], [Source 1, Source 2, ...]
+    bracketed = r'\[(?:Source\s*\d+(?:\s*,\s*)?)+\]'
+
+    def _replace_bracketed(match):
+        full = match.group(0)
+        nums = [int(n) for n in re.findall(r'Source\s*(\d+)', full)]
+        if not nums:
+            return full
+        spans = []
+        for num in nums:
+            span = _make_citation_span(num, source_map)
+            spans.append(span if span else f"[Source {num}]")
+        return " ".join(spans)
+
+    text = re.sub(bracketed, _replace_bracketed, text)
+
+    # Pass 2: Unbracketed — "Source 3" optionally followed by "(Section: ..., Page: ...)"
+    # Capital S + digit distinguishes citations from the word "source" in prose.
+    unbracketed = r'Source\s+(\d+)(?:\s*\([^)]*\))?'
+
+    def _replace_unbracketed(match):
+        num = int(match.group(1))
+        span = _make_citation_span(num, source_map)
+        return span if span else match.group(0)
+
+    text = re.sub(unbracketed, _replace_unbracketed, text)
+
+    return text
+
+
+def inject_source_scroll_js():
+    """Inject JS that wires click-to-scroll + expand on source citation badges."""
+    components.html(
+        """
+        <script>
+        setTimeout(function() {
+            var main = window.parent.document.querySelector('[data-testid="stMainBlockContainer"]')
+                    || window.parent.document.querySelector('section.main');
+            if (!main) return;
+
+            var expanders = main.querySelectorAll('[data-testid="stExpander"]');
+            var refs = main.querySelectorAll('.source-ref');
+
+            refs.forEach(function(ref) {
+                ref.addEventListener('click', function() {
+                    var idx = parseInt(this.getAttribute('data-source-idx'), 10);
+                    if (isNaN(idx) || idx >= expanders.length) return;
+
+                    var expander = expanders[idx];
+                    var details = expander.querySelector('details');
+                    if (details && !details.open) {
+                        var summary = details.querySelector('summary');
+                        if (summary) summary.click();
+                    }
+
+                    expander.scrollIntoView({behavior: 'smooth', block: 'center'});
+                    expander.style.boxShadow = '0 0 0 3px #4a90d9';
+                    setTimeout(function() {
+                        expander.style.boxShadow = '';
+                    }, 2000);
+                });
+            });
+        }, 150);
+        </script>
+        """,
+        height=0,
+    )
+
+
+# ---------------------------------------------------------------------------
 # Rendering helpers
 # ---------------------------------------------------------------------------
 def render_sources(results: list[dict], patent_files: dict[str, str]):
@@ -222,7 +359,7 @@ def render_sources(results: list[dict], patent_files: dict[str, str]):
         section = metadata.get("section", "")
         page = metadata.get("page", "")
         rrf = r.get("rrf_score", 0)
-        rank = r.get("final_rank", "")
+        rank = i + 1
         content = r.get("content", "")
 
         # Build retriever tags
@@ -234,9 +371,10 @@ def render_sources(results: list[dict], patent_files: dict[str, str]):
         if r.get("graph_rank", 0) > 0:
             retriever_tags.append("Graph")
 
+        display_id = Path(patent_files.get(patent_id, "")).stem or patent_id
         page_str = f" | Page {page}" if page else ""
         section_str = f" | {section}" if section else ""
-        header = f"#{rank}  {patent_id}{section_str}{page_str}  —  RRF {rrf:.4f}"
+        header = f"#{rank}  {display_id}{section_str}{page_str}  —  RRF {rrf:.4f}"
 
         with st.expander(header):
             st.text(content)
@@ -431,7 +569,9 @@ def main():
     _pending_answer_meta = None
     _search_t0 = None
 
-    if search_clicked and query.strip():
+    if search_clicked and not selected_patents:
+        st.warning("Please select at least one patent.")
+    elif search_clicked and query.strip():
         weights = {
             "bm25": st.session_state.w_bm25,
             "semantic": st.session_state.w_sem,
@@ -506,11 +646,20 @@ def main():
 
         with left_col:
           with st.container(border=True):
+            st.markdown(SOURCE_REF_CSS, unsafe_allow_html=True)
+
             if fresh and _pending_stream is not None:
-                # Stream answer inside the bordered container
+                # Stream answer with manual loop, then enrich citations
+                source_map = build_source_map(answer, patent_files)
+                placeholder = st.empty()
+                full_text = ""
                 with st.spinner("Generating answer..."):
-                    answer_text = st.write_stream(_pending_stream)
-                answer["answer"] = answer_text
+                    for chunk in _pending_stream:
+                        full_text += chunk
+                        placeholder.markdown(full_text + "\u258c")
+                enriched = enrich_citations(full_text, source_map)
+                answer["answer"] = enriched
+                placeholder.markdown(enriched, unsafe_allow_html=True)
                 elapsed = time.perf_counter() - _search_t0
                 st.session_state.last_elapsed = elapsed
 
@@ -518,10 +667,13 @@ def main():
 
             if not fresh:
                 # Answer (re-display from session state)
-                st.markdown(answer["answer"])
+                st.markdown(answer["answer"], unsafe_allow_html=True)
 
             # Sources
             render_sources(results, patent_files)
+
+            # Wire click-to-scroll on citation badges
+            inject_source_scroll_js()
 
             # Retriever stats (at the bottom)
             st.divider()
