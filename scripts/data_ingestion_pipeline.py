@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Extract patents, build chunks, entities, and all indices."""
 
+import argparse
 import json
 import sys
 from pathlib import Path
@@ -38,7 +39,32 @@ CHUNK_IDS = PROCESSED_DIR / "chunk_ids.json"
 KG_DATABASE = PROCESSED_DIR / "knowledge_graph.db"
 
 
-def main():
+def parse_arguments():
+    """Parse command-line arguments."""
+    parser = argparse.ArgumentParser(
+        description="Extract patents, build chunks, entities, and all indices.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  # Process all PDFs in data/raw/
+  python data_ingestion_pipeline.py
+
+  # Process specific patents
+  python data_ingestion_pipeline.py patent1.pdf patent2.pdf
+
+  # Process patents with wildcards
+  python data_ingestion_pipeline.py US*.pdf
+        """
+    )
+    parser.add_argument(
+        "patents",
+        nargs="*",
+        help="Specific patent PDF filenames to process (optional). If not specified, all PDFs in data/raw/ will be processed."
+    )
+    return parser.parse_args()
+
+
+def main(patent_names=None):
     """Run full extraction pipeline."""
     print("=" * 70)
     print("PATENT EXTRACTION PIPELINE")
@@ -62,9 +88,41 @@ def main():
     print("✓ Components initialized\n")
 
     # Process PDFs
-    pdf_files = sorted(RAW_DIR.glob("*.pdf"))
-    print(f"Found {len(pdf_files)} PDF files in {RAW_DIR}")
+    all_pdf_files = sorted(RAW_DIR.glob("*.pdf"))
+
+    # Filter PDF files based on patent_names argument
+    if patent_names:
+        # Create a set of requested patent names (without path, case-insensitive)
+        requested_names = {name.lower() for name in patent_names}
+        pdf_files = [
+            pdf for pdf in all_pdf_files
+            if pdf.name.lower() in requested_names
+        ]
+
+        # Check if all requested patents were found
+        found_names = {pdf.name.lower() for pdf in pdf_files}
+        missing_names = requested_names - found_names
+        if missing_names:
+            print(f"⚠️  Warning: The following patents were not found in {RAW_DIR}:")
+            for name in missing_names:
+                print(f"   • {name}")
+            print()
+
+        print(f"Processing {len(pdf_files)} of {len(all_pdf_files)} PDF files from {RAW_DIR}")
+        if pdf_files:
+            print("Selected patents:")
+            for pdf in pdf_files:
+                print(f"  • {pdf.name}")
+    else:
+        pdf_files = all_pdf_files
+        print(f"Found {len(pdf_files)} PDF files in {RAW_DIR}")
+
     print()
+
+    # Exit if no PDF files to process
+    if not pdf_files:
+        print("❌ No PDF files to process. Exiting.")
+        return
 
     patents = []
     all_chunks = []
@@ -196,4 +254,5 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    args = parse_arguments()
+    main(patent_names=args.patents if args.patents else None)
