@@ -391,6 +391,7 @@ def render_sources(results: list[dict], patent_files: dict[str, str]):
                             "rank": rank,
                             "filename": patent_files[patent_id],
                         }
+                        st.session_state.fresh_source = True
                         st.rerun()
             if retriever_tags:
                 st.caption("Found by: " + ", ".join(retriever_tags))
@@ -514,7 +515,7 @@ def main():
 
         if st.button(":material/home: Home", width='stretch'):
             for key in ("last_result", "last_query", "last_elapsed",
-                        "fresh_search", "selected_source"):
+                        "fresh_search", "selected_source", "fresh_source"):
                 st.session_state.pop(key, None)
             st.rerun()
 
@@ -717,6 +718,35 @@ def main():
                     st.warning(
                         "Could not render page " + str(source['page'])
                         + " from " + source['filename'] + "."
+                    )
+
+                # Auto-scroll to PDF viewer when source was just selected
+                if st.session_state.pop("fresh_source", False):
+                    components.html(
+                        f"""
+                        <script>
+                        // {time.time()}
+                        setTimeout(function() {{
+                            var doc = window.parent.document;
+
+                            var selectors = [
+                                'section.main',
+                                '[data-testid="stMain"]',
+                                '[data-testid="stAppViewContainer"]',
+                                '[data-testid="stMainBlockContainer"]'
+                            ];
+                            for (var i = 0; i < selectors.length; i++) {{
+                                var el = doc.querySelector(selectors[i]);
+                                if (el && el.scrollHeight > el.clientHeight) {{
+                                    el.scrollTo({{top: 0, behavior: 'smooth'}});
+                                }}
+                            }}
+
+                            window.parent.scrollTo({{top: 0, behavior: 'smooth'}});
+                        }}, 300);
+                        </script>
+                        """,
+                        height=0,
                     )
 
     elif not search_clicked:
