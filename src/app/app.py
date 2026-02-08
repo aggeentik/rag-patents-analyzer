@@ -17,7 +17,7 @@ import streamlit as st
 import streamlit.components.v1 as components
 
 # --- Path setup ---
-project_root = Path(__file__).parent
+project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
 # --- Constants ---
@@ -239,13 +239,12 @@ def render_sources(results: list[dict], patent_files: dict[str, str]):
         header = f"#{rank}  {patent_id}{section_str}{page_str}  —  RRF {rrf:.4f}"
 
         with st.expander(header):
-            if retriever_tags:
-                st.caption("Found by: " + ", ".join(retriever_tags))
+            st.text(content)
             # Show View PDF button if the PDF file exists
             if patent_id in patent_files and page:
                 pdf_path = RAW_DIR / patent_files[patent_id]
                 if pdf_path.exists():
-                    if st.button("View PDF", key=f"pdf_{i}"):
+                    if st.button("View document", key=f"pdf_{i}"):
                         st.session_state.selected_source = {
                             "patent_id": patent_id,
                             "page": page,
@@ -255,7 +254,9 @@ def render_sources(results: list[dict], patent_files: dict[str, str]):
                             "filename": patent_files[patent_id],
                         }
                         st.rerun()
-            st.text(content)
+            if retriever_tags:
+                st.caption("Found by: " + ", ".join(retriever_tags))
+
 
 
 def render_empty_state():
@@ -352,7 +353,7 @@ def patent_selection_dialog(patents_info):
 # ---------------------------------------------------------------------------
 def main():
     st.set_page_config(
-        page_title="Patent Search Demo",
+        page_title="Patent Search",
         page_icon="\u2697",
         layout="wide",
         initial_sidebar_state="expanded",
