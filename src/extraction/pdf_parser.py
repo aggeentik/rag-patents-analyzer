@@ -9,8 +9,9 @@ import os
 import re
 from pathlib import Path
 
-from docling.document_converter import DocumentConverter
-from docling_core.types.doc.document import TableItem
+from docling.document_converter import DocumentConverter, PdfFormatOption
+from docling.datamodel.base_models import InputFormat
+from docling.backend.pypdfium2_backend import PyPdfiumDocumentBackend
 
 from src.knowledge_graph.schema import PatentDocument, PatentSection
 
@@ -67,7 +68,15 @@ class PatentPDFParser:
     """Parse patent PDFs into structured PatentDocument using Docling."""
 
     def __init__(self):
-        self._converter = DocumentConverter()
+        # Use pypdfium2 backend: handles patent PDFs that lack explicit
+        # page-dimension entries (which cause docling-parse to fail).
+        self._converter = DocumentConverter(
+            format_options={
+                InputFormat.PDF: PdfFormatOption(
+                    backend=PyPdfiumDocumentBackend,
+                )
+            }
+        )
 
     def extract(self, pdf_path: str) -> PatentDocument:
         """Extract structured content from a patent PDF.
