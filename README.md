@@ -1,59 +1,70 @@
-# patents-analyzer
+# Patent Search
 
-Agentic RAG system for extracting insights from patent PDFs using hybrid retrieval (BM25 + Semantic Search + Knowledge Graph).
+Extract insights from patent PDFs using hybrid retrieval combining BM25, semantic search, and knowledge graphs.
 
 ## Quickstart
 
-### 1. Install UV ()
+### 1. Install dependencies
 
 Requires Python 3.13+ and [uv](https://docs.astral.sh/uv/getting-started/installation/).
 
+Navigate to the project directory and run:
+
 ```bash
 uv sync
-cp .env.example .env   # configure your LLM provider
 ```
 
-### 4. Set up Ollama (local LLM)
+### 2. Set up Ollama (local LLM inference)
 
-Install [Ollama](https://ollama.com), then pull a model:
+Install [Ollama](https://ollama.com/download), then pull a model:
 
 ```bash
-ollama pull mistral        # 7B, good balance of speed and quality
+ollama pull mistral:7b     # you can start with mistral:7b
 ollama serve               # starts the API at localhost:11434
 ```
-
-Set in your `.env`:
-
-```
-LLM_MODEL=ollama/mistral
-OLLAMA_API_BASE=http://localhost:11434
-```
-
-### 2. Run data ingestion
-
-Place patent PDFs into `data/raw/`, then:
-
-```bash
-uv run python scripts/data_ingestion_pipeline.py
-```
-
-This parses PDFs, chunks text, extracts entities, builds a knowledge graph, and creates search indices under `data/processed/`.
-
-### 3. Run the UI
-
-```bash
-uv run streamlit run src/app/app.py
-```
-
-Opens a browser at `http://localhost:8501` with hybrid search and LLM-powered answers.
-
-
 
 **Recommended small models:**
 
 | Model | Size | Notes |
 |---|---|---|
-| `mistral` | 7B | Best overall for patent Q&A at this size |
+| `mistral:7b` | 7B | Best overall for patent Q&A at this size |
 | `llama3` | 8B | Strong reasoning, good with technical text |
 | `gemma2` | 9B | Competitive quality, slightly larger |
 | `phi3` | 3.8B | Fastest option, works on low-RAM machines |
+
+### 3. Configure environment variables
+
+```bash
+cp .env.example .env
+```
+
+Update your `.env` file with:
+
+```
+LLM_MODEL=ollama/mistral:7b
+OLLAMA_API_BASE=http://localhost:11434
+```
+
+### 4. Run data ingestion (optional)
+
+**Note:** Skip this step if `data/processed/` already contains indexed files and chunks.
+
+Place patent PDFs in `data/raw/`, then run:
+
+```bash
+uv run python scripts/data_ingestion_pipeline.py
+```
+
+This will parse PDFs, chunk text, extract entities, build a knowledge graph, and create search indices in `data/processed/`.
+
+### 5. Run the app
+
+```bash
+uv run streamlit run src/app/app.py
+```
+
+Open a browser at `http://localhost:8501` where you can perform hybrid search queries and get LLM-powered answers from your patent documents.
+
+
+
+
