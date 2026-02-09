@@ -8,9 +8,9 @@ Usage:
     uv run streamlit run app.py
 """
 
+import json
 import re
 import sys
-import json
 import time
 from pathlib import Path
 
@@ -21,6 +21,8 @@ import streamlit.components.v1 as components
 project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
+from src.logging_config import setup_logging  # noqa: E402
+
 # --- Constants ---
 RAW_DIR = project_root / "data" / "raw"
 DATA_DIR = project_root / "data" / "processed"
@@ -29,6 +31,7 @@ BM25_PATH = DATA_DIR / "bm25_index.pkl"
 FAISS_PATH = DATA_DIR / "faiss.index"
 CHUNK_IDS_PATH = DATA_DIR / "chunk_ids.json"
 KG_PATH = DATA_DIR / "knowledge_graph.db"
+
 
 # ---------------------------------------------------------------------------
 # Data loading & retriever initialization (cached)
@@ -66,11 +69,13 @@ def load_patents_data():
                     title = title.split("\n")[0].strip()
                     break
 
-        patents_info.append({
-            "patent_id": patent_id,
-            "title": title,
-            "chunk_count": patent.get("num_chunks", 0),
-        })
+        patents_info.append(
+            {
+                "patent_id": patent_id,
+                "title": title,
+                "chunk_count": patent.get("num_chunks", 0),
+            }
+        )
 
     return patents_info, all_chunks, patent_files
 
@@ -130,22 +135,23 @@ def render_pdf_page(pdf_path: str, page_number: int, highlight_text: str) -> byt
 @st.cache_resource(show_spinner=False)
 def init_retrievers():
     """Initialize all retrievers (expensive, cached for session)."""
-    from src.retrieval import BM25Retriever, SemanticRetriever, GraphRetriever
     from src.knowledge_graph.store import KnowledgeGraphStore
+    from src.retrieval import BM25Retriever, GraphRetriever, SemanticRetriever
 
     _, all_chunks, _ = load_patents_data()
     if all_chunks is None:
         return None
 
     bm25 = BM25Retriever.load(str(BM25_PATH), all_chunks)
-    semantic = SemanticRetriever.load(
-        str(FAISS_PATH), str(CHUNK_IDS_PATH), all_chunks
-    )
+    semantic = SemanticRetriever.load(str(FAISS_PATH), str(CHUNK_IDS_PATH), all_chunks)
     kg_store = KnowledgeGraphStore(str(KG_PATH))
     kg_store.connect(check_same_thread=False)
     graph = GraphRetriever.load(
-        path="", chunks=all_chunks, kg_store=kg_store,
-        max_hops=2, score_decay=0.5,
+        path="",
+        chunks=all_chunks,
+        kg_store=kg_store,
+        max_hops=2,
+        score_decay=0.5,
     )
 
     return {
@@ -160,6 +166,7 @@ def init_retrievers():
 def init_llm():
     """Initialize LLM client."""
     from src.llm import LLMClient
+
     try:
         return LLMClient.from_env()
     except Exception:
@@ -169,8 +176,7 @@ def init_llm():
 # ---------------------------------------------------------------------------
 # Search logic
 # ---------------------------------------------------------------------------
-def run_retrieval(query: str, selected_patents: list[str], top_k: int,
-                  weights: dict):
+def run_retrieval(query: str, selected_patents: list[str], top_k: int, weights: dict):
     """Run hybrid retrieval only (no LLM call). Returns (results, stats) or None."""
     from src.retrieval import HybridRetriever
 
@@ -270,7 +276,7 @@ def _make_citation_span(num: int, source_map: dict[int, str]) -> str | None:
     idx = num - 1  # 0-based index for DOM matching
     return (
         f'<span class="source-ref" data-source-idx="{idx}" '
-        f'title="Click to view source">[{label}]</span>'
+        f'title="Click to view source">[{num}][{label}]</span>'
     )
 
 
@@ -282,11 +288,11 @@ def enrich_citations(text: str, source_map: dict[int, str]) -> str:
     - Unbracketed: Source 3, Source 3 (Section: ..., Page: 7)
     """
     # Pass 1: Bracketed forms — [Source X], [Source 1, Source 2, ...]
-    bracketed = r'\[(?:Source\s*\d+(?:\s*,\s*)?)+\]'
+    bracketed = r"\[(?:Source\s*\d+(?:\s*,\s*)?)+\]"
 
     def _replace_bracketed(match):
         full = match.group(0)
-        nums = [int(n) for n in re.findall(r'Source\s*(\d+)', full)]
+        nums = [int(n) for n in re.findall(r"Source\s*(\d+)", full)]
         if not nums:
             return full
         spans = []
@@ -299,7 +305,7 @@ def enrich_citations(text: str, source_map: dict[int, str]) -> str:
 
     # Pass 2: Unbracketed — "Source 3" optionally followed by "(Section: ..., Page: ...)"
     # Capital S + digit distinguishes citations from the word "source" in prose.
-    unbracketed = r'Source\s+(\d+)(?:\s*\([^)]*\))?'
+    unbracketed = r"Source\s+(\d+)(?:\s*\([^)]*\))?"
 
     def _replace_unbracketed(match):
         num = int(match.group(1))
@@ -377,28 +383,26 @@ def render_sources(results: list[dict], patent_files: dict[str, str]):
         display_id = Path(patent_files.get(patent_id, "")).stem or patent_id
         page_str = f" | Page {page}" if page else ""
         section_str = f" | {section}" if section else ""
-        header = f"#{rank}  {display_id}{section_str}{page_str}  —  RRF {rrf:.4f}"
+        header = f"**[{rank}]** {display_id}{section_str}{page_str} — RRF {rrf:.4f}"
 
         with st.expander(header):
             st.text(content)
             # Show View PDF button if the PDF file exists
             if patent_id in patent_files and page:
                 pdf_path = RAW_DIR / patent_files[patent_id]
-                if pdf_path.exists():
-                    if st.button("View document", key=f"pdf_{i}"):
-                        st.session_state.selected_source = {
-                            "patent_id": patent_id,
-                            "page": page,
-                            "content": content,
-                            "section": section,
-                            "rank": rank,
-                            "filename": patent_files[patent_id],
-                        }
-                        st.session_state.fresh_source = True
-                        st.rerun()
+                if pdf_path.exists() and st.button("View document", key=f"pdf_{i}"):
+                    st.session_state.selected_source = {
+                        "patent_id": patent_id,
+                        "page": page,
+                        "content": content,
+                        "section": section,
+                        "rank": rank,
+                        "filename": patent_files[patent_id],
+                    }
+                    st.session_state.fresh_source = True
+                    st.rerun()
             if retriever_tags:
                 st.caption("Found by: " + ", ".join(retriever_tags))
-
 
 
 def render_empty_state():
@@ -474,6 +478,7 @@ def patent_selection_dialog(patents_info):
             def _make_cb(patent_id):
                 def _cb():
                     sels[patent_id] = st.session_state[f"_pat_{patent_id}"]
+
                 return _cb
 
             st.session_state[f"_pat_{pid}"] = sels[pid]
@@ -481,11 +486,11 @@ def patent_selection_dialog(patents_info):
 
     # --- OK / Cancel buttons (bottom-right) ---
     _, col_ok, col_cancel = st.columns([0.6, 0.2, 0.2])
-    if col_ok.button("OK", type="primary", width='stretch'):
+    if col_ok.button("OK", type="primary", width="stretch"):
         st.session_state.selected_patents = [pid for pid, v in sels.items() if v]
         _cleanup_dialog_state(all_ids)
         st.rerun()
-    if col_cancel.button("Cancel", width='stretch'):
+    if col_cancel.button("Cancel", width="stretch"):
         _cleanup_dialog_state(all_ids)
         st.rerun()
 
@@ -494,6 +499,9 @@ def patent_selection_dialog(patents_info):
 # Main app
 # ---------------------------------------------------------------------------
 def main():
+    # Configure logging (level from LOG_LEVEL env var, defaults to INFO)
+    setup_logging()
+
     st.set_page_config(
         page_title="Patent Search",
         page_icon="\u2697",
@@ -502,7 +510,7 @@ def main():
     )
 
     # --- Check data availability ---
-    patents_info, all_chunks, patent_files = load_patents_data()
+    patents_info, _all_chunks, patent_files = load_patents_data()
     if patents_info is None:
         st.error(
             "**Data not found.** Run the ingestion pipeline first:\n\n"
@@ -516,9 +524,15 @@ def main():
     with st.sidebar:
         st.title("Patent search")
 
-        if st.button(":material/home: Home", width='stretch'):
-            for key in ("last_result", "last_query", "last_elapsed",
-                        "fresh_search", "selected_source", "fresh_source"):
+        if st.button(":material/home: Home", width="stretch"):
+            for key in (
+                "last_result",
+                "last_query",
+                "last_elapsed",
+                "fresh_search",
+                "selected_source",
+                "fresh_source",
+            ):
                 st.session_state.pop(key, None)
             st.rerun()
 
@@ -532,19 +546,55 @@ def main():
         n_selected = len(selected_patents)
         n_total = len(patents_info)
 
-        if st.button(f"Select patents ({n_selected}/{n_total})", width='stretch'):
+        if st.button(f"Select patents ({n_selected}/{n_total})", width="stretch"):
             _cleanup_dialog_state(all_patent_ids)
             patent_selection_dialog(patents_info)
 
         st.header("Search")
-        top_k = st.slider("Results to retrieve", 3, 20, 10, key="top_k")
-
+        top_k = st.slider(
+            "Search results to retrieve",
+            3,
+            20,
+            10,
+            key="top_k",
+            help="Higher values include more results based on related topics and connections",
+        )
+        max_context = st.slider(
+            "Search results used per answer",
+            1,
+            10,
+            5,
+            key="max_ctx",
+            help="How much information is used to generate the answer (Context chunks)",
+        )
         with st.expander("Settings"):
-            max_context = st.slider("Context chunks", 1, 10, 5, key="max_ctx")
-            w_bm25 = st.slider("BM25 weight", 0.0, 2.0, 1.0, 0.1, key="w_bm25")
-            w_semantic = st.slider("Semantic weight", 0.0, 2.0, 1.0, 0.1, key="w_sem")
-            w_graph = st.slider("Knowledge graph weight", 0.0, 2.0, 0.5, 0.1, key="w_graph")
-
+            st.slider(
+                "Keyword matching",
+                0.0,
+                2.0,
+                1.0,
+                0.1,
+                key="w_bm25",
+                help="Higher values favor results with exact matching terms (BM25 weight)",
+            )
+            st.slider(
+                "Conceptual matching",
+                0.0,
+                2.0,
+                1.0,
+                0.1,
+                key="w_sem",
+                help="Higher values find results with similar meanings (Semantic weight)",
+            )
+            st.slider(
+                "Related concepts",
+                0.0,
+                2.0,
+                0.5,
+                0.1,
+                key="w_graph",
+                help="Higher values include results based on related topics and connections (Knowledge graph weight)",
+            )
 
     # ------------------------------------------------------------------
     # Main content
@@ -558,7 +608,9 @@ def main():
         st.session_state.retrievers_ready = True
 
     # --- Query input ---
-    st.text("Ask a question about selected content. The answer will be generated based on relevant data from the content.")
+    st.text(
+        "Ask a question about selected content. The answer will be generated based on relevant data from the content."
+    )
     query = st.text_area(
         "Query",
         height=120,
@@ -649,8 +701,7 @@ def main():
         else:
             left_col = st.container()
 
-        with left_col:
-          with st.container(border=True):
+        with left_col, st.container(border=True):
             st.markdown(SOURCE_REF_CSS, unsafe_allow_html=True)
 
             if fresh and _pending_stream is not None:
@@ -668,7 +719,7 @@ def main():
                 elapsed = time.perf_counter() - _search_t0
                 st.session_state.last_elapsed = elapsed
 
-            st.caption("Completed in " + "{:.1f}s".format(elapsed))
+            st.caption("Completed in " + f"{elapsed:.1f}s")
 
             if not fresh:
                 # Answer (re-display from session state)
@@ -690,38 +741,42 @@ def main():
 
             meta = answer["metadata"]
             st.caption(
-                "Model: " + meta.get('model', '?') + "  |  "
-                "Context: " + str(meta.get('chunk_count', 0)) + "/" + str(meta.get('total_retrieved', 0)) + " chunks"
+                "Model: " + meta.get("model", "?") + "  |  "
+                "Context: "
+                + str(meta.get("chunk_count", 0))
+                + "/"
+                + str(meta.get("total_retrieved", 0))
+                + " chunks"
             )
 
         # PDF viewer panel
         if has_selected:
             source = st.session_state.selected_source
-            with right_col:
-              with st.container(border=True):
+            with right_col, st.container(border=True):
                 header_cols = st.columns([0.85, 0.15])
-                header_cols[0].subheader(
-                    source['patent_id'] + " — Page " + str(source['page'])
-                )
+                header_cols[0].subheader(source["patent_id"] + " — Page " + str(source["page"]))
                 if header_cols[1].button("Close", key="close_pdf"):
                     del st.session_state.selected_source
                     st.rerun()
 
                 if source.get("section"):
-                    st.caption("Section: " + source['section'] + "  |  Source #" + str(source['rank']))
+                    st.caption(
+                        "Section: " + source["section"] + "  |  Source #" + str(source["rank"])
+                    )
 
                 pdf_path = str(RAW_DIR / source["filename"])
                 with st.spinner("Rendering PDF page..."):
-                    img_bytes = render_pdf_page(
-                        pdf_path, source["page"], source["content"]
-                    )
+                    img_bytes = render_pdf_page(pdf_path, source["page"], source["content"])
 
                 if img_bytes:
-                    st.image(img_bytes, width='stretch')
+                    st.image(img_bytes, width="stretch")
                 else:
                     st.warning(
-                        "Could not render page " + str(source['page'])
-                        + " from " + source['filename'] + "."
+                        "Could not render page "
+                        + str(source["page"])
+                        + " from "
+                        + source["filename"]
+                        + "."
                     )
 
                 # Auto-scroll to PDF viewer when source was just selected

@@ -23,9 +23,9 @@ from src.logging_config import setup_logging
 
 logger = logging.getLogger(__name__)
 
-from src.extraction.pdf_parser import PatentPDFParser
 from src.chunking.chunker import PatentChunker
 from src.extraction.entity_extractor import EntityExtractor
+from src.extraction.pdf_parser import PatentPDFParser
 from src.knowledge_graph.builder import KnowledgeGraphBuilder
 from src.knowledge_graph.store import KnowledgeGraphStore
 
@@ -33,6 +33,7 @@ from src.knowledge_graph.store import KnowledgeGraphStore
 try:
     from src.retrieval.bm25_retriever import BM25Retriever
     from src.retrieval.semantic_retriever import SemanticRetriever
+
     RETRIEVAL_AVAILABLE = True
 except ImportError:
     RETRIEVAL_AVAILABLE = False
@@ -66,18 +67,18 @@ Examples:
 
   # Process with LLM-based entity extraction
   python data_ingestion_pipeline.py --use-llm-extraction
-        """
+        """,
     )
     parser.add_argument(
         "patents",
         nargs="*",
-        help="Specific patent PDF filenames to process (optional). If not specified, all PDFs in data/raw/ will be processed."
+        help="Specific patent PDF filenames to process (optional). If not specified, all PDFs in data/raw/ will be processed.",
     )
     parser.add_argument(
         "--use-llm-extraction",
         action="store_true",
         default=False,
-        help="Enable LLM-based entity extraction via Instructor (requires LLM configured in .env)."
+        help="Enable LLM-based entity extraction via Instructor (requires LLM configured in .env).",
     )
     return parser.parse_args()
 
@@ -92,9 +93,7 @@ def main(patent_names=None, use_llm_extraction=False):
     logger.info("=" * 70)
 
     if not RETRIEVAL_AVAILABLE:
-        logger.warning(
-            "Retrieval modules not available. Will skip building BM25/FAISS indices."
-        )
+        logger.warning("Retrieval modules not available. Will skip building BM25/FAISS indices.")
 
     # Ensure directories exist
     PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
@@ -108,6 +107,7 @@ def main(patent_names=None, use_llm_extraction=False):
     llm_client = None
     if use_llm_extraction:
         from src.llm.llm_client import LLMClient
+
         llm_client = LLMClient.from_env()
         logger.info("LLM extraction enabled: %s", llm_client.model)
 
@@ -121,10 +121,7 @@ def main(patent_names=None, use_llm_extraction=False):
     # Filter PDF files based on patent_names argument
     if patent_names:
         requested_names = {name.lower() for name in patent_names}
-        pdf_files = [
-            pdf for pdf in all_pdf_files
-            if pdf.name.lower() in requested_names
-        ]
+        pdf_files = [pdf for pdf in all_pdf_files if pdf.name.lower() in requested_names]
 
         found_names = {pdf.name.lower() for pdf in pdf_files}
         missing_names = requested_names - found_names
@@ -170,12 +167,14 @@ def main(patent_names=None, use_llm_extraction=False):
 
             all_chunks.extend(chunks)
 
-            patent_summaries.append({
-                "patent_id": patent_doc.patent_id,
-                "title": patent_doc.title,
-                "num_chunks": len(chunks),
-                "metadata": patent_doc.metadata,
-            })
+            patent_summaries.append(
+                {
+                    "patent_id": patent_doc.patent_id,
+                    "title": patent_doc.title,
+                    "num_chunks": len(chunks),
+                    "metadata": patent_doc.metadata,
+                }
+            )
 
         except Exception as e:
             logger.error("Error processing %s: %s", pdf_path.name, str(e))
@@ -221,8 +220,8 @@ def main(patent_names=None, use_llm_extraction=False):
     kg_store.close()
     logger.info(
         "Saved %d entities and %d relationships",
-        len(kg_data['entities']),
-        len(kg_data['relationships']),
+        len(kg_data["entities"]),
+        len(kg_data["relationships"]),
     )
 
     # Build BM25 index (if available)
@@ -246,8 +245,8 @@ def main(patent_names=None, use_llm_extraction=False):
     logger.info("Summary:")
     logger.info("  Patents processed: %d", len(patent_summaries))
     logger.info("  Chunks created: %d", len(all_chunks))
-    logger.info("  Entities extracted: %d", len(kg_data['entities']))
-    logger.info("  Relationships built: %d", len(kg_data['relationships']))
+    logger.info("  Entities extracted: %d", len(kg_data["entities"]))
+    logger.info("  Relationships built: %d", len(kg_data["relationships"]))
     logger.info("Output files:")
     logger.info("  - %s", PATENTS_JSON)
     logger.info("  - %s", KG_DATABASE)

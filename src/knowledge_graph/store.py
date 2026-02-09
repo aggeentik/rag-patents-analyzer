@@ -1,9 +1,8 @@
 """SQLite storage for knowledge graph."""
 
-import sqlite3
 import json
-from pathlib import Path
-from typing import Optional
+import sqlite3
+from typing import Any
 
 
 class KnowledgeGraphStore:
@@ -49,7 +48,7 @@ class KnowledgeGraphStore:
 
     def __init__(self, db_path: str):
         self.db_path = db_path
-        self.conn = None
+        self.conn: sqlite3.Connection | None = None
 
     def connect(self, check_same_thread: bool = True):
         """Connect to database and create schema."""
@@ -63,106 +62,117 @@ class KnowledgeGraphStore:
         if self.conn:
             self.conn.close()
 
-    def save_entity(self, entity: dict):
+    def save_entity(self, entity: dict[str, Any]) -> None:
         """Save or update an entity."""
-        self.conn.execute("""
+        assert self.conn is not None, "Database connection not established"
+        self.conn.execute(
+            """
             INSERT OR REPLACE INTO entities
             (id, type, name, properties, patent_id, chunk_ids)
             VALUES (?, ?, ?, ?, ?, ?)
-        """, (
-            entity["id"],
-            entity["type"],
-            entity["name"],
-            json.dumps(entity["properties"]),
-            entity["patent_id"],
-            json.dumps(entity["chunk_ids"]),
-        ))
+        """,
+            (
+                entity["id"],
+                entity["type"],
+                entity["name"],
+                json.dumps(entity["properties"]),
+                entity["patent_id"],
+                json.dumps(entity["chunk_ids"]),
+            ),
+        )
 
         # Update chunk_entities index
         for chunk_id in entity["chunk_ids"]:
-            self.conn.execute("""
+            self.conn.execute(
+                """
                 INSERT OR IGNORE INTO chunk_entities (chunk_id, entity_id)
                 VALUES (?, ?)
-            """, (chunk_id, entity["id"]))
+            """,
+                (chunk_id, entity["id"]),
+            )
 
         self.conn.commit()
 
     def save_relationship(self, rel: dict):
         """Save a relationship."""
-        self.conn.execute("""
+        self.conn.execute(
+            """
             INSERT OR REPLACE INTO relationships
             (id, type, source_id, target_id, properties, patent_id, chunk_id)
             VALUES (?, ?, ?, ?, ?, ?, ?)
-        """, (
-            rel["id"],
-            rel["type"],
-            rel["source_id"],
-            rel["target_id"],
-            json.dumps(rel["properties"]),
-            rel["patent_id"],
-            rel["chunk_id"],
-        ))
+        """,
+            (
+                rel["id"],
+                rel["type"],
+                rel["source_id"],
+                rel["target_id"],
+                json.dumps(rel["properties"]),
+                rel["patent_id"],
+                rel["chunk_id"],
+            ),
+        )
         self.conn.commit()
 
     def get_entities_by_chunk(self, chunk_id: str) -> list[dict]:
         """Get all entities in a chunk."""
-        cursor = self.conn.execute("""
+        cursor = self.conn.execute(
+            """
             SELECT e.* FROM entities e
             JOIN chunk_entities ce ON e.id = ce.entity_id
             WHERE ce.chunk_id = ?
-        """, (chunk_id,))
+        """,
+            (chunk_id,),
+        )
         return [self._row_to_entity(row) for row in cursor.fetchall()]
 
     def get_entities_by_type(self, entity_type: str) -> list[dict]:
         """Get all entities of a type."""
-        cursor = self.conn.execute(
-            "SELECT * FROM entities WHERE type = ?", (entity_type,)
-        )
+        cursor = self.conn.execute("SELECT * FROM entities WHERE type = ?", (entity_type,))
         return [self._row_to_entity(row) for row in cursor.fetchall()]
 
     def get_related_entities(
-        self,
-        entity_id: str,
-        relationship_type: Optional[str] = None
+        self, entity_id: str, relationship_type: str | None = None
     ) -> list[dict]:
         """Get entities related to given entity."""
         if relationship_type:
-            cursor = self.conn.execute("""
+            cursor = self.conn.execute(
+                """
                 SELECT e.* FROM entities e
                 JOIN relationships r ON e.id = r.target_id
                 WHERE r.source_id = ? AND r.type = ?
-            """, (entity_id, relationship_type))
+            """,
+                (entity_id, relationship_type),
+            )
         else:
-            cursor = self.conn.execute("""
+            cursor = self.conn.execute(
+                """
                 SELECT e.* FROM entities e
                 JOIN relationships r ON e.id = r.target_id
                 WHERE r.source_id = ?
-            """, (entity_id,))
+            """,
+                (entity_id,),
+            )
         return [self._row_to_entity(row) for row in cursor.fetchall()]
 
-    def find_entities(
-        self,
-        name_pattern: str,
-        entity_type: Optional[str] = None
-    ) -> list[dict]:
+    def find_entities(self, name_pattern: str, entity_type: str | None = None) -> list[dict]:
         """Search entities by name pattern."""
         if entity_type:
-            cursor = self.conn.execute("""
+            cursor = self.conn.execute(
+                """
                 SELECT * FROM entities
                 WHERE name LIKE ? AND type = ?
-            """, (f"%{name_pattern}%", entity_type))
+            """,
+                (f"%{name_pattern}%", entity_type),
+            )
         else:
             cursor = self.conn.execute(
-                "SELECT * FROM entities WHERE name LIKE ?",
-                (f"%{name_pattern}%",)
+                "SELECT * FROM entities WHERE name LIKE ?", (f"%{name_pattern}%",)
             )
         return [self._row_to_entity(row) for row in cursor.fetchall()]
 
     def get_chunks_for_entity(self, entity_id: str) -> list[str]:
         """Get chunk IDs where entity appears."""
-        cursor = self.conn.execute(
-            "SELECT chunk_ids FROM entities WHERE id = ?", (entity_id,)
-        )
+        cursor = self.conn.execute("SELECT chunk_ids FROM entities WHERE id = ?", (entity_id,))
         row = cursor.fetchone()
         if row:
             return json.loads(row["chunk_ids"])

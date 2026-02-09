@@ -43,7 +43,10 @@ Update your `.env` file with:
 ```
 LLM_MODEL=ollama/mistral:7b
 OLLAMA_API_BASE=http://localhost:11434
+LOG_LEVEL=INFO  # Options: DEBUG, INFO, WARNING, ERROR, CRITICAL
 ```
+
+**Logging:** Set `LOG_LEVEL=DEBUG` in `.env` to see detailed logs from retrievers and LLM during searches. Defaults to `INFO` if not specified.
 
 ### 4. Run data ingestion (optional)
 

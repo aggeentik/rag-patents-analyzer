@@ -16,9 +16,10 @@ class SemanticRetriever:
     def __init__(self, model_name: str = "all-MiniLM-L6-v2"):
         logger.info("Loading sentence transformer model: %s", model_name)
         self.model = SentenceTransformer(model_name)
-        self.index = None
-        self.chunk_ids = []
-        self.chunks_by_id = {}
+        logger.info("Sentence transformer model loaded successfully")
+        self.index: faiss.IndexFlatIP | None = None
+        self.chunk_ids: list[str] = []
+        self.chunks_by_id: dict[str, dict] = {}
 
     def build_index(self, chunks: list[dict]):
         """Build FAISS index from chunks."""
@@ -48,6 +49,8 @@ class SemanticRetriever:
 
     def search(self, query: str, top_k: int = 10) -> list[dict]:
         """Search and return chunks with semantic scores."""
+        assert self.index is not None, "Index not built. Call build_index() first."
+
         # Encode query
         query_embedding = self.model.encode([query])
         query_embedding = query_embedding / np.linalg.norm(query_embedding)
@@ -79,14 +82,19 @@ class SemanticRetriever:
         index_path: str,
         mapping_path: str,
         chunks: list[dict],
-        model_name: str = "all-MiniLM-L6-v2"
+        model_name: str = "all-MiniLM-L6-v2",
     ) -> "SemanticRetriever":
         """Load index from disk."""
         retriever = cls(model_name)
         retriever.chunks_by_id = {c["chunk_id"]: c for c in chunks}
 
+        logger.info("Loading FAISS index from %s", index_path)
         retriever.index = faiss.read_index(index_path)
+        logger.info("Loading chunk mapping from %s", mapping_path)
         with open(mapping_path, "r") as f:
             retriever.chunk_ids = json.load(f)
 
+        logger.info(
+            "Semantic retriever loaded successfully with %d chunks", len(retriever.chunk_ids)
+        )
         return retriever

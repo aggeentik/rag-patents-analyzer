@@ -4,17 +4,17 @@ All models use Pydantic BaseModel for validation and serialization.
 """
 
 from enum import Enum
-from typing import Optional
 
 from pydantic import BaseModel, Field
-
 
 # ---------------------------------------------------------------------------
 # Enums
 # ---------------------------------------------------------------------------
 
+
 class EntityType(Enum):
     """Types of entities in patent KG."""
+
     CHEMICAL_ELEMENT = "chemical_element"
     PROPERTY = "property"
     PROCESS = "process"
@@ -28,6 +28,7 @@ class EntityType(Enum):
 
 class RelationType(Enum):
     """Types of relationships in patent KG."""
+
     CONTAINS = "contains"
     HAS_VALUE = "has_value"
     AFFECTS = "affects"
@@ -44,6 +45,7 @@ class RelationType(Enum):
 
 class PatentSection(Enum):
     """Sections of a patent document."""
+
     PREAMBLE = "preamble"
     ABSTRACT = "abstract"
     CLAIMS = "claims"
@@ -58,32 +60,37 @@ class PatentSection(Enum):
 # Instructor extraction models (used by LLM-based entity extraction)
 # ---------------------------------------------------------------------------
 
+
 class ChemicalComposition(BaseModel):
     """A chemical element with its composition range."""
+
     element: str = Field(description="Chemical symbol, e.g. 'Si', 'Cr'")
-    min_val: Optional[float] = Field(default=None, description="Minimum value")
-    max_val: Optional[float] = Field(default=None, description="Maximum value")
+    min_val: float | None = Field(default=None, description="Minimum value")
+    max_val: float | None = Field(default=None, description="Maximum value")
     unit: str = Field(default="%", description="Unit of measurement")
 
 
 class PropertyMeasurement(BaseModel):
     """A measured material property."""
+
     name: str = Field(description="Property name, e.g. 'yield_stress'")
-    value: Optional[float] = Field(default=None, description="Measured value")
-    unit: Optional[str] = Field(default=None, description="Unit, e.g. 'MPa'")
-    condition: Optional[str] = Field(default=None, description="Measurement condition")
+    value: float | None = Field(default=None, description="Measured value")
+    unit: str | None = Field(default=None, description="Unit, e.g. 'MPa'")
+    condition: str | None = Field(default=None, description="Measurement condition")
 
 
 class ProcessStep(BaseModel):
     """A manufacturing process step."""
+
     name: str = Field(description="Process name, e.g. 'annealing'")
-    temperature: Optional[str] = Field(default=None, description="Temperature, e.g. '1100 C'")
-    duration: Optional[str] = Field(default=None, description="Duration, e.g. '30 min'")
+    temperature: str | None = Field(default=None, description="Temperature, e.g. '1100 C'")
+    duration: str | None = Field(default=None, description="Duration, e.g. '30 min'")
     parameters: dict = Field(default_factory=dict, description="Additional parameters")
 
 
 class ChunkExtractionResult(BaseModel):
     """Structured extraction result from a single chunk (used by Instructor)."""
+
     compositions: list[ChemicalComposition] = Field(default_factory=list)
     properties: list[PropertyMeasurement] = Field(default_factory=list)
     processes: list[ProcessStep] = Field(default_factory=list)
@@ -93,8 +100,10 @@ class ChunkExtractionResult(BaseModel):
 # Reference model
 # ---------------------------------------------------------------------------
 
+
 class StructuredReference(BaseModel):
     """A resolved cross-reference found in chunk text."""
+
     raw_text: str = Field(description="Original text, e.g. 'Table 1'")
     ref_type: EntityType = Field(description="TABLE, FORMULA, or FIGURE")
     ref_id: str = Field(description="Resolved ID, e.g. 'EP1577413_TABLE_01'")
@@ -104,8 +113,10 @@ class StructuredReference(BaseModel):
 # Document models
 # ---------------------------------------------------------------------------
 
+
 class PatentChunk(BaseModel):
     """A single chunk ready for retrieval."""
+
     chunk_id: str = ""
     patent_id: str = ""
     content: str = ""
@@ -148,6 +159,7 @@ class PatentChunk(BaseModel):
 
 class PatentDocument(BaseModel):
     """Parsed patent document produced by the PDF parser."""
+
     patent_id: str = ""
     title: str = "Unknown Title"
     sections: dict[str, str] = Field(default_factory=dict)  # section_name -> text
@@ -159,8 +171,10 @@ class PatentDocument(BaseModel):
 # KG models (Pydantic replacements for old dataclasses)
 # ---------------------------------------------------------------------------
 
+
 class Entity(BaseModel):
     """Knowledge graph entity."""
+
     id: str
     type: EntityType
     name: str
@@ -171,13 +185,14 @@ class Entity(BaseModel):
 
 class Relationship(BaseModel):
     """Knowledge graph relationship."""
+
     id: str
     type: RelationType
     source_id: str
     target_id: str
     properties: dict = Field(default_factory=dict)
     patent_id: str = ""
-    chunk_id: Optional[str] = None
+    chunk_id: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -185,12 +200,24 @@ class Relationship(BaseModel):
 # ---------------------------------------------------------------------------
 
 CHEMICAL_ELEMENTS = {
-    "Si": "Silicon", "Cr": "Chromium", "Mn": "Manganese",
-    "Al": "Aluminum", "Cu": "Copper", "Ni": "Nickel",
-    "Ti": "Titanium", "Nb": "Niobium", "V": "Vanadium",
-    "Zr": "Zirconium", "C": "Carbon", "N": "Nitrogen",
-    "S": "Sulfur", "P": "Phosphorus", "Mo": "Molybdenum",
-    "B": "Boron", "Fe": "Iron", "Co": "Cobalt",
+    "Si": "Silicon",
+    "Cr": "Chromium",
+    "Mn": "Manganese",
+    "Al": "Aluminum",
+    "Cu": "Copper",
+    "Ni": "Nickel",
+    "Ti": "Titanium",
+    "Nb": "Niobium",
+    "V": "Vanadium",
+    "Zr": "Zirconium",
+    "C": "Carbon",
+    "N": "Nitrogen",
+    "S": "Sulfur",
+    "P": "Phosphorus",
+    "Mo": "Molybdenum",
+    "B": "Boron",
+    "Fe": "Iron",
+    "Co": "Cobalt",
 }
 
 PROPERTIES = {

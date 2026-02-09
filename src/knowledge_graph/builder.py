@@ -2,7 +2,7 @@
 
 import re
 
-from src.knowledge_graph.schema import Entity, Relationship, RelationType, EntityType
+from src.knowledge_graph.schema import Entity, EntityType, Relationship, RelationType
 
 
 class KnowledgeGraphBuilder:
@@ -47,26 +47,22 @@ class KnowledgeGraphBuilder:
                     self._table_chunks.setdefault(label, chunk.chunk_id)
 
         for chunk in chunks:
-            chunk_entities = [e for e in self.entities.values()
-                           if chunk.chunk_id in e.chunk_ids]
+            chunk_entities = [e for e in self.entities.values() if chunk.chunk_id in e.chunk_ids]
 
             # DESCRIBED_IN: All entities → chunk
             for entity in chunk_entities:
                 self._add_described_in(entity, chunk)
 
             # AFFECTS: Element + Property co-occurrence
-            elements = [e for e in chunk_entities
-                       if e.type == EntityType.CHEMICAL_ELEMENT]
-            properties = [e for e in chunk_entities
-                        if e.type == EntityType.PROPERTY]
+            elements = [e for e in chunk_entities if e.type == EntityType.CHEMICAL_ELEMENT]
+            properties = [e for e in chunk_entities if e.type == EntityType.PROPERTY]
 
             for element in elements:
                 for prop in properties:
                     self._add_affects(element, prop, chunk)
 
             # REQUIRES: Process + Parameter co-occurrence
-            processes = [e for e in chunk_entities
-                        if e.type == EntityType.PROCESS]
+            processes = [e for e in chunk_entities if e.type == EntityType.PROCESS]
 
             for process in processes:
                 if "temperature" in process.properties:
@@ -160,15 +156,17 @@ class KnowledgeGraphBuilder:
         # Avoid duplicates within the same chunk
         if any(r.id == rel_id for r in self.relationships):
             return
-        self.relationships.append(Relationship(
-            id=rel_id,
-            type=RelationType.MENTIONS,
-            source_id=chunk.chunk_id,
-            target_id=table_chunk_id,
-            properties={},
-            patent_id=chunk.patent_id,
-            chunk_id=chunk.chunk_id,
-        ))
+        self.relationships.append(
+            Relationship(
+                id=rel_id,
+                type=RelationType.MENTIONS,
+                source_id=chunk.chunk_id,
+                target_id=table_chunk_id,
+                properties={},
+                patent_id=chunk.patent_id,
+                chunk_id=chunk.chunk_id,
+            )
+        )
 
     def _add_measured_in(self, prop: Entity, chunk):
         """Add MEASURED_IN relationship for property in table."""
@@ -188,8 +186,7 @@ class KnowledgeGraphBuilder:
     def export(self) -> dict:
         """Export KG as dictionary for storage."""
         return {
-            "entities": {eid: self._entity_to_dict(e)
-                        for eid, e in self.entities.items()},
+            "entities": {eid: self._entity_to_dict(e) for eid, e in self.entities.items()},
             "relationships": [self._rel_to_dict(r) for r in self.relationships],
         }
 

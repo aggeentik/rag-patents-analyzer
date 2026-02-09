@@ -19,3 +19,109 @@ dependencies = [
     "streamlit>=1.54.0",
     "pymupdf>=1.26.7",
 ]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.8.0",
+    "mypy>=1.13.0",
+    "bandit>=1.8.0",
+    "deptry>=0.21.0",
+    "pip-audit>=2.7.0",
+]
+
+# Ruff configuration
+[tool.ruff]
+target-version = "py313"
+line-length = 100
+src = ["src", "scripts"]
+
+[tool.ruff.lint]
+select = [
+    "E",      # pycodestyle errors
+    "W",      # pycodestyle warnings
+    "F",      # Pyflakes
+    "I",      # isort
+    "B",      # flake8-bugbear
+    "C4",     # flake8-comprehensions
+    "UP",     # pyupgrade
+    "ARG",    # flake8-unused-arguments
+    "SIM",    # flake8-simplify
+    "TCH",    # flake8-type-checking
+    "PTH",    # flake8-use-pathlib
+    "ERA",    # eradicate (commented-out code)
+    "PL",     # Pylint
+    "RUF",    # Ruff-specific rules
+]
+ignore = [
+    "E501",    # line too long (handled by formatter)
+    "PLR0913", # too many arguments
+    "PLR2004", # magic value comparison
+    "PLR0912", # too many branches (acceptable in pipeline scripts)
+    "PLR0915", # too many statements (acceptable in pipeline scripts)
+    "PTH123",  # open() vs Path.open() - both are valid, allow open()
+    "UP015",   # unnecessary mode argument - explicit "r" is clear
+    "B905",    # zip without strict - explicit strict= not always needed
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Scripts need sys.path manipulation before imports
+"scripts/*" = ["E402", "ARG001", "PLC0415"]
+# App has lazy imports for optional dependencies
+"src/app/app.py" = ["PLC0415"]
+# GraphRetriever has unused path args for interface compatibility with other retrievers
+"src/retrieval/graph_retriever.py" = ["ARG002", "ARG003"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+docstring-code-format = true
+
+# MyPy configuration
+[tool.mypy]
+python_version = "3.13"
+warn_return_any = false
+warn_unused_ignores = true
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+check_untyped_defs = false
+ignore_missing_imports = true
+strict_optional = false
+exclude = [
+    "^\\.venv/",
+    "^data/",
+]
+
+[[tool.mypy.overrides]]
+module = [
+    "litellm.*",
+    "rank_bm25.*",
+    "faiss.*",
+    "networkx.*",
+    "sentence_transformers.*",
+    "docling.*",
+    "instructor.*",
+    "nltk.*",
+    "streamlit.*",
+    "pymupdf.*",
+]
+ignore_missing_imports = true
+
+# Bandit configuration
+[tool.bandit]
+exclude_dirs = [".venv", "data", "tests"]
+skips = [
+    "B101",  # assert_used - acceptable in non-production code
+    "B110",  # try_except_pass - used intentionally in PDF parsing fallbacks
+    "B301",  # pickle load - safe: only loads internally generated index files (see CLAUDE.md Security section)
+    "B403",  # pickle import - safe: only used for internal BM25 index serialization (see CLAUDE.md Security section)
+]
+
+# Deptry configuration
+[tool.deptry]
+extend_exclude = [".venv", "data", "docs"]
+ignore_notebooks = true
+
+[tool.deptry.per_rule_ignores]
+DEP001 = ["src"]   # Local package, not an external dependency
+DEP002 = ["tqdm"]  # tqdm may be used indirectly
+DEP003 = ["numpy"] # numpy is a transitive dependency (via sentence-transformers, faiss)

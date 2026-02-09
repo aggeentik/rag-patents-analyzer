@@ -1,6 +1,9 @@
 """Knowledge Graph module for patent entity extraction and relationship mapping."""
 
 from src.knowledge_graph.schema import (
+    CHEMICAL_ELEMENTS,
+    PROCESSES,
+    PROPERTIES,
     ChemicalComposition,
     ChunkExtractionResult,
     Entity,
@@ -13,12 +16,12 @@ from src.knowledge_graph.schema import (
     Relationship,
     RelationType,
     StructuredReference,
-    CHEMICAL_ELEMENTS,
-    PROPERTIES,
-    PROCESSES,
 )
 
 __all__ = [
+    "CHEMICAL_ELEMENTS",
+    "PROCESSES",
+    "PROPERTIES",
     "ChemicalComposition",
     "ChunkExtractionResult",
     "Entity",
@@ -28,10 +31,7 @@ __all__ = [
     "PatentSection",
     "ProcessStep",
     "PropertyMeasurement",
-    "Relationship",
     "RelationType",
+    "Relationship",
     "StructuredReference",
-    "CHEMICAL_ELEMENTS",
-    "PROPERTIES",
-    "PROCESSES",
 ]

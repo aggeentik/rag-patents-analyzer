@@ -7,17 +7,17 @@ Replaces the previous unstructured+pdfplumber implementation with:
 
 import html
 import logging
-import os
 import re
 from pathlib import Path
+from typing import ClassVar
 
-logger = logging.getLogger(__name__)
-
-from docling.document_converter import DocumentConverter, PdfFormatOption
-from docling.datamodel.base_models import InputFormat
 from docling.backend.pypdfium2_backend import PyPdfiumDocumentBackend
+from docling.datamodel.base_models import InputFormat
+from docling.document_converter import DocumentConverter, PdfFormatOption
 
 from src.knowledge_graph.schema import PatentDocument, PatentSection
+
+logger = logging.getLogger(__name__)
 
 
 class PatentSectionStateMachine:
@@ -29,7 +29,7 @@ class PatentSectionStateMachine:
     """
 
     # Each tuple: (compiled regex for the heading text, target PatentSection)
-    TRANSITIONS: list[tuple[re.Pattern, PatentSection]] = [
+    TRANSITIONS: ClassVar[list[tuple[re.Pattern, PatentSection]]] = [
         (re.compile(r"^#{1,3}\s+ABSTRACT", re.IGNORECASE), PatentSection.ABSTRACT),
         (re.compile(r"^#{1,3}\s+CLAIMS?", re.IGNORECASE), PatentSection.CLAIMS),
         (re.compile(r"^#{1,3}\s+BACKGROUND", re.IGNORECASE), PatentSection.BACKGROUND),
@@ -37,7 +37,10 @@ class PatentSectionStateMachine:
         (re.compile(r"^#{1,3}\s+DESCRIPTION", re.IGNORECASE), PatentSection.DESCRIPTION),
         (re.compile(r"^#{1,3}\s+EXAMPLES?", re.IGNORECASE), PatentSection.EXAMPLES),
         (re.compile(r"^#{1,3}\s+EMBODIMENTS?", re.IGNORECASE), PatentSection.EMBODIMENTS),
-        (re.compile(r"^#{1,3}\s+BRIEF\s+DESCRIPTION\s+OF.*(?:DRAWING|FIGURE)", re.IGNORECASE), PatentSection.FIGURES),
+        (
+            re.compile(r"^#{1,3}\s+BRIEF\s+DESCRIPTION\s+OF.*(?:DRAWING|FIGURE)", re.IGNORECASE),
+            PatentSection.FIGURES,
+        ),
         (re.compile(r"^#{1,3}\s+SUMMARY", re.IGNORECASE), PatentSection.DESCRIPTION),
         (re.compile(r"^#{1,3}\s+FIELD\s+OF", re.IGNORECASE), PatentSection.BACKGROUND),
     ]
@@ -115,9 +118,7 @@ class TableStitcher:
                 break
         return "\n".join(lines)
 
-    def stitch(
-        self, tables: list[str], table_pages: list[int]
-    ) -> list[str]:
+    def stitch(self, tables: list[str], table_pages: list[int]) -> list[str]:
         """Return a new list of tables with compatible neighbours merged.
 
         Also mutates *table_pages* in-place to keep it parallel with the
@@ -191,9 +192,7 @@ class PatentPDFParser:
         docling_doc = result.document
 
         # 2. Export full Markdown (with page-break markers for page tracking)
-        markdown_text = docling_doc.export_to_markdown(
-            page_break_placeholder="<!-- PB -->"
-        )
+        markdown_text = docling_doc.export_to_markdown(page_break_placeholder="<!-- PB -->")
 
         # 3. Extract patent ID and title
         patent_id = self._extract_patent_id(pdf_path, markdown_text)
@@ -209,7 +208,7 @@ class PatentPDFParser:
         # 6. Build metadata
         page_count = len(docling_doc.pages) if docling_doc.pages else 0
         metadata = {
-            "filename": os.path.basename(pdf_path),
+            "filename": Path(pdf_path).name,
             "total_pages": page_count,
             "extraction_method": "docling",
             "table_pages": table_pages,
@@ -270,11 +269,14 @@ class PatentPDFParser:
                 section_last_page.setdefault(section_name, current_page)
                 continue
 
-            # Emit a page marker when the page changes within a section
-            if section_last_page.get(section_name) != current_page:
-                section_lines.setdefault(section_name, []).append(
-                    f"<!-- PB:{current_page} -->"
-                )
+            # Emit a page marker when:
+            # 1. This is the first content line in the section (to establish initial page)
+            # 2. The page changes within a section
+            section_list = section_lines.get(section_name, [])
+            is_first_content_line = len(section_list) == 0
+
+            if is_first_content_line or section_last_page.get(section_name) != current_page:
+                section_lines.setdefault(section_name, []).append(f"<!-- PB:{current_page} -->")
                 section_last_page[section_name] = current_page
 
             section_lines.setdefault(section_name, []).append(line)
@@ -291,10 +293,7 @@ class PatentPDFParser:
         stripped = line.strip()
         if not stripped:
             return False  # keep blank lines for paragraph splitting
-        for pattern in _NOISE_PATTERNS:
-            if pattern.match(stripped):
-                return True
-        return False
+        return any(pattern.match(stripped) for pattern in _NOISE_PATTERNS)
 
     @staticmethod
     def _extract_tables(docling_doc) -> tuple[list[str], list[int]]:
@@ -322,7 +321,7 @@ class PatentPDFParser:
     @staticmethod
     def _extract_patent_id(pdf_path: str, markdown_text: str) -> str:
         """Extract patent ID from filename or first page text."""
-        filename = os.path.basename(pdf_path)
+        filename = Path(pdf_path).name
 
         # Try filename first
         match = re.search(r"(EP|US|WO|CN)\d+", filename, re.IGNORECASE)
@@ -335,10 +334,10 @@ class PatentPDFParser:
         if match:
             return re.sub(r"\s+", "", match.group(0)).upper()
 
-        return os.path.splitext(filename)[0]
+        return Path(filename).stem
 
     @staticmethod
-    def _extract_title(docling_doc, markdown_text: str) -> str:
+    def _extract_title(_docling_doc, markdown_text: str) -> str:
         """Title extraction: prefer (54) INID heading, fallback to first substantial heading."""
         for line in markdown_text.splitlines():
             stripped = line.strip()
@@ -498,17 +497,15 @@ class PatentPDFParser:
             i += 1
 
         # Kind code from filename (e.g. EP1577413_A1.pdf -> A1)
-        kind_match = re.search(
-            r"_([A-Z]\d)\.pdf$", os.path.basename(pdf_path), re.IGNORECASE
-        )
+        kind_match = re.search(r"_([A-Z]\d)\.pdf$", Path(pdf_path).name, re.IGNORECASE)
         if kind_match:
             metadata["kind_code"] = kind_match.group(1).upper()
 
         # Decode HTML entities (e.g. &amp; -> &) from Markdown source
-        for key, val in metadata.items():
+        for key, val in list(metadata.items()):
             if isinstance(val, str):
                 metadata[key] = html.unescape(val)
-            elif isinstance(val, list):
+            elif val is not None and isinstance(val, list):
                 metadata[key] = [html.unescape(v) if isinstance(v, str) else v for v in val]
 
         return metadata

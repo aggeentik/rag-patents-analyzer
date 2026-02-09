@@ -1,8 +1,6 @@
 """Hybrid retrieval combining BM25, Semantic, and Graph retrievers using RRF."""
 
 import logging
-from collections import defaultdict
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -22,8 +20,8 @@ class HybridRetriever:
         bm25_retriever=None,
         semantic_retriever=None,
         graph_retriever=None,
-        weights: Optional[dict[str, float]] = None,
-        rrf_k: int = 60
+        weights: dict[str, float] | None = None,
+        rrf_k: int = 60,
     ):
         """
         Initialize hybrid retriever.
@@ -41,11 +39,7 @@ class HybridRetriever:
         self.rrf_k = rrf_k
 
         # Default weights: BM25 and Semantic get equal weight, Graph gets less
-        self.weights = weights or {
-            "bm25": 1.0,
-            "semantic": 1.0,
-            "graph": 0.5
-        }
+        self.weights = weights or {"bm25": 1.0, "semantic": 1.0, "graph": 0.5}
 
         # Track which retrievers are available
         self.active_retrievers = []
@@ -58,12 +52,7 @@ class HybridRetriever:
 
         logger.info("Hybrid retriever initialized with: %s", ", ".join(self.active_retrievers))
 
-    def search(
-        self,
-        query: str,
-        top_k: int = 10,
-        retriever_top_k: Optional[int] = None
-    ) -> list[dict]:
+    def search(self, query: str, top_k: int = 10, retriever_top_k: int | None = None) -> list[dict]:
         """
         Search using hybrid retrieval with RRF fusion.
 
@@ -122,7 +111,7 @@ class HybridRetriever:
 
         # Calculate RRF scores
         logger.debug("Calculating RRF fusion scores...")
-        for chunk_id, chunk in all_results.items():
+        for _chunk_id, chunk in all_results.items():
             rrf_score = 0.0
             score_breakdown = []
 
@@ -148,11 +137,9 @@ class HybridRetriever:
             chunk["score_breakdown"] = " + ".join(score_breakdown)
 
         # Sort by RRF score and return top-k
-        ranked_results = sorted(
-            all_results.values(),
-            key=lambda x: x["rrf_score"],
-            reverse=True
-        )[:top_k]
+        ranked_results = sorted(all_results.values(), key=lambda x: x["rrf_score"], reverse=True)[
+            :top_k
+        ]
 
         # Add final ranks
         for rank, result in enumerate(ranked_results, 1):
@@ -182,7 +169,7 @@ class HybridRetriever:
             "bm25_hits": 0,
             "semantic_hits": 0,
             "graph_hits": 0,
-            "multi_retriever_hits": 0
+            "multi_retriever_hits": 0,
         }
 
         for result in results:
