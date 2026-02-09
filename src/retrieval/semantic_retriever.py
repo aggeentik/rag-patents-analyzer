@@ -94,5 +94,7 @@ class SemanticRetriever:
         with open(mapping_path, "r") as f:
             retriever.chunk_ids = json.load(f)
 
-        logger.info("Semantic retriever loaded successfully with %d chunks", len(retriever.chunk_ids))
+        logger.info(
+            "Semantic retriever loaded successfully with %d chunks", len(retriever.chunk_ids)
+        )
         return retriever

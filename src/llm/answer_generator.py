@@ -190,7 +190,11 @@ QUESTION:
 INSTRUCTIONS:
 1. Provide a comprehensive answer based ONLY on the information in the patent excerpts
 2. Include specific technical details, numerical values, and formulas when available
-3. Reference the source numbers [Source X] when citing specific information
+3. **CRITICAL**: When citing information, you MUST use ONLY the source number format: [Source 1], [Source 2], etc.
+   - DO NOT mention section names, page numbers, or patent IDs directly in your answer
+   - DO use: "according to [Source 1]", "as shown in [Source 2]", "[Source 1, Source 3]"
+   - DO NOT use: "Section 0002 (Page 2)", "EP1816226", "Page 10", etc.
+   Example: "The steel contains 0.05% Si [Source 1], which improves yield stress [Source 2]."
 4. If the excerpts don't contain enough information to answer completely, state what's missing
 5. Organize your answer clearly with sections if answering multiple aspects
 6. Use technical language appropriate for patent analysis
@@ -206,9 +210,14 @@ ANSWER:"""
 Your role is to:
 - Analyze patent documents and extract relevant technical information
 - Provide accurate, detailed answers based on patent content
-- Cite sources and reference specific patent sections
+- Cite sources using ONLY the [Source X] format provided in the excerpts (never mention section names, page numbers, or patent IDs directly)
 - Explain complex metallurgical processes and compositions
 - Identify key innovations, methods, and technical specifications
+
+CITATION FORMAT RULES:
+- Use [Source 1], [Source 2], etc. when referencing information
+- NEVER write section numbers, page numbers, or patent IDs in your answer text
+- The source numbers are clickable links that will show the user the exact location
 
 Always base your answers on the provided patent excerpts. If information is not available in the excerpts, clearly state this limitation."""
 
@@ -233,6 +242,8 @@ Provide a concise summary highlighting:
 2. Key materials, compositions, or elements mentioned
 3. Important process parameters or conditions
 4. Notable results or achievements
+
+IMPORTANT: Cite information using [Source X] format only. Do not mention section names or page numbers directly.
 
 SUMMARY:"""
 
@@ -283,6 +294,8 @@ Provide a detailed comparison highlighting:
 2. Key differences in methods, materials, or results
 3. Relative advantages or disadvantages
 4. Technical innovations unique to each
+
+IMPORTANT: Cite information using [Source X] format only. Do not mention section names or page numbers directly.
 
 COMPARISON:"""
 

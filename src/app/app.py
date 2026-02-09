@@ -21,7 +21,7 @@ import streamlit.components.v1 as components
 project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
-from src.logging_config import setup_logging
+from src.logging_config import setup_logging  # noqa: E402
 
 # --- Constants ---
 RAW_DIR = project_root / "data" / "raw"
@@ -276,7 +276,7 @@ def _make_citation_span(num: int, source_map: dict[int, str]) -> str | None:
     idx = num - 1  # 0-based index for DOM matching
     return (
         f'<span class="source-ref" data-source-idx="{idx}" '
-        f'title="Click to view source">[{label}]</span>'
+        f'title="Click to view source">[{num}][{label}]</span>'
     )
 
 
@@ -383,7 +383,7 @@ def render_sources(results: list[dict], patent_files: dict[str, str]):
         display_id = Path(patent_files.get(patent_id, "")).stem or patent_id
         page_str = f" | Page {page}" if page else ""
         section_str = f" | {section}" if section else ""
-        header = f"#{rank}  {display_id}{section_str}{page_str}  —  RRF {rrf:.4f}"
+        header = f"**[{rank}]** {display_id}{section_str}{page_str} — RRF {rrf:.4f}"
 
         with st.expander(header):
             st.text(content)
@@ -551,13 +551,50 @@ def main():
             patent_selection_dialog(patents_info)
 
         st.header("Search")
-        top_k = st.slider("Results to retrieve", 3, 20, 10, key="top_k")
-
+        top_k = st.slider(
+            "Search results to retrieve",
+            3,
+            20,
+            10,
+            key="top_k",
+            help="Higher values include more results based on related topics and connections",
+        )
+        max_context = st.slider(
+            "Search results used per answer",
+            1,
+            10,
+            5,
+            key="max_ctx",
+            help="How much information is used to generate the answer (Context chunks)",
+        )
         with st.expander("Settings"):
-            max_context = st.slider("Context chunks", 1, 10, 5, key="max_ctx")
-            st.slider("BM25 weight", 0.0, 2.0, 1.0, 0.1, key="w_bm25")
-            st.slider("Semantic weight", 0.0, 2.0, 1.0, 0.1, key="w_sem")
-            st.slider("Knowledge graph weight", 0.0, 2.0, 0.5, 0.1, key="w_graph")
+            st.slider(
+                "Keyword matching",
+                0.0,
+                2.0,
+                1.0,
+                0.1,
+                key="w_bm25",
+                help="Higher values favor results with exact matching terms (BM25 weight)",
+            )
+            st.slider(
+                "Conceptual matching",
+                0.0,
+                2.0,
+                1.0,
+                0.1,
+                key="w_sem",
+                help="Higher values find results with similar meanings (Semantic weight)",
+            )
+            st.slider(
+                "Related concepts",
+                0.0,
+                2.0,
+                0.5,
+                0.1,
+                key="w_graph",
+                help="Higher values include results based on related topics and connections (Knowledge graph weight)",
+            )
 
     # ------------------------------------------------------------------
     # Main content
