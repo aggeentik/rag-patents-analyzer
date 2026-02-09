@@ -1,0 +1,830 @@
+# Patents Analyzer — Pipeline Explained
+
+A plain-English walkthrough of the entire system: how patent PDFs become searchable knowledge, and how questions get answered.
+
+---
+
+## Table of Contents
+
+1. [The Big Picture](#1-the-big-picture)
+2. [Data Ingestion Pipeline](#2-data-ingestion-pipeline)
+   - [Phase 1: PDF Parsing (Docling)](#phase-1-pdf-parsing-docling)
+   - [Phase 2: Chunking (Atomic Units)](#phase-2-chunking-atomic-units)
+   - [Phase 3: Entity Extraction](#phase-3-entity-extraction)
+   - [Phase 4: Knowledge Graph Construction](#phase-4-knowledge-graph-construction)
+   - [Phase 5: Search Index Building](#phase-5-search-index-building)
+   - [Output Files](#output-files)
+3. [Retrieval — Finding Relevant Chunks](#3-retrieval--finding-relevant-chunks)
+   - [BM25 — Exact Word Matching](#bm25--exact-word-matching)
+   - [Semantic — Meaning Matching](#semantic--meaning-matching)
+   - [Graph — Relationship Walking](#graph--relationship-walking)
+   - [Weights — How Much to Trust Each Expert](#weights--how-much-to-trust-each-expert)
+   - [RRF — Reciprocal Rank Fusion](#rrf--reciprocal-rank-fusion)
+4. [Generation — Producing Answers](#4-generation--producing-answers)
+   - [Context Building](#context-building)
+   - [Prompt Construction](#prompt-construction)
+   - [LLM Call](#llm-call)
+   - [Response Structure](#response-structure)
+5. [End-to-End Example](#5-end-to-end-example)
+
+---
+
+## 1. The Big Picture
+
+The system has two main flows: **ingestion** (offline, run once) and **retrieval + generation** (online, per question).
+
+```
+                        OFFLINE (run once)
+  ┌─────────┐         ┌─────────────┐          ┌──────────────┐
+  │ EP...pdf │         │patents.json │          │ bm25_index   │
+  │ US...pdf │  ───►   │  kg.db      │   ───►   │ faiss.index  │
+  │ WO...pdf │         │             │          │ chunk_ids    │
+  └─────────┘         └─────────────┘          └──────────────┘
+   Raw PDFs            Structured data          Search indices
+
+
+                         ONLINE (per question)
+  ┌──────────┐     ┌──────────────┐     ┌──────────┐     ┌────────┐
+  │ User     │────►│   Hybrid     │────►│  Answer  │────►│ Answer │
+  │ Question │     │  Retrieval   │     │Generator │     │+Sources│
+  └──────────┘     └──────────────┘     └──────────┘     └────────┘
+                   BM25+Semantic+Graph    LLM (Ollama/
+                   finds best chunks      Bedrock/OpenAI)
+```
+
+---
+
+## 2. Data Ingestion Pipeline
+
+**Script:** `scripts/data_ingestion_pipeline.py`
+
+The pipeline takes raw patent PDFs and produces everything the search system needs. For each PDF, it runs four phases sequentially, then two final phases across all patents:
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│                    FOR EACH PDF FILE                             │
+│                                                                  │
+│  ┌─────────┐    ┌─────────┐    ┌──────────┐    ┌────────────┐  │
+│  │ Phase 1 │───►│ Phase 2 │───►│ Phase 3  │───►│  Phase 4   │  │
+│  │PDF Parse│    │ Chunking│    │ Entities │    │ KG Collect │  │
+│  └─────────┘    └─────────┘    └──────────┘    └────────────┘  │
+│                                                                  │
+└──────────────────────────────────────────────────────────────────┘
+                          │
+                          ▼
+              ┌───────────────────────┐
+              │       Phase 5         │
+              │ Build Relationships   │
+              │ (across ALL patents)  │
+              └───────────────────────┘
+                          │
+                          ▼
+          ┌───────────────────────────────┐
+          │          Phase 6              │
+          │  Save JSON + KG + Indices     │
+          └───────────────────────────────┘
+```
+
+---
+
+### Phase 1: PDF Parsing (Docling)
+
+**File:** `src/extraction/pdf_parser.py`
+
+**What it does:** Takes a raw patent PDF and produces a structured `PatentDocument` with labeled sections and extracted tables.
+
+```
+                     ┌────────────────┐
+  EP1577413_A1.pdf   │    Docling     │
+  ┌──────────────┐   │  Document      │    ┌────────────────────┐
+  │ Multi-column │──►│  Converter     │───►│  Full Markdown     │
+  │ PDF with     │   │  (pypdfium2    │    │  text of the       │
+  │ tables,      │   │   backend)     │    │  entire patent     │
+  │ formulas     │   └────────────────┘    └────────┬───────────┘
+  └──────────────┘                                  │
+                                                    ▼
+                                         ┌─────────────────────┐
+                                         │  State Machine      │
+                                         │  Section Detector   │
+                                         │                     │
+                                         │  Scans each line:   │
+                                         │  "## CLAIMS" ──► ok │
+                                         │  "## ABSTRACT" ──► ok│
+                                         │  "## DESCRIPTION"─► ok│
+                                         └────────┬────────────┘
+                                                  │
+                                                  ▼
+                              ┌─────────────────────────────────┐
+                              │       PatentDocument            │
+                              │                                 │
+                              │  patent_id: "EP1577413"         │
+                              │  title: "Non-oriented elec..."  │
+                              │  sections:                      │
+                              │    "abstract": "This inven..."  │
+                              │    "claims":   "1. An Fe-C..."  │
+                              │    "description": "[0001]..."   │
+                              │    "examples":  "Example 1..."  │
+                              │  tables_markdown:               │
+                              │    ["| Si | Cr | ... |", ...]   │
+                              └─────────────────────────────────┘
+```
+
+**How the state machine works:**
+
+Docling converts the PDF into Markdown. The state machine then walks through this Markdown line by line. It keeps track of which patent section it's currently "inside." Every time it sees a heading like `## CLAIMS`, it transitions to the new section. All subsequent lines belong to that section until the next heading.
+
+```
+Markdown from Docling                    State Machine
+─────────────────────                    ─────────────
+
+"## ABSTRACT"                    ──►     state = ABSTRACT
+"This invention relates to..."           belongs to ABSTRACT
+"a non-oriented electrical..."           belongs to ABSTRACT
+
+"## CLAIMS"                      ──►     state = CLAIMS
+"1. An Fe-Cr-Si based..."               belongs to CLAIMS
+"2. The steel sheet of..."               belongs to CLAIMS
+
+"## DETAILED DESCRIPTION"       ──►     state = DESCRIPTION
+"[0001] The present invention..."        belongs to DESCRIPTION
+"[0002] In this embodiment..."           belongs to DESCRIPTION
+```
+
+The recognized heading patterns are:
+
+| Heading Pattern | Section |
+|---|---|
+| `## ABSTRACT` | ABSTRACT |
+| `## CLAIMS` | CLAIMS |
+| `## BACKGROUND` | BACKGROUND |
+| `## DETAILED DESCRIPTION` | DESCRIPTION |
+| `## DESCRIPTION` | DESCRIPTION |
+| `## SUMMARY` | DESCRIPTION |
+| `## FIELD OF...` | BACKGROUND |
+| `## EXAMPLES` | EXAMPLES |
+| `## EMBODIMENTS` | EMBODIMENTS |
+| `## BRIEF DESCRIPTION OF DRAWINGS` | FIGURES |
+
+Lines before the first recognized heading default to `PREAMBLE` (the initial state). The heading line itself is consumed — only content below it is collected.
+
+**Other things that happen in this phase:**
+- **Page tracking:** Docling emits page-break placeholders between pages. The state machine counts these to track the current page number and embeds `<!-- PB:N -->` markers into the section text so the chunker can assign correct page numbers to each chunk. Table page numbers are extracted from Docling's provenance data.
+- **Noise filter:** Removes page headers (`EP 1 577 413 A1`), page numbers, and blank heading artifacts
+- **Table extraction:** Docling detects tables and exports each as a Markdown table
+- **Table stitching:** Patent tables often span page breaks, causing Docling to emit two separate tables for one logical table. The `TableStitcher` detects consecutive tables with the same column count and merges them back together
+
+---
+
+### Phase 2: Chunking (Atomic Units)
+
+**File:** `src/chunking/chunker.py`
+
+**What it does:** Splits each section into natural semantic units. Unlike traditional token-based chunking (which cuts at arbitrary positions), this strategy never splits mid-claim or mid-paragraph.
+
+```
+    PatentDocument                         list[PatentChunk]
+    ┌────────────┐                        ┌───────────────────────────┐
+    │            │                        │                           │
+    │  claims:   │    ┌────────────┐      │  CLAIM:  "1. An Fe-Cr.." │
+    │  "1. An..  │───►│ Split by   │──►   │  CLAIM:  "2. The sheet.."│
+    │   2. The.."│    │ claim num  │      │                           │
+    │            │    └────────────┘      │                           │
+    │ description│    ┌────────────┐      │  PARA:   "[0001] The.."  │
+    │  "[0001].."│───►│ Split by   │──►   │  PARA:   "[0002] In.."   │
+    │  "[0002].."│    │ [00XX] tag │      │                           │
+    │            │    └────────────┘      │                           │
+    │ tables_md: │    ┌────────────┐      │                           │
+    │  ["| A |."]│───►│ 1 table =  │──►   │  TABLE:  "| A | B |.."   │
+    │            │    │ 1 chunk    │      │                           │
+    └────────────┘    └────────────┘      └───────────────────────────┘
+```
+
+**Chunking rules by section type:**
+
+| Section | Split Strategy | chunk_type |
+|---|---|---|
+| Claims | Each numbered claim (`1.`, `2.`, ...) is one chunk, never split | `claim` |
+| Description, Background, Examples, etc. | Split by `[00XX]` paragraph tags; fallback to blank lines | `paragraph` |
+| Tables | Entire Markdown table = one chunk | `table` |
+| Paragraphs containing formulas | Same as above, but tagged differently | `formula` |
+
+**Page number assignment:**
+
+Each chunk receives a page number from `<!-- PB:N -->` markers embedded during parsing. The chunker reads the first marker in each paragraph/claim block and propagates it forward — so paragraphs without an explicit marker inherit the page of the previous paragraph. Markers are stripped from chunk content after extraction. Table chunks receive their page numbers directly from Docling's provenance metadata.
+
+**Cross-reference resolution:**
+
+Each chunk also gets its cross-references resolved. If the text says "Table 1", a `StructuredReference` is created mapping it to a patent-scoped ID like `EP1577413_TABLE_01`.
+
+---
+
+### Phase 3: Entity Extraction
+
+**File:** `src/extraction/entity_extractor.py`
+
+**What it does:** Scans each chunk's text with regex patterns to find chemical elements, properties, processes, and references. Optionally uses an LLM for richer extraction.
+
+```
+  PatentChunk                              list[Entity]
+  ┌───────────────────────┐               ┌────────────────────────┐
+  │ "2.5% to 10% by mass  │  ──Regex──►  │ Si_range (2.5-10%)     │
+  │  of Si; 1.5% to 20%   │              │ Cr_range (1.5-20%)     │
+  │  by mass of Cr; ..."   │              │ C (0.006%)             │
+  └───────────────────────┘               └────────────────────────┘
+
+  PatentChunk                              list[Entity]
+  ┌───────────────────────┐               ┌────────────────────────┐
+  │ "annealing at 1100 C  │  ──Regex──►  │ Process: annealing     │
+  │  improves core loss   │              │   temp: 1100 C         │
+  │  to 3.2 W/kg"         │              │ Property: core_loss    │
+  └───────────────────────┘               │   value: 3.2 W/kg     │
+                                          └────────────────────────┘
+```
+
+**What gets extracted:**
+
+| Pattern | Example Match | Entity Type |
+|---|---|---|
+| Element-first value | `Si: 2.5%` | CHEMICAL_ELEMENT |
+| Element-first range | `Si: 2.5-10%` | COMPOSITION_RANGE |
+| Value-first range (claims) | `2.5% to 10% by mass of Si` | COMPOSITION_RANGE |
+| Value-first single (claims) | `0.006% by mass or less of C` | CHEMICAL_ELEMENT |
+| Material properties | `yield stress 500 MPa` | PROPERTY |
+| Process steps | `annealing at 1100 C` | PROCESS |
+| Table references | `Table 1` | TABLE |
+| Formula references | `Formula (2)` | FORMULA |
+| Figure references | `FIG. 3` | FIGURE |
+| Sample identifiers | `Sample A1` | SAMPLE |
+
+**Optional LLM extraction (`--use-llm-extraction`):**
+
+When enabled, the system also calls an LLM (via the `instructor` library) to extract structured `ChunkExtractionResult` objects with compositions, properties, and processes. The LLM results are merged with regex results. This catches things regex misses but costs time and API calls.
+
+---
+
+### Phase 4: Knowledge Graph Construction
+
+**File:** `src/knowledge_graph/builder.py`
+
+**What it does:** After all chunks from a patent are processed, entities are collected into the `KnowledgeGraphBuilder`. Duplicates (same entity appearing in multiple chunks) get their `chunk_ids` merged.
+
+Then, across **all** chunks from **all** patents, the builder infers relationships from co-occurrence:
+
+```
+  ┌────────────────────────────────────────────────────────────┐
+  │                 RELATIONSHIP INFERENCE                      │
+  │                                                            │
+  │  For each chunk, look at which entities co-occur:          │
+  │                                                            │
+  │  DESCRIBED_IN:  Every entity ──────────► its chunk         │
+  │  AFFECTS:       Chemical Element + Property in same chunk  │
+  │  REQUIRES:      Process with temperature parameter         │
+  │  REFERENCES:    Chunk ──────────► Table/Formula entity     │
+  │  MEASURED_IN:   Property found inside a table chunk        │
+  │  MENTIONS:      Text chunk says "Table 1" ──► table chunk │
+  └────────────────────────────────────────────────────────────┘
+```
+
+**Example graph fragment:**
+
+```
+         Si ──AFFECTS──► core_loss
+         │                  │
+    DESCRIBED_IN        MEASURED_IN
+         │                  │
+         ▼                  ▼
+    chunk_0042         table_chunk_0089
+         │                  ▲
+         └──── MENTIONS ────┘
+        ("As shown in Table 1...")
+```
+
+---
+
+### Phase 5: Search Index Building
+
+Two search indices are built from the chunk list:
+
+**BM25 index** (`bm25_index.pkl`):
+- Tokenizes every chunk's text with NLTK word tokenizer
+- Builds a BM25Okapi model (a statistical keyword-matching algorithm)
+- Saved as a serialized file
+
+**FAISS index** (`faiss.index` + `chunk_ids.json`):
+- Encodes every chunk's text into a 384-dimensional vector using the `all-MiniLM-L6-v2` sentence-transformer model
+- Normalizes vectors for cosine similarity
+- Stores in a FAISS flat inner-product index
+- Saves a separate JSON mapping from FAISS position to chunk_id
+
+---
+
+### Output Files
+
+```
+  data/processed/
+  ├── patents.json          Flat list of all chunks + patent summaries
+  │   ┌─────────────────────────────────────────────────────┐
+  │   │ { "patents": [{patent_id, title, num_chunks}],      │
+  │   │   "chunks": [{chunk_id, patent_id, content,         │
+  │   │              metadata: {section, page, type},        │
+  │   │              entities: [...], references: [...]}],   │
+  │   │   "total_chunks": 405 }                             │
+  │   └─────────────────────────────────────────────────────┘
+  │
+  ├── knowledge_graph.db    SQLite database
+  │   ├── entities table:      id, type, name, properties
+  │   ├── relationships table: id, type, source_id, target_id
+  │   └── chunk_entities:      chunk_id <-> entity_id mapping
+  │
+  ├── bm25_index.pkl        BM25Okapi model + tokenized corpus
+  ├── faiss.index           384-dim normalized vectors
+  └── chunk_ids.json        FAISS position -> chunk_id mapping
+```
+
+---
+
+### Complete Ingestion Flow Summary
+
+```
+  data/raw/*.pdf
+       │
+       ▼
+  ┌──────────────────────────────────────────────────────┐
+  │  For each PDF:                                       │
+  │                                                      │
+  │  1. Docling converts PDF ──► Markdown                │
+  │  2. State machine labels sections (claims, desc...)  │
+  │  3. Table stitcher merges page-split tables          │
+  │                     ↓                                │
+  │           PatentDocument                             │
+  │                     ↓                                │
+  │  4. Chunker splits into atomic units                 │
+  │     (paragraphs, claims, tables, formulas)           │
+  │                     ↓                                │
+  │           list[PatentChunk]                          │
+  │                     ↓                                │
+  │  5. Entity extractor runs regex (+ optional LLM)     │
+  │     on each chunk ──► attaches entities to chunk     │
+  │  6. Entities collected into KG builder               │
+  └──────────────────────────────────────────────────────┘
+       │
+       ▼
+  7. KG builder infers relationships across ALL chunks
+       │
+       ▼
+  8. Save:
+     ├── patents.json       (flat list of chunk dicts)
+     ├── knowledge_graph.db (entities + relationships)
+     ├── bm25_index.pkl     (keyword index)
+     ├── faiss.index        (vector index)
+     └── chunk_ids.json     (FAISS mapping)
+```
+
+**Running it:**
+```bash
+# All PDFs in data/raw/
+uv run python scripts/data_ingestion_pipeline.py
+
+# Specific PDF
+uv run python scripts/data_ingestion_pipeline.py EP1577413_A1.pdf
+
+# With LLM-enhanced extraction
+uv run python scripts/data_ingestion_pipeline.py --use-llm-extraction
+```
+
+Typical output for one patent: ~400 chunks, ~20-50 entities, ~200 relationships.
+
+---
+
+## 3. Retrieval — Finding Relevant Chunks
+
+When you ask a question, the system needs to find the most relevant chunks from `patents.json`. It runs **three completely different search strategies** in parallel, then combines their results.
+
+Think of it like asking three different experts the same question. Each one finds answers using a different method:
+
+```
+  User Query: "What is the effect of silicon on magnetic properties?"
+                          │
+          ┌───────────────┼───────────────┐
+          ▼               ▼               ▼
+     ┌─────────┐    ┌──────────┐    ┌──────────┐
+     │  BM25   │    │ Semantic │    │  Graph   │
+     │ (words) │    │ (meaning)│    │ (links)  │
+     └────┬────┘    └────┬─────┘    └────┬─────┘
+          │              │               │
+          ▼              ▼               ▼
+     Ranked list    Ranked list     Ranked list
+     of chunks      of chunks       of chunks
+          │              │               │
+          └──────────┬───┘───────────────┘
+                     ▼
+              ┌─────────────┐
+              │  RRF Fusion │
+              │  (combine)  │
+              └──────┬──────┘
+                     ▼
+              Final ranked list
+```
+
+---
+
+### BM25 — Exact Word Matching
+
+**File:** `src/retrieval/bm25_retriever.py`
+
+**What it does:** Counts how many of your query words appear in each chunk, weighted by how rare those words are.
+
+**How it thinks:** "The user said 'silicon'. Let me find every chunk that literally contains the word 'silicon'. Chunks where 'silicon' appears more often, and where 'silicon' is a rare word in the overall corpus, get higher scores."
+
+```
+  Query: "effect of silicon on magnetic properties"
+                    │
+                    ▼
+  Tokenize: ["effect", "of", "silicon", "on", "magnetic", "properties"]
+                    │
+                    ▼
+  Score every chunk by word overlap:
+
+  Chunk 0042: "silicon content of 3.2% improves magnetic flux..."
+              has "silicon", "magnetic"              Score: 8.7
+
+  Chunk 0089: "Table 1 shows magnetic properties for various..."
+              has "magnetic", "properties"           Score: 5.2
+
+  Chunk 0003: "the annealing temperature was set to 1100 C..."
+              no matching words                      Score: 0.1
+```
+
+**Good at:** Finding chunks with exact technical terms — chemical symbols like "Si", specific values like "3.2 W/kg", precise terminology.
+
+**Bad at:** Understanding that "silicon" and "Si" mean the same thing, or that "improves core loss" is related to "magnetic properties."
+
+---
+
+### Semantic — Meaning Matching
+
+**File:** `src/retrieval/semantic_retriever.py`
+
+**What it does:** Converts both the query and every chunk into 384-dimensional vectors (using the `all-MiniLM-L6-v2` neural network), then finds chunks whose vectors are closest to the query vector using FAISS.
+
+**How it thinks:** "I don't care about exact words. I understand that 'effect of silicon on magnetic properties' *means something*. Let me find chunks that talk about *similar things*, even if they use completely different words."
+
+```
+  Query: "effect of silicon on magnetic properties"
+                    │
+                    ▼
+  Encode into 384-dim vector: [0.12, -0.34, 0.56, ...]
+                    │
+                    ▼
+  Find nearest vectors in FAISS index:
+
+  Chunk 0042: "Si content affects core loss and B8 values..."
+              talks about same concept              Cosine: 0.87
+
+  Chunk 0015: "adding Si reduces iron loss in the steel..."
+              same topic, different words            Cosine: 0.81
+
+  Chunk 0200: "chromium improves corrosion resistance..."
+              different topic entirely               Cosine: 0.23
+```
+
+**Good at:** Understanding synonyms and paraphrases. "Si" = "silicon", "core loss" relates to "magnetic properties", "iron loss" = "core loss".
+
+**Bad at:** Specific numeric values. It won't distinguish "3.2% Si" from "6.5% Si" — they look similar in vector space.
+
+---
+
+### Graph — Relationship Walking
+
+**File:** `src/retrieval/graph_retriever.py`
+
+**What it does:** Extracts entities from your query, finds them in the knowledge graph, then walks along the graph edges (relationships) to find connected chunks.
+
+**How it thinks:** "The user mentioned 'silicon' and 'magnetic properties'. I know from the knowledge graph that Silicon AFFECTS core_loss, and core_loss is MEASURED_IN Table 3. Let me follow those links to find relevant chunks."
+
+```
+  Query: "effect of silicon on magnetic properties"
+                    │
+                    ▼
+  Extract entities from query: [Si, magnetic_flux, core_loss]
+                    │
+                    ▼
+  Find in knowledge graph and walk edges:
+
+       Si ──AFFECTS──► core_loss ──MEASURED_IN──► chunk_table_3
+       │                   │
+  DESCRIBED_IN        DESCRIBED_IN
+       │                   │
+       ▼                   ▼
+  chunk_0042           chunk_0089
+
+  Walk graph (BFS, up to 2 hops):
+
+  Hop 0 (direct):  chunks containing Si         -> score 1.0
+  Hop 1 (1 away):  chunks linked to Si's chunk  -> score 0.5  (decayed)
+  Hop 2 (2 away):  chunks 2 links away          -> score 0.25 (decayed more)
+```
+
+The score decays exponentially with distance: `score = 0.5 ^ hop_count`. Direct matches get 1.0, one hop away gets 0.5, two hops gets 0.25.
+
+**Good at:** Finding chunks that are *structurally* related — a table that contains measurements for an element mentioned in your query, even if the table text doesn't contain the word "silicon" at all.
+
+**Bad at:** Queries about topics where no entities were extracted (generic questions, conceptual queries without chemical symbols or property names).
+
+---
+
+### Weights — How Much to Trust Each Expert
+
+The weights control how much each retriever's opinion matters in the final combined score:
+
+```
+  Default weights:
+  ┌──────────────────────────────────────────┐
+  │  BM25:      1.0  (full trust)            │
+  │  Semantic:  1.0  (full trust)            │
+  │  Graph:     0.5  (half trust)            │
+  └──────────────────────────────────────────┘
+```
+
+**Why Graph gets 0.5?** Because it only works when entities are found in the query. For many queries it returns nothing. When it does find something, it's valuable — but it's less consistently useful than the other two, so it gets half weight.
+
+**What the weight does concretely:** It multiplies the retriever's RRF score contribution:
+
+```
+  If BM25  ranks a chunk #1:  contribution = 1.0 x 1/(60+1) = 0.01639
+  If Semantic ranks it #3:    contribution = 1.0 x 1/(60+3) = 0.01587
+  If Graph ranks it #5:       contribution = 0.5 x 1/(60+5) = 0.00769
+                                                               ───────
+                                               Total RRF score: 0.03995
+```
+
+Higher weight = that retriever has more influence on the final ranking.
+
+---
+
+### RRF — Reciprocal Rank Fusion
+
+**File:** `src/retrieval/hybrid_retriever.py`
+
+RRF is the formula that merges three ranked lists into one final ranking. The key idea:
+
+> **It doesn't care about raw scores. It only cares about rank position.**
+
+Why? Because BM25 scores might be 0-15, semantic scores might be 0.0-1.0, and graph scores might be 0-5. You can't add those directly — they're on completely different scales. But rank #1 means "best result" in every retriever. So RRF works with ranks instead.
+
+**The formula:**
+
+```
+  RRF_score(chunk) = weight_bm25  x 1/(k + rank_bm25)
+                   + weight_sem   x 1/(k + rank_semantic)
+                   + weight_graph x 1/(k + rank_graph)
+
+  where k = 60 (a smoothing constant)
+```
+
+**Worked example:**
+
+```
+  Query: "effect of silicon on magnetic properties"
+
+  BM25 returns:       Semantic returns:     Graph returns:
+  #1  chunk_0042      #1  chunk_0015        #1  chunk_0042
+  #2  chunk_0089      #2  chunk_0042        #2  chunk_0089
+  #3  chunk_0015      #3  chunk_0055        #3  chunk_0033
+  #4  chunk_0100      #4  chunk_0089
+```
+
+Calculate RRF for each chunk:
+
+```
+  chunk_0042:
+    BM25 rank #1:      1.0 x 1/(60+1) = 0.01639
+    Semantic rank #2:   1.0 x 1/(60+2) = 0.01613
+    Graph rank #1:      0.5 x 1/(60+1) = 0.00820
+                                  Total = 0.04072  <-- HIGHEST
+
+  chunk_0089:
+    BM25 rank #2:      1.0 x 1/(60+2) = 0.01613
+    Semantic rank #4:   1.0 x 1/(60+4) = 0.01563
+    Graph rank #2:      0.5 x 1/(60+2) = 0.00806
+                                  Total = 0.03982
+
+  chunk_0015:
+    BM25 rank #3:      1.0 x 1/(60+3) = 0.01587
+    Semantic rank #1:   1.0 x 1/(60+1) = 0.01639
+    Graph: not found                    = 0.00000
+                                  Total = 0.03226
+
+  chunk_0055:
+    BM25: not found                     = 0.00000
+    Semantic rank #3:   1.0 x 1/(60+3) = 0.01587
+    Graph: not found                    = 0.00000
+                                  Total = 0.01587
+```
+
+**Final ranking:**
+```
+  #1  chunk_0042  (0.04072)  <-- found by ALL THREE retrievers
+  #2  chunk_0089  (0.03982)  <-- found by all three
+  #3  chunk_0015  (0.03226)  <-- found by BM25 + Semantic
+  #4  chunk_0055  (0.01587)  <-- found by Semantic only
+```
+
+**The key insight: chunks found by multiple retrievers bubble to the top.** A chunk that's rank #1 in just one retriever will lose to a chunk that's rank #2 in all three. This is why hybrid retrieval works better than any single method alone.
+
+**Why k = 60?**
+
+The constant `k` in the denominator `1/(k + rank)` controls how much the top positions matter:
+
+```
+  With k = 60:
+    Rank #1:  1/61 = 0.01639
+    Rank #2:  1/62 = 0.01613   <-- only 1.6% less than #1
+    Rank #30: 1/90 = 0.01111   <-- still 68% of #1's score
+
+  With k = 1 (hypothetical):
+    Rank #1:  1/2 = 0.500
+    Rank #2:  1/3 = 0.333      <-- 33% less than #1
+    Rank #30: 1/31 = 0.032     <-- only 6% of #1's score
+```
+
+A large `k` (60) flattens the rank differences — rank #1 and rank #5 get almost the same score. This means the system values *being found at all* more than *being found first*. That's good because the individual retrievers each have their own biases about what's "first."
+
+---
+
+## 4. Generation — Producing Answers
+
+**Files:** `src/llm/answer_generator.py`, `src/llm/llm_client.py`
+
+Once retrieval finds the best chunks, the generation step feeds them to an LLM to produce a human-readable answer.
+
+```
+  Top chunks from                                         Final answer
+  hybrid retrieval                                        with sources
+  ┌─────────────┐     ┌───────────────┐     ┌─────┐     ┌───────────┐
+  │ chunk_0042  │────►│    Build      │────►│     │────►│ "Silicon   │
+  │ chunk_0089  │     │   context     │     │ LLM │     │  content   │
+  │ chunk_0015  │     │   + prompt    │     │     │     │  of 2.5-10%│
+  │ chunk_0100  │     │              │     │     │     │  improves  │
+  │ chunk_0033  │     └───────────────┘     └─────┘     │  [Source 1]│
+  └─────────────┘                                       └───────────┘
+```
+
+The generation pipeline has three steps:
+
+---
+
+### Context Building
+
+The top chunks (default: 5) are formatted into a context string. Each chunk gets a `[Source N]` label and its metadata:
+
+```
+  [Source 1] (Patent: EP1577413, Section: description, Page: 5)
+  [0042] Silicon content of 3.2% by mass significantly improves
+  the magnetic flux density B8 to values above 1.89 T...
+
+  [Source 2] (Patent: EP1577413, Section: examples, Page: 12)
+  Table 3 shows the measured core loss values for samples with
+  varying Si content from 2.5% to 6.5%...
+
+  [Source 3] (Patent: EP1577413, Section: claims, Page: 1)
+  1. An Fe-Cr-Si based non-oriented electrical steel sheet
+  comprising 2.5% to 10% by mass of Si...
+```
+
+---
+
+### Prompt Construction
+
+The context and the user's question are assembled into a structured prompt with instructions:
+
+```
+  ┌────────────────────────────────────────────────────────────┐
+  │  SYSTEM MESSAGE:                                           │
+  │  "You are a patent analysis assistant specializing         │
+  │   in steel manufacturing and metallurgy..."                │
+  │                                                            │
+  │  USER MESSAGE:                                             │
+  │  "Based on the following patent excerpts, answer           │
+  │   the question below.                                      │
+  │                                                            │
+  │   PATENT EXCERPTS:                                         │
+  │   [Source 1] ... [Source 2] ... [Source 3] ...              │
+  │                                                            │
+  │   QUESTION:                                                │
+  │   What is the effect of silicon on magnetic properties?    │
+  │                                                            │
+  │   INSTRUCTIONS:                                            │
+  │   1. Answer based ONLY on the patent excerpts              │
+  │   2. Include specific values and formulas                  │
+  │   3. Reference [Source X] when citing information           │
+  │   4. State what's missing if excerpts are incomplete        │
+  │   5. Organize clearly with sections                        │
+  │   6. Use technical language for patent analysis"           │
+  └────────────────────────────────────────────────────────────┘
+```
+
+The key instruction is #1: **answer based ONLY on the provided excerpts**. This is what makes it RAG (Retrieval-Augmented Generation) — the LLM doesn't make things up from general knowledge, it cites from the actual patent text.
+
+---
+
+### LLM Call
+
+The prompt is sent to whichever LLM provider is configured via `LLMClient`:
+
+```
+  ┌────────────────────────────────────────────────────────────┐
+  │  LLMClient (via LiteLLM — unified interface)              │
+  │                                                            │
+  │  Supported providers:                                      │
+  │  ┌─────────┐  ┌──────────┐  ┌──────────┐                 │
+  │  │ Ollama  │  │  AWS     │  │  OpenAI  │                 │
+  │  │ (local) │  │ Bedrock  │  │          │                 │
+  │  │         │  │          │  │          │                 │
+  │  │ llama2  │  │ Claude   │  │ GPT-4    │                 │
+  │  │ mistral │  │ Titan    │  │ GPT-3.5  │                 │
+  │  └─────────┘  └──────────┘  └──────────┘                 │
+  │                                                            │
+  │  Config (from .env):                                       │
+  │    LLM_MODEL=ollama/llama2                                 │
+  │    LLM_TEMPERATURE=0.0  (deterministic)                    │
+  │    LLM_MAX_TOKENS=2048                                     │
+  └────────────────────────────────────────────────────────────┘
+```
+
+Temperature is set to 0.0 by default — the LLM gives the most deterministic, factual response. Streaming is supported for real-time output in the UI.
+
+---
+
+### Response Structure
+
+The generator returns a structured result:
+
+```json
+{
+  "answer": "Silicon content significantly affects magnetic properties...",
+  "sources": [
+    {
+      "chunk_id": "EP1577413_0042",
+      "patent_id": "EP1577413",
+      "section": "description",
+      "page": 5,
+      "rrf_score": 0.04072,
+      "preview": "[0042] Silicon content of 3.2% by mass..."
+    }
+  ],
+  "metadata": {
+    "model": "ollama/llama2",
+    "chunk_count": 5,
+    "total_retrieved": 30,
+    "temperature": 0.0
+  }
+}
+```
+
+The answer includes source citations (`[Source 1]`, `[Source 2]`), and the `sources` list lets the UI show exactly which patent chunks were used and where they came from.
+
+**Additional generation modes:**
+
+| Mode | What it does |
+|---|---|
+| `generate_answer()` | Standard Q&A with sources |
+| `generate_summary()` | Summarize key technical info from chunks |
+| `generate_comparison()` | Compare two sets of chunks (e.g., two different patents) |
+| `stream_answer()` | Same as generate_answer but yields tokens for real-time UI display |
+
+---
+
+## 5. End-to-End Example
+
+Here's what happens when you ask: **"What is the effect of silicon on magnetic properties?"**
+
+```
+  Step 1: RETRIEVAL
+  ─────────────────
+  Query ──► BM25:     finds 30 chunks with words "silicon", "magnetic"
+        ──► Semantic:  finds 30 chunks with similar meaning
+        ──► Graph:     extracts [Si, core_loss], walks KG, finds 30 chunks
+        ──► RRF fuses all into one ranked list
+
+  Step 2: CONTEXT BUILDING
+  ─────────────────────────
+  Top 5 chunks selected, formatted with [Source N] labels and metadata
+
+  Step 3: LLM GENERATION
+  ───────────────────────
+  System prompt + context + question + instructions ──► LLM
+
+  Step 4: RESPONSE
+  ────────────────
+  "According to the patent data, silicon content between 2.5% and 10%
+   by mass [Source 3] significantly improves magnetic flux density B8,
+   achieving values above 1.89 T [Source 1]. Table 3 shows that
+   increasing Si from 2.5% to 6.5% reduces core loss from 4.1 to
+   2.8 W/kg [Source 2]..."
+
+   Sources:
+   - [Source 1] EP1577413, description, page 5
+   - [Source 2] EP1577413, examples, page 12
+   - [Source 3] EP1577413, claims, page 1
+```

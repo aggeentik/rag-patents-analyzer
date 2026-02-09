@@ -1,274 +1,261 @@
-from dataclasses import dataclass, field
-from typing import Optional
-import tiktoken
+"""Atomic-unit chunking for patent documents.
+
+Each chunk is a natural semantic unit (claim, paragraph, table, formula).
+No token-based splitting or overlap -- boundaries come from document structure.
+"""
+
 import re
 
-
-@dataclass
-class Chunk:
-    """Single chunk for retrieval."""
-    chunk_id: str
-    patent_id: str
-    content: str
-    metadata: dict  # section, page, type, etc.
-    entities: list = field(default_factory=list)  # Extracted entities
-    references: list = field(default_factory=list)  # Cross-references (Table 1, Formula 2)
+from src.knowledge_graph.schema import (
+    EntityType,
+    PatentChunk,
+    PatentDocument,
+    PatentSection,
+    StructuredReference,
+)
 
 
 class PatentChunker:
-    """Semantic chunking for patent documents."""
+    """Create chunks from a PatentDocument using an atomic-unit strategy.
 
-    # Reference patterns
-    REFERENCE_PATTERNS = [
-        r"Table\s*\d+",
-        r"Formula\s*\(\d+\)",
-        r"FIG\.?\s*\d+",
-        r"Figure\s*\d+",
-        r"Equation\s*\(\d+\)",
+    Chunking rules:
+    - **Claims:**   Each numbered claim (``1.``, ``2.``, ...) is one chunk.
+    - **Paragraphs:** Split on ``[00XX]`` tags first; fall back to blank lines.
+    - **Tables:**    Each table Markdown string is one chunk.
+    - **Formulas:**  Paragraphs containing formula patterns are tagged ``formula``.
+    """
+
+    # Reference patterns (used to build StructuredReference objects)
+    _REF_PATTERNS: list[tuple[re.Pattern, EntityType]] = [
+        (re.compile(r"Table\s*(\d+)", re.IGNORECASE), EntityType.TABLE),
+        (re.compile(r"Formula\s*\((\d+)\)", re.IGNORECASE), EntityType.FORMULA),
+        (re.compile(r"FIG\.?\s*(\d+)", re.IGNORECASE), EntityType.FIGURE),
+        (re.compile(r"Figure\s*(\d+)", re.IGNORECASE), EntityType.FIGURE),
+        (re.compile(r"Equation\s*\((\d+)\)", re.IGNORECASE), EntityType.FORMULA),
     ]
 
-    def __init__(
-        self,
-        chunk_size: int = 500,      # Target tokens
-        chunk_overlap: int = 50,     # Overlap tokens
-        min_chunk_size: int = 100,   # Minimum tokens
-    ):
-        self.chunk_size = chunk_size
-        self.chunk_overlap = chunk_overlap
-        self.min_chunk_size = min_chunk_size
-        self.tokenizer = tiktoken.get_encoding("cl100k_base")
+    # Formula detection (to tag paragraph chunks that contain formulas)
+    _FORMULA_RE = re.compile(
+        r"Formula\s*\(\d+\)|Equation\s*\(\d+\)|\[\w+\]/\d+",
+        re.IGNORECASE,
+    )
 
-    def chunk_patent(self, patent_data: dict) -> list[Chunk]:
-        """
-        Create chunks from extracted patent data.
+    # Page-break marker emitted by the parser (<!-- PB:N -->)
+    _PAGE_MARKER_RE = re.compile(r"<!--\s*PB:(\d+)\s*-->")
 
-        Rules:
-        1. Tables → single chunk (never split)
-        2. Formulas → single chunk with surrounding context
-        3. Paragraphs → split at sentence boundaries if too large
-        4. Preserve section context in every chunk
-        5. Extract cross-references from each chunk
-        """
-        chunks = []
-        current_section = "Unknown"
+    # Numbered claim start: "1.", "2.", etc. at the beginning of a line
+    _CLAIM_START_RE = re.compile(r"^\d+\.\s")
 
-        for element in patent_data["elements"]:
-            # Update current section
-            if element.element_type == "title":
-                detected = self._detect_section(element.text)
-                if detected:
-                    current_section = detected
-                    continue
+    # [00XX] paragraph tag used in patent descriptions
+    _PARA_TAG_RE = re.compile(r"^\[\d{4}\]")
 
-            # Tables: single chunk
-            if element.element_type == "table":
-                chunk = self._create_table_chunk(
-                    element, patent_data["patent_id"], current_section
-                )
-                chunks.append(chunk)
+    def chunk_patent(self, patent_doc: PatentDocument) -> list[PatentChunk]:
+        """Produce a list of PatentChunk from a PatentDocument."""
+        chunks: list[PatentChunk] = []
 
-            # Formulas: include context
-            elif element.element_type == "formula":
-                chunk = self._create_formula_chunk(
-                    element, patent_data["patent_id"], current_section
-                )
-                chunks.append(chunk)
-
-            # Text: chunk with overlap
+        # 1. Section-based text chunks
+        for section_name, text in patent_doc.sections.items():
+            if section_name == PatentSection.CLAIMS.value:
+                chunks.extend(self._chunk_claims(text, patent_doc.patent_id))
             else:
-                text_chunks = self._chunk_text(
-                    element, patent_data["patent_id"], current_section
+                chunks.extend(
+                    self._chunk_section(text, patent_doc.patent_id, section_name)
                 )
-                chunks.extend(text_chunks)
 
-        # Assign sequential IDs
+        # 2. Table chunks (from Docling-extracted tables)
+        table_pages = patent_doc.metadata.get("table_pages", [])
+        for idx, table_md in enumerate(patent_doc.tables_markdown):
+            page = table_pages[idx] if idx < len(table_pages) else 1
+            chunk = PatentChunk(
+                patent_id=patent_doc.patent_id,
+                content=table_md,
+                section="unknown",
+                chunk_type="table",
+                page=page,
+                references=self._extract_references(table_md, patent_doc.patent_id),
+            )
+            chunks.append(chunk)
+
+        # 3. Assign sequential IDs
         for i, chunk in enumerate(chunks):
-            chunk.chunk_id = f"{patent_data['patent_id']}_{i:04d}"
+            chunk.chunk_id = f"{patent_doc.patent_id}_{i:04d}"
 
         return chunks
 
-    def _chunk_text(
-        self,
-        element,
-        patent_id: str,
-        section: str
-    ) -> list[Chunk]:
-        """Split text into chunks at sentence boundaries."""
-        text = element.text
-        tokens = self._count_tokens(text)
+    # ------------------------------------------------------------------
+    # Claims chunking
+    # ------------------------------------------------------------------
 
-        # If small enough, return as single chunk
-        if tokens <= self.chunk_size:
-            references = self._extract_references(text)
-            return [Chunk(
-                chunk_id="",  # Will be assigned later
-                patent_id=patent_id,
-                content=text,
-                metadata={
-                    "section": section,
-                    "page": element.page,
-                    "type": element.element_type,
-                },
-                entities=[],  # Will be extracted later
-                references=references,
-            )]
+    def _chunk_claims(
+        self, text: str, patent_id: str
+    ) -> list[PatentChunk]:
+        """Split claims section: each numbered claim becomes one chunk."""
+        # Split on lines that start with a claim number
+        claim_blocks: list[str] = []
+        current: list[str] = []
 
-        # Split into sentences
-        sentences = self._split_sentences(text)
-        chunks = []
-        current_chunk_sentences = []
-        current_tokens = 0
+        for line in text.splitlines():
+            if self._CLAIM_START_RE.match(line.strip()) and current:
+                claim_blocks.append("\n".join(current).strip())
+                current = [line]
+            else:
+                current.append(line)
 
-        for sentence in sentences:
-            sentence_tokens = self._count_tokens(sentence)
+        if current:
+            claim_blocks.append("\n".join(current).strip())
 
-            # If adding this sentence exceeds chunk_size, save current chunk
-            if current_tokens + sentence_tokens > self.chunk_size and current_chunk_sentences:
-                chunk_text = " ".join(current_chunk_sentences)
-                references = self._extract_references(chunk_text)
-
-                chunks.append(Chunk(
-                    chunk_id="",
+        chunks: list[PatentChunk] = []
+        current_page = 1
+        for block in claim_blocks:
+            if not block:
+                continue
+            page, clean_block = self._extract_page_and_clean(block, current_page)
+            current_page = page  # propagate to next block
+            if not clean_block:
+                continue
+            chunks.append(
+                PatentChunk(
                     patent_id=patent_id,
-                    content=chunk_text,
-                    metadata={
-                        "section": section,
-                        "page": element.page,
-                        "type": element.element_type,
-                    },
-                    entities=[],
-                    references=references,
-                ))
-
-                # Keep overlap sentences
-                overlap_sentences = []
-                overlap_tokens = 0
-                for sent in reversed(current_chunk_sentences):
-                    sent_tokens = self._count_tokens(sent)
-                    if overlap_tokens + sent_tokens <= self.chunk_overlap:
-                        overlap_sentences.insert(0, sent)
-                        overlap_tokens += sent_tokens
-                    else:
-                        break
-
-                current_chunk_sentences = overlap_sentences
-                current_tokens = overlap_tokens
-
-            # Add sentence to current chunk
-            current_chunk_sentences.append(sentence)
-            current_tokens += sentence_tokens
-
-        # Add remaining sentences as final chunk
-        if current_chunk_sentences:
-            chunk_text = " ".join(current_chunk_sentences)
-            if self._count_tokens(chunk_text) >= self.min_chunk_size:
-                references = self._extract_references(chunk_text)
-                chunks.append(Chunk(
-                    chunk_id="",
-                    patent_id=patent_id,
-                    content=chunk_text,
-                    metadata={
-                        "section": section,
-                        "page": element.page,
-                        "type": element.element_type,
-                    },
-                    entities=[],
-                    references=references,
-                ))
-
+                    content=clean_block,
+                    section=PatentSection.CLAIMS.value,
+                    chunk_type="claim",
+                    page=page,
+                    references=self._extract_references(clean_block, patent_id),
+                )
+            )
         return chunks
 
-    def _create_table_chunk(
-        self,
-        element,
-        patent_id: str,
-        section: str
-    ) -> Chunk:
-        """Create a single chunk for a table."""
-        # Format table as text
-        content = self._format_table(element)
-        references = self._extract_references(content)
+    # ------------------------------------------------------------------
+    # General section chunking
+    # ------------------------------------------------------------------
 
-        return Chunk(
-            chunk_id="",  # Will be assigned later
-            patent_id=patent_id,
-            content=content,
-            metadata={
-                "section": section,
-                "page": element.page,
-                "type": "table",
-                "table_data": element.table_data,
-            },
-            entities=[],  # Will be extracted later
-            references=references,
-        )
+    def _chunk_section(
+        self, text: str, patent_id: str, section_name: str
+    ) -> list[PatentChunk]:
+        """Split section text into atomic paragraphs.
 
-    def _create_formula_chunk(
-        self,
-        element,
-        patent_id: str,
-        section: str
-    ) -> Chunk:
-        """Create a single chunk for a formula."""
-        content = element.text
-        references = self._extract_references(content)
+        Strategy:
+        1. Try splitting on ``[00XX]`` paragraph tags.
+        2. Fallback to splitting on blank lines.
+        """
+        paragraphs = self._split_paragraphs(text)
 
-        return Chunk(
-            chunk_id="",
-            patent_id=patent_id,
-            content=content,
-            metadata={
-                "section": section,
-                "page": element.page,
-                "type": "formula",
-            },
-            entities=[],
-            references=references,
-        )
+        chunks: list[PatentChunk] = []
+        current_page = 1
+        for para in paragraphs:
+            para = para.strip()
+            if not para:
+                continue
 
-    def _format_table(self, element) -> str:
-        """Format table element as readable text."""
-        # Simple text representation of table
-        if element.table_data:
-            return f"Table:\n{element.text}"
-        return element.text
+            page, clean_para = self._extract_page_and_clean(para, current_page)
+            current_page = page  # propagate to next paragraph
+            if not clean_para:
+                continue
 
-    def _split_sentences(self, text: str) -> list[str]:
-        """Split text into sentences."""
-        # Simple sentence splitting on period, exclamation, question mark
-        # followed by space and capital letter or end of string
-        sentences = re.split(r'(?<=[.!?])\s+(?=[A-Z])', text)
-        return [s.strip() for s in sentences if s.strip()]
+            chunk_type = "paragraph"
+            if self._FORMULA_RE.search(clean_para):
+                chunk_type = "formula"
 
-    def _extract_references(self, text: str) -> list[str]:
-        """Extract cross-references from text."""
-        references = []
-        for pattern in self.REFERENCE_PATTERNS:
-            matches = re.findall(pattern, text, re.IGNORECASE)
-            references.extend(matches)
-        return list(set(references))
+            chunks.append(
+                PatentChunk(
+                    patent_id=patent_id,
+                    content=clean_para,
+                    section=section_name,
+                    chunk_type=chunk_type,
+                    page=page,
+                    references=self._extract_references(clean_para, patent_id),
+                )
+            )
+        return chunks
 
-    def _detect_section(self, text: str) -> Optional[str]:
-        """Detect section from title text."""
-        # Common patent sections
-        sections = {
-            "abstract": "Abstract",
-            "claim": "Claims",
-            "background": "Background",
-            "description": "Detailed Description",
-            "example": "Examples",
-            "embodiment": "Embodiments",
-            "brief": "Brief Description",
-            "summary": "Summary",
-            "field": "Field",
-        }
+    def _split_paragraphs(self, text: str) -> list[str]:
+        """Split text by [00XX] tags or blank lines."""
+        # Check if text contains [00XX] paragraph tags
+        if self._PARA_TAG_RE.search(text):
+            return self._split_by_para_tags(text)
+        return self._split_by_blank_lines(text)
 
-        text_lower = text.lower()
-        for key, section_name in sections.items():
-            if key in text_lower:
-                return section_name
-        return None
+    @staticmethod
+    def _split_by_para_tags(text: str) -> list[str]:
+        """Split on ``[00XX]`` markers, keeping each tagged paragraph together."""
+        parts: list[str] = []
+        current: list[str] = []
 
-    def _count_tokens(self, text: str) -> int:
-        """Count tokens in text."""
-        return len(self.tokenizer.encode(text))
+        for line in text.splitlines():
+            stripped = line.strip()
+            if re.match(r"^\[\d{4}\]", stripped) and current:
+                parts.append("\n".join(current).strip())
+                current = [line]
+            else:
+                current.append(line)
+
+        if current:
+            parts.append("\n".join(current).strip())
+
+        return [p for p in parts if p]
+
+    @staticmethod
+    def _split_by_blank_lines(text: str) -> list[str]:
+        """Fallback: split on one or more blank lines."""
+        blocks = re.split(r"\n\s*\n", text)
+        return [b.strip() for b in blocks if b.strip()]
+
+    # ------------------------------------------------------------------
+    # Page marker handling
+    # ------------------------------------------------------------------
+
+    @classmethod
+    def _extract_page_and_clean(
+        cls, text: str, default_page: int = 1
+    ) -> tuple[int, str]:
+        """Extract page number from ``<!-- PB:N -->`` markers and strip them.
+
+        Args:
+            text: Chunk text potentially containing page markers.
+            default_page: Page number to use if no marker is found (allows
+                the caller to propagate the last known page).
+
+        Returns:
+            ``(page, cleaned_text)`` where *page* is the first marker's value
+            (or *default_page* if none found) and *cleaned_text* has all
+            markers removed.
+        """
+        match = cls._PAGE_MARKER_RE.search(text)
+        page = int(match.group(1)) if match else default_page
+        cleaned = cls._PAGE_MARKER_RE.sub("", text).strip()
+        # Collapse any double blank lines left by marker removal
+        cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
+        return page, cleaned
+
+    # ------------------------------------------------------------------
+    # Reference resolution
+    # ------------------------------------------------------------------
+
+    def _extract_references(
+        self, text: str, patent_id: str
+    ) -> list[StructuredReference]:
+        """Find and resolve cross-references (e.g. 'Table 1' -> patent-scoped ID)."""
+        refs: list[StructuredReference] = []
+        seen: set[str] = set()
+
+        for pattern, ref_type in self._REF_PATTERNS:
+            for match in pattern.finditer(text):
+                raw_text = match.group(0)
+                num = match.group(1)
+
+                type_label = ref_type.value.upper()
+                ref_id = f"{patent_id}_{type_label}_{int(num):02d}"
+
+                key = (ref_type, ref_id)
+                if key in seen:
+                    continue
+                seen.add(key)
+
+                refs.append(
+                    StructuredReference(
+                        raw_text=raw_text,
+                        ref_type=ref_type,
+                        ref_id=ref_id,
+                    )
+                )
+        return refs

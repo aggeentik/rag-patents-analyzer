@@ -1,512 +1,511 @@
-from unstructured.partition.pdf import partition_pdf
-from unstructured.documents.elements import (
-    Title, NarrativeText, Table, ListItem, Footer, Header
-)
-import pdfplumber
-from dataclasses import dataclass
-from typing import Optional
-import re
+"""Layout-aware PDF parser for patent documents using Docling.
+
+Replaces the previous unstructured+pdfplumber implementation with:
+- Docling DocumentConverter for accurate multi-column PDF parsing
+- State machine for patent section detection from Markdown headings
+"""
+
+import html
 import os
+import re
+from pathlib import Path
+
+from docling.document_converter import DocumentConverter, PdfFormatOption
+from docling.datamodel.base_models import InputFormat
+from docling.backend.pypdfium2_backend import PyPdfiumDocumentBackend
+
+from src.knowledge_graph.schema import PatentDocument, PatentSection
 
 
-@dataclass
-class ExtractedElement:
-    """Single extracted element from PDF."""
-    text: str
-    element_type: str          # "title", "paragraph", "table", "list", "formula"
-    page: int
-    section: Optional[str]     # "Abstract", "Claims", "Description", etc.
-    coordinates: Optional[dict] # Bounding box for layout analysis
-    table_data: Optional[list]  # Structured table data if type == "table"
+class PatentSectionStateMachine:
+    """Track the current patent section as we scan Markdown lines.
+
+    Transitions happen when a line matches a heading pattern (e.g.
+    ``## CLAIMS`` or ``### DETAILED DESCRIPTION``).  The state remains
+    until the next matching heading.
+    """
+
+    # Each tuple: (compiled regex for the heading text, target PatentSection)
+    TRANSITIONS: list[tuple[re.Pattern, PatentSection]] = [
+        (re.compile(r"^#{1,3}\s+ABSTRACT", re.IGNORECASE), PatentSection.ABSTRACT),
+        (re.compile(r"^#{1,3}\s+CLAIMS?", re.IGNORECASE), PatentSection.CLAIMS),
+        (re.compile(r"^#{1,3}\s+BACKGROUND", re.IGNORECASE), PatentSection.BACKGROUND),
+        (re.compile(r"^#{1,3}\s+DETAILED\s+DESCRIPTION", re.IGNORECASE), PatentSection.DESCRIPTION),
+        (re.compile(r"^#{1,3}\s+DESCRIPTION", re.IGNORECASE), PatentSection.DESCRIPTION),
+        (re.compile(r"^#{1,3}\s+EXAMPLES?", re.IGNORECASE), PatentSection.EXAMPLES),
+        (re.compile(r"^#{1,3}\s+EMBODIMENTS?", re.IGNORECASE), PatentSection.EMBODIMENTS),
+        (re.compile(r"^#{1,3}\s+BRIEF\s+DESCRIPTION\s+OF.*(?:DRAWING|FIGURE)", re.IGNORECASE), PatentSection.FIGURES),
+        (re.compile(r"^#{1,3}\s+SUMMARY", re.IGNORECASE), PatentSection.DESCRIPTION),
+        (re.compile(r"^#{1,3}\s+FIELD\s+OF", re.IGNORECASE), PatentSection.BACKGROUND),
+    ]
+
+    def __init__(self):
+        self.state = PatentSection.PREAMBLE
+
+    def transition(self, line: str) -> PatentSection:
+        """Check if *line* triggers a section transition. Returns current state."""
+        stripped = line.strip()
+        for pattern, section in self.TRANSITIONS:
+            if pattern.match(stripped):
+                self.state = section
+                break
+        return self.state
+
+
+# Noise patterns commonly found in European / US patent Markdown output
+_NOISE_PATTERNS: list[re.Pattern] = [
+    # EP page headers like "EP 1 577 413 A1"
+    re.compile(r"^EP\s+[\d\s]+[A-Z]\d?\s*$"),
+    # US patent numbers as standalone lines
+    re.compile(r"^US\s+[\d,]+\s*[A-Z]?\d?\s*$"),
+    # Page numbers
+    re.compile(r"^\d{1,3}\s*$"),
+    # Blank markdown heading artefacts
+    re.compile(r"^#{1,6}\s*$"),
+]
+
+
+class TableStitcher:
+    """Merge consecutive Markdown tables that have the same column count.
+
+    Patent tables frequently span page breaks, causing Docling to emit
+    two separate ``TableItem`` objects for what is logically one table.
+    This post-processor detects consecutive tables with identical column
+    counts and merges them into a single Markdown table.
+    """
+
+    @staticmethod
+    def _column_count(table_md: str) -> int:
+        """Count columns from the first data row (``| ... | ... |``)."""
+        for line in table_md.splitlines():
+            stripped = line.strip()
+            if stripped.startswith("|") and "---" not in stripped:
+                return stripped.count("|") - 1
+        return 0
+
+    @staticmethod
+    def _data_rows(table_md: str) -> list[str]:
+        """Return only the data rows (skip header and separator lines)."""
+        rows: list[str] = []
+        past_separator = False
+        for line in table_md.splitlines():
+            stripped = line.strip()
+            if not stripped.startswith("|"):
+                continue
+            if "---" in stripped:
+                past_separator = True
+                continue
+            if past_separator:
+                rows.append(stripped)
+        return rows
+
+    @staticmethod
+    def _header_block(table_md: str) -> str:
+        """Return the header row + separator line."""
+        lines: list[str] = []
+        for line in table_md.splitlines():
+            stripped = line.strip()
+            if not stripped.startswith("|"):
+                continue
+            lines.append(stripped)
+            if "---" in stripped:
+                break
+        return "\n".join(lines)
+
+    def stitch(
+        self, tables: list[str], table_pages: list[int]
+    ) -> list[str]:
+        """Return a new list of tables with compatible neighbours merged.
+
+        Also mutates *table_pages* in-place to keep it parallel with the
+        returned (possibly shorter) table list.
+        """
+        if not tables:
+            return tables
+
+        merged: list[str] = []
+        merged_pages: list[int] = []
+        current = tables[0]
+        current_cols = self._column_count(current)
+        current_page = table_pages[0] if table_pages else 1
+
+        for i, next_table in enumerate(tables[1:], start=1):
+            next_cols = self._column_count(next_table)
+
+            if next_cols == current_cols and current_cols > 0:
+                # Same column count → append data rows of next to current
+                header = self._header_block(current)
+                existing_rows = self._data_rows(current)
+                new_rows = self._data_rows(next_table)
+                all_rows = existing_rows + new_rows
+                current = header + "\n" + "\n".join(all_rows)
+                # current_page stays (use the first table's page)
+            else:
+                merged.append(current)
+                merged_pages.append(current_page)
+                current = next_table
+                current_cols = next_cols
+                current_page = table_pages[i] if i < len(table_pages) else 1
+
+        merged.append(current)
+        merged_pages.append(current_page)
+
+        # Update table_pages in-place to match merged result
+        table_pages[:] = merged_pages
+        return merged
 
 
 class PatentPDFParser:
-    """Layout-aware PDF parser for patent documents."""
+    """Parse patent PDFs into structured PatentDocument using Docling."""
 
-    # Patent section patterns
-    SECTION_PATTERNS = [
-        (r"^ABSTRACT\s*$", "Abstract"),
-        (r"^CLAIMS?\s*$", "Claims"),
-        (r"^BACKGROUND", "Background"),
-        (r"^DETAILED\s+DESCRIPTION", "Detailed Description"),
-        (r"^EXAMPLES?\s*$", "Examples"),
-        (r"^EMBODIMENTS?", "Embodiments"),
-        (r"^BRIEF\s+DESCRIPTION", "Brief Description"),
-        (r"^SUMMARY", "Summary"),
-        (r"^FIELD\s+OF", "Field"),
-    ]
-
-    # Formula detection patterns
-    FORMULA_PATTERNS = [
-        r"Formula\s*\(\d+\)",
-        r"Equation\s*\(\d+\)",
-        r"\[\w+\]/\d+",  # Chemical formulas like [Nb]/93
-    ]
-
-    def __init__(self, use_hi_res: bool = True):
-        self.use_hi_res = use_hi_res
-
-    def extract(self, pdf_path: str) -> dict:
-        """
-        Extract structured content from patent PDF.
-
-        Returns:
-            {
-                "patent_id": str,
-                "title": str,
-                "elements": list[ExtractedElement],
-                "tables": list[dict],       # Separately extracted tables
-                "metadata": {
-                    "filename": str,
-                    "total_pages": int,
-                    "extraction_method": str
-                }
+    def __init__(self):
+        # Use pypdfium2 backend: handles patent PDFs that lack explicit
+        # page-dimension entries (which cause docling-parse to fail).
+        self._converter = DocumentConverter(
+            format_options={
+                InputFormat.PDF: PdfFormatOption(
+                    backend=PyPdfiumDocumentBackend,
+                )
             }
+        )
+
+    def extract(self, pdf_path: str) -> PatentDocument:
+        """Extract structured content from a patent PDF.
+
+        Pipeline:
+        1. Docling ``DocumentConverter.convert()`` -> DoclingDocument
+        2. ``export_to_markdown()`` -> full Markdown text
+        3. Filter noise lines (page headers, page numbers)
+        4. State machine assigns each line to a patent section
+        5. Extract tables via ``docling_doc.tables``
+        6. Build and return a ``PatentDocument``
         """
-        print(f"Extracting {pdf_path}...")
+        pdf_path_obj = Path(pdf_path)
+        print(f"Extracting {pdf_path_obj.name} with Docling...")
 
-        # Primary extraction with unstructured
-        elements = self._extract_with_unstructured(pdf_path)
+        # 1. Convert PDF
+        result = self._converter.convert(pdf_path_obj)
+        docling_doc = result.document
 
-        # Backup table extraction with pdfplumber
-        tables = self._extract_tables_with_pdfplumber(pdf_path)
+        # 2. Export full Markdown (with page-break markers for page tracking)
+        markdown_text = docling_doc.export_to_markdown(
+            page_break_placeholder="<!-- PB -->"
+        )
 
-        # Get first page text for patent ID extraction
-        first_page_text = ""
-        if elements:
-            first_page_text = " ".join([e.text for e in elements[:10]])
+        # 3. Extract patent ID and title
+        patent_id = self._extract_patent_id(pdf_path, markdown_text)
+        title = self._extract_title(docling_doc, markdown_text)
 
-        # Extract patent ID
-        patent_id = self._extract_patent_id(pdf_path, first_page_text)
+        # 4. Assign lines to sections via state machine
+        sections = self._assign_sections(markdown_text)
 
-        # Extract title (usually first significant text)
-        title = "Unknown Title"
-        for elem in elements:
-            if elem.element_type == "title" and len(elem.text) > 10:
-                title = elem.text
-                break
+        # 5. Extract tables as Markdown strings, then stitch page-split tables
+        tables_md, table_pages = self._extract_tables(docling_doc)
+        tables_md = TableStitcher().stitch(tables_md, table_pages)
 
-        # Get page count
-        total_pages = 0
-        with pdfplumber.open(pdf_path) as pdf:
-            total_pages = len(pdf.pages)
-
-        return {
-            "patent_id": patent_id,
-            "title": title,
-            "elements": elements,
-            "tables": tables,
-            "metadata": {
-                "filename": os.path.basename(pdf_path),
-                "total_pages": total_pages,
-                "extraction_method": "unstructured+pdfplumber"
-            }
+        # 6. Build metadata
+        page_count = len(docling_doc.pages) if docling_doc.pages else 0
+        metadata = {
+            "filename": os.path.basename(pdf_path),
+            "total_pages": page_count,
+            "extraction_method": "docling",
+            "table_pages": table_pages,
         }
 
-    def _extract_with_unstructured(self, pdf_path: str) -> list[ExtractedElement]:
-        """Primary extraction using unstructured library."""
-        elements = partition_pdf(
-            filename=pdf_path,
-            strategy="hi_res" if self.use_hi_res else "fast",
-            infer_table_structure=True,
-            include_page_breaks=True,
+        # Extract INID metadata from preamble
+        preamble = sections.get(PatentSection.PREAMBLE.value, "")
+        inid_metadata = self._extract_inid_metadata(preamble, pdf_path)
+        metadata.update(inid_metadata)
+
+        return PatentDocument(
+            patent_id=patent_id,
+            title=title,
+            sections=sections,
+            tables_markdown=tables_md,
+            metadata=metadata,
         )
 
-        # Convert to ExtractedElement objects
-        extracted = []
-        current_section = None
+    # ------------------------------------------------------------------
+    # Internal helpers
+    # ------------------------------------------------------------------
 
-        for elem in elements:
-            # Determine element type
-            elem_type = "paragraph"
-            if isinstance(elem, Title):
-                elem_type = "title"
-            elif isinstance(elem, Table):
-                elem_type = "table"
-            elif isinstance(elem, ListItem):
-                elem_type = "list"
-            elif isinstance(elem, (Header, Footer)):
-                continue  # Skip headers and footers
+    def _assign_sections(self, markdown_text: str) -> dict[str, str]:
+        """Walk Markdown lines through the state machine and group by section.
 
-            # Get text
-            text = str(elem)
-            if not text or len(text.strip()) < 3:
+        Tracks page breaks emitted by Docling's ``page_break_placeholder``
+        and embeds ``<!-- PB:N -->`` markers into section text so the chunker
+        can assign correct page numbers.
+        """
+        sm = PatentSectionStateMachine()
+        section_lines: dict[str, list[str]] = {}
+        current_page = 1
+        section_last_page: dict[str, int] = {}
+
+        for line in markdown_text.splitlines():
+            stripped = line.strip()
+
+            # Intercept page-break placeholders from Docling
+            # Docling's Markdown export escapes `!` → `\!`, so the actual
+            # output is `<\!-- PB -->` rather than `<!-- PB -->`.
+            if stripped in ("<!-- PB -->", r"<\!-- PB -->"):
+                current_page += 1
                 continue
 
-            # Detect if this is a section header
-            detected_section = self._detect_section(text)
-            if detected_section:
-                current_section = detected_section
-                if elem_type != "title":
-                    elem_type = "title"
-
-            # Detect formulas
-            if self._detect_formula(text):
-                elem_type = "formula"
-
-            # Get page number
-            page = 1
-            if hasattr(elem, 'metadata'):
-                page = getattr(elem.metadata, 'page_number', 1)
-
-            # Get coordinates
-            coordinates = None
-            if hasattr(elem, 'metadata') and hasattr(elem.metadata, 'coordinates'):
-                coords = elem.metadata.coordinates
-                if coords:
-                    # Convert to dict format
-                    coordinates = {
-                        'x1': coords.points[0][0] if hasattr(coords, 'points') and coords.points else None,
-                        'y1': coords.points[0][1] if hasattr(coords, 'points') and coords.points else None,
-                        'x2': coords.points[2][0] if hasattr(coords, 'points') and len(coords.points) > 2 else None,
-                        'y2': coords.points[2][1] if hasattr(coords, 'points') and len(coords.points) > 2 else None,
-                    }
-
-            # Get table data if table
-            table_data = None
-            if elem_type == "table" and hasattr(elem, 'metadata'):
-                table_data = getattr(elem.metadata, 'text_as_html', None)
-
-            extracted.append(ExtractedElement(
-                text=text,
-                element_type=elem_type,
-                page=page,
-                section=current_section,
-                coordinates=coordinates,
-                table_data=table_data
-            ))
-
-        # Apply post-processing to fix column/layout issues
-        extracted = self._post_process_elements(extracted)
-
-        # Apply intra-element text cleanup
-        extracted = self._clean_element_text(extracted)
-
-        return extracted
-
-    def _clean_element_text(self, elements: list[ExtractedElement]) -> list[ExtractedElement]:
-        """Clean up text within individual elements (dehyphenation, spacing)."""
-        cleaned = []
-
-        for elem in elements:
-            text = elem.text
-
-            # Fix hyphenation with space (e.g., "contain- ing" -> "containing")
-            text = re.sub(r'(\w)- (\w)', r'\1\2', text)
-
-            # Fix hyphenation at end of line (e.g., "word-\ning" -> "wording")
-            text = re.sub(r'(\w)-\n(\w)', r'\1\2', text)
-
-            # Fix missing spaces between words (basic heuristic)
-            # Look for lowercase followed by uppercase
-            text = re.sub(r'([a-z])([A-Z])', r'\1 \2', text)
-
-            # Create new element with cleaned text
-            cleaned.append(ExtractedElement(
-                text=text,
-                element_type=elem.element_type,
-                page=elem.page,
-                section=elem.section,
-                coordinates=elem.coordinates,
-                table_data=elem.table_data
-            ))
-
-        return cleaned
-
-    def _post_process_elements(self, elements: list[ExtractedElement]) -> list[ExtractedElement]:
-        """
-        Post-process extracted elements to fix common issues:
-        - Dehyphenation across column/page breaks
-        - Text flow continuity
-        - Column reading order validation
-        """
-        if not elements:
-            return elements
-
-        processed = []
-        i = 0
-
-        while i < len(elements):
-            current = elements[i]
-
-            # Skip if this is a table (don't merge tables)
-            if current.element_type == "table":
-                processed.append(current)
-                i += 1
+            # Skip noise lines
+            if self._is_noise(line):
                 continue
 
-            # Look ahead to find next mergeable element (skip page headers/titles)
-            next_idx, next_elem = self._find_next_mergeable(elements, i)
+            section = sm.transition(line)
+            section_name = section.value
 
-            if next_elem:
-                # Merge if text ends with hyphen and continues in next element
-                if self._should_dehyphenate(current, next_elem):
-                    merged = self._merge_dehyphenated(current, next_elem)
-                    processed.append(merged)
-                    # Add any skipped elements (like page headers)
-                    for j in range(i + 1, next_idx):
-                        if elements[j].element_type in ["title"] and len(elements[j].text.strip()) < 20:
-                            continue  # Skip short titles (likely page headers)
-                        processed.append(elements[j])
-                    i = next_idx + 1
-                    continue
-
-                # Merge if sentence is incomplete (mid-word break)
-                elif self._should_merge_incomplete(current, next_elem):
-                    merged = self._merge_elements(current, next_elem)
-                    processed.append(merged)
-                    # Add skipped elements
-                    for j in range(i + 1, next_idx):
-                        if elements[j].element_type in ["title"] and len(elements[j].text.strip()) < 20:
-                            continue
-                        processed.append(elements[j])
-                    i = next_idx + 1
-                    continue
-
-            processed.append(current)
-            i += 1
-
-        # Sort by reading order using coordinates (if available)
-        processed = self._sort_by_reading_order(processed)
-
-        return processed
-
-    def _find_next_mergeable(self, elements: list[ExtractedElement], current_idx: int) -> tuple[int, ExtractedElement]:
-        """
-        Find the next element that could be merged, skipping page headers/footers.
-        Returns: (index, element) or (None, None)
-        """
-        current = elements[current_idx]
-
-        # Look at next 3 elements (to skip page headers)
-        for i in range(current_idx + 1, min(current_idx + 4, len(elements))):
-            next_elem = elements[i]
-
-            # Skip very short titles (likely page headers like "EP 1 577 413 A1")
-            if next_elem.element_type == "title" and len(next_elem.text.strip()) < 20:
+            # Don't include the heading line itself in the section body
+            is_heading = stripped.startswith("#") and any(
+                p.match(stripped) for p, _ in PatentSectionStateMachine.TRANSITIONS
+            )
+            if is_heading:
+                section_lines.setdefault(section_name, [])
+                section_last_page.setdefault(section_name, current_page)
                 continue
 
-            # Must be same type (or close enough)
-            if current.element_type == next_elem.element_type:
-                return i, next_elem
+            # Emit a page marker when the page changes within a section
+            if section_last_page.get(section_name) != current_page:
+                section_lines.setdefault(section_name, []).append(
+                    f"<!-- PB:{current_page} -->"
+                )
+                section_last_page[section_name] = current_page
 
-            # Paragraph can merge with list
-            if current.element_type in ["paragraph", "list"] and next_elem.element_type in ["paragraph", "list"]:
-                return i, next_elem
+            section_lines.setdefault(section_name, []).append(line)
 
-        return None, None
+        # Join lines into text blocks per section
+        return {
+            name: "\n".join(lines).strip()
+            for name, lines in section_lines.items()
+            if "\n".join(lines).strip()
+        }
 
-    def _should_dehyphenate(self, current: ExtractedElement, next_elem: ExtractedElement) -> bool:
-        """Check if current element ends with hyphen and should be joined with next."""
-        # Don't merge different types (but allow paragraph + list)
-        if current.element_type not in ["paragraph", "list"]:
-            return False
-        if next_elem.element_type not in ["paragraph", "list"]:
-            return False
-
-        # Don't merge if pages are too far apart
-        if abs(current.page - next_elem.page) > 1:
-            return False
-
-        # Check if ends with hyphen (with optional space after)
-        text = current.text.strip()
-
-        # Handle "word- " or "word-" patterns
-        if '- ' in text and text.rstrip().endswith('- '):
-            # Remove trailing spaces to check
-            text = text.rstrip()
-
-        if not text.endswith('-'):
-            return False
-
-        # Next element should start with lowercase letter (continuation)
-        next_text = next_elem.text.lstrip()
-        if next_text and next_text[0].islower():
-            return True
-
-        return False
-
-    def _should_merge_incomplete(self, current: ExtractedElement, next_elem: ExtractedElement) -> bool:
-        """Check if current element has incomplete text that continues in next."""
-        # Only merge same types
-        if current.element_type != next_elem.element_type:
-            return False
-
-        # Don't merge titles or formulas
-        if current.element_type in ["title", "formula"]:
-            return False
-
-        # Must be on same or adjacent pages
-        if abs(current.page - next_elem.page) > 1:
-            return False
-
-        # Skip if next is likely a new paragraph (starts with capital, has proper spacing)
-        next_text = next_elem.text.strip()
-        if not next_text:
-            return False
-
-        # If next starts with lowercase, likely continuation
-        if next_text[0].islower():
-            return True
-
-        # If current ends mid-sentence (no period, exclamation, question mark)
-        current_text = current.text.rstrip()
-        if current_text and current_text[-1] not in '.!?;:':
-            # Check if it looks like it was cut off
-            words = current_text.split()
-            if words:
-                last_word = words[-1].rstrip(',-')
-                # If last word is very short (1-3 chars), might be incomplete
-                if len(last_word) <= 3 and not last_word.isupper():
-                    return True
-
-        return False
-
-    def _merge_dehyphenated(self, current: ExtractedElement, next_elem: ExtractedElement) -> ExtractedElement:
-        """Merge elements where word is split by hyphen at line break."""
-        # Remove trailing hyphen and whitespace from current
-        current_text = current.text.rstrip()
-
-        # Handle both "word-" and "word- " patterns
-        if current_text.endswith('- '):
-            current_text = current_text[:-2]  # Remove "- "
-        elif current_text.endswith('-'):
-            current_text = current_text[:-1]  # Remove "-"
-
-        # Join directly without space (it's the same word)
-        merged_text = current_text + next_elem.text.lstrip()
-
-        return ExtractedElement(
-            text=merged_text,
-            element_type=current.element_type,
-            page=current.page,
-            section=current.section,
-            coordinates=current.coordinates,
-            table_data=current.table_data
-        )
-
-    def _merge_elements(self, current: ExtractedElement, next_elem: ExtractedElement) -> ExtractedElement:
-        """Merge two elements with appropriate spacing."""
-        # Join with space
-        merged_text = current.text.rstrip() + ' ' + next_elem.text.lstrip()
-
-        return ExtractedElement(
-            text=merged_text,
-            element_type=current.element_type,
-            page=current.page,
-            section=current.section,
-            coordinates=current.coordinates,
-            table_data=current.table_data
-        )
-
-    def _sort_by_reading_order(self, elements: list[ExtractedElement]) -> list[ExtractedElement]:
-        """
-        Sort elements by natural reading order using coordinates.
-        For multi-column layout: left-to-right within columns, top-to-bottom overall.
-        """
-        # Group by page first
-        pages = {}
-        for elem in elements:
-            if elem.page not in pages:
-                pages[elem.page] = []
-            pages[elem.page].append(elem)
-
-        sorted_elements = []
-
-        for page_num in sorted(pages.keys()):
-            page_elements = pages[page_num]
-
-            # Try to sort by coordinates if available
-            elements_with_coords = [e for e in page_elements if e.coordinates]
-            elements_without_coords = [e for e in page_elements if not e.coordinates]
-
-            if elements_with_coords:
-                # Detect if multi-column layout
-                sorted_page = self._sort_multi_column(elements_with_coords)
-                sorted_elements.extend(sorted_page)
-                sorted_elements.extend(elements_without_coords)
-            else:
-                # No coordinates, keep original order
-                sorted_elements.extend(page_elements)
-
-        return sorted_elements
-
-    def _sort_multi_column(self, elements: list[ExtractedElement]) -> list[ExtractedElement]:
-        """Sort elements in multi-column layout."""
-        if not elements:
-            return elements
-
-        # Calculate page width to detect column boundaries
-        x_positions = []
-        for elem in elements:
-            if elem.coordinates and elem.coordinates.get('x1') is not None:
-                x_positions.append(elem.coordinates['x1'])
-
-        if not x_positions:
-            return elements
-
-        # Detect if there are two distinct column regions
-        x_positions.sort()
-        page_width = max(x_positions) - min(x_positions)
-
-        # Simple heuristic: if elements cluster in left half and right half, it's 2-column
-        midpoint = min(x_positions) + page_width / 2
-        left_col = [e for e in elements if e.coordinates and e.coordinates.get('x1', 0) < midpoint]
-        right_col = [e for e in elements if e.coordinates and e.coordinates.get('x1', 0) >= midpoint]
-
-        # If significant elements in both columns, treat as multi-column
-        if len(left_col) > 2 and len(right_col) > 2:
-            # Sort each column by y-coordinate (top to bottom)
-            left_col.sort(key=lambda e: e.coordinates.get('y1', 0) if e.coordinates else 0)
-            right_col.sort(key=lambda e: e.coordinates.get('y1', 0) if e.coordinates else 0)
-
-            # Return left column first, then right column
-            return left_col + right_col
-        else:
-            # Single column or unclear, sort by y-coordinate only
-            return sorted(elements, key=lambda e: e.coordinates.get('y1', 0) if e.coordinates else 0)
-
-    def _extract_tables_with_pdfplumber(self, pdf_path: str) -> list[dict]:
-        """Backup table extraction using pdfplumber."""
-        tables = []
-        with pdfplumber.open(pdf_path) as pdf:
-            for page_num, page in enumerate(pdf.pages, 1):
-                page_tables = page.extract_tables()
-                for table in page_tables:
-                    if table:
-                        tables.append({
-                            "page": page_num,
-                            "headers": table[0] if table else [],
-                            "rows": table[1:] if len(table) > 1 else [],
-                        })
-        return tables
-
-    def _detect_section(self, text: str) -> Optional[str]:
-        """Detect patent section from text."""
-        for pattern, section_name in self.SECTION_PATTERNS:
-            if re.match(pattern, text.strip(), re.IGNORECASE):
-                return section_name
-        return None
-
-    def _detect_formula(self, text: str) -> bool:
-        """Check if text contains a formula."""
-        for pattern in self.FORMULA_PATTERNS:
-            if re.search(pattern, text):
+    @staticmethod
+    def _is_noise(line: str) -> bool:
+        stripped = line.strip()
+        if not stripped:
+            return False  # keep blank lines for paragraph splitting
+        for pattern in _NOISE_PATTERNS:
+            if pattern.match(stripped):
                 return True
         return False
 
-    def _extract_patent_id(self, pdf_path: str, first_page_text: str) -> str:
-        """Extract patent ID from filename or content."""
-        # Try filename first
+    @staticmethod
+    def _extract_tables(docling_doc) -> tuple[list[str], list[int]]:
+        """Extract each table as a Markdown string, with its page number.
+
+        Returns:
+            Tuple of (table_markdowns, table_pages) where each list has the
+            same length. Page numbers default to 1 if provenance is missing.
+        """
+        tables: list[str] = []
+        pages: list[int] = []
+        for table_item in docling_doc.tables:
+            try:
+                md = table_item.export_to_markdown(doc=docling_doc)
+                if md and md.strip():
+                    tables.append(md.strip())
+                    page = 1
+                    if table_item.prov:
+                        page = table_item.prov[0].page_no
+                    pages.append(page)
+            except Exception:
+                pass
+        return tables, pages
+
+    @staticmethod
+    def _extract_patent_id(pdf_path: str, markdown_text: str) -> str:
+        """Extract patent ID from filename or first page text."""
         filename = os.path.basename(pdf_path)
+
+        # Try filename first
         match = re.search(r"(EP|US|WO|CN)\d+", filename, re.IGNORECASE)
         if match:
             return match.group(0).upper()
 
-        # Try first page content
-        match = re.search(r"(EP|US|WO|CN)\s*\d+", first_page_text, re.IGNORECASE)
+        # Try first ~2000 chars of Markdown
+        first_page = markdown_text[:2000]
+        match = re.search(r"(EP|US|WO|CN)\s*\d+", first_page, re.IGNORECASE)
         if match:
             return re.sub(r"\s+", "", match.group(0)).upper()
 
-        # Fallback to filename without extension
         return os.path.splitext(filename)[0]
+
+    @staticmethod
+    def _extract_title(docling_doc, markdown_text: str) -> str:
+        """Title extraction: prefer (54) INID heading, fallback to first substantial heading."""
+        for line in markdown_text.splitlines():
+            stripped = line.strip()
+            if re.match(r"^#{1,3}\s+\(54\)", stripped):
+                title = re.sub(r"^#{1,3}\s+\(54\)\s*", "", stripped).strip()
+                if title:
+                    return title
+        # Fallback: first substantial heading
+        for line in markdown_text.splitlines():
+            stripped = line.strip()
+            if stripped.startswith("#"):
+                heading_text = re.sub(r"^#+\s*", "", stripped)
+                if len(heading_text) > 10:
+                    return heading_text
+        return "Unknown Title"
+
+    @staticmethod
+    def _extract_inid_metadata(preamble_text: str, pdf_path: str) -> dict:
+        """Extract INID code metadata from the patent preamble section.
+
+        Parses standardized INID codes (e.g. (43) publication date, (71) applicant)
+        from the Docling-generated Markdown preamble and returns a dict of
+        structured metadata fields.
+        """
+        lines = preamble_text.splitlines()
+        metadata: dict = {}
+
+        # Regex patterns
+        inid_re = re.compile(r"^[-\s]*\((\d+)\)\s*(.*)")
+        date_re = re.compile(r"(\d{1,2})\.(\d{1,2})\.(\d{4})")
+        ipc_re = re.compile(r"[A-H]\d{2}[A-Z]\s*\d+/\d+")
+
+        def _normalize_date(text: str) -> str | None:
+            """Convert DD.MM.YYYY to YYYY-MM-DD."""
+            m = date_re.search(text)
+            if m:
+                day, month, year = m.group(1), m.group(2), m.group(3)
+                return f"{year}-{month.zfill(2)}-{day.zfill(2)}"
+            return None
+
+        def _next_value(rest: str, idx: int) -> str:
+            """Get value from inline text (after colon) or next non-blank line."""
+            # Try inline: text after the label colon
+            if ":" in rest:
+                val = rest.split(":", 1)[1].strip()
+                if val:
+                    return val
+            elif rest.strip():
+                return rest.strip()
+            # Fall through to next non-blank line
+            for j in range(idx + 1, min(idx + 5, len(lines))):
+                candidate = lines[j].strip().lstrip("- ")
+                if candidate and not inid_re.match(candidate):
+                    return candidate
+            return ""
+
+        def _collect_until_next_inid(idx: int) -> str:
+            """Collect all text from idx+1 until the next INID marker."""
+            parts = []
+            for j in range(idx + 1, len(lines)):
+                line = lines[j].strip()
+                if inid_re.match(line):
+                    break
+                if line:
+                    parts.append(line.lstrip("- "))
+            return " ".join(parts)
+
+        i = 0
+        while i < len(lines):
+            line = lines[i].strip()
+            m = inid_re.match(line)
+            if not m:
+                i += 1
+                continue
+
+            code = m.group(1)
+            rest = m.group(2)
+
+            if code == "43":  # Publication date
+                combined = rest + " " + _collect_until_next_inid(i)
+                date = _normalize_date(combined)
+                if date:
+                    metadata["publication_date"] = date
+
+            elif code == "21":  # Application number
+                val = _next_value(rest, i)
+                if val:
+                    metadata["application_number"] = val
+
+            elif code == "22":  # Filing date
+                combined = rest + " " + _collect_until_next_inid(i)
+                date = _normalize_date(combined)
+                if date:
+                    metadata["filing_date"] = date
+
+            elif code == "51":  # IPC classes
+                combined = rest + " " + _collect_until_next_inid(i)
+                classes = ipc_re.findall(combined)
+                if classes:
+                    metadata["ipc_classes"] = [c.strip() for c in classes]
+
+            elif code == "30":  # Priority date
+                combined = rest + " " + _collect_until_next_inid(i)
+                date = _normalize_date(combined)
+                if date:
+                    metadata["priority_date"] = date
+
+            elif code == "71":  # Applicant
+                val = _next_value(rest, i)
+                if val:
+                    # Strip address/country suffix like "Tokyo, 100-0011 (JP)"
+                    # The applicant name is typically the first line
+                    metadata["applicant"] = val
+
+            elif code == "72":  # Inventors
+                inventors = []
+
+                def _clean_inventor(raw: str) -> str | None:
+                    """Extract inventor name, stripping address/affiliation."""
+                    raw = raw.strip().lstrip("- ")
+                    if not raw:
+                        return None
+                    # Skip lines that are purely addresses
+                    if re.match(r"^\d", raw):  # starts with zip/number
+                        return None
+                    if re.match(r"^\(", raw):  # starts with parenthesis
+                        return None
+                    # Extract name part: before ", c/o" or address suffixes
+                    name = re.split(r",\s*c/o\b", raw, flags=re.IGNORECASE)[0]
+                    name = re.split(r",\s*(?:\d|[A-Z]{2}\b)", name)[0]
+                    name = name.strip().rstrip(",")
+                    if not name:
+                        return None
+                    # Skip if remaining name looks like an address (city + country)
+                    if re.search(r"\([A-Z]{2}\)\s*$", name):
+                        return None
+                    return name
+
+                # Check for inline name: "(72) Inventor: NAME, Given"
+                if ":" in rest:
+                    inline = rest.split(":", 1)[1].strip()
+                    inv_name = _clean_inventor(inline)
+                    if inv_name:
+                        inventors.append(inv_name)
+
+                # Check subsequent lines for additional inventors
+                for j in range(i + 1, len(lines)):
+                    inv_line = lines[j].strip()
+                    if inid_re.match(inv_line):
+                        break
+                    inv_name = _clean_inventor(inv_line)
+                    if inv_name:
+                        inventors.append(inv_name)
+                if inventors:
+                    metadata["inventors"] = inventors
+
+            i += 1
+
+        # Kind code from filename (e.g. EP1577413_A1.pdf -> A1)
+        kind_match = re.search(
+            r"_([A-Z]\d)\.pdf$", os.path.basename(pdf_path), re.IGNORECASE
+        )
+        if kind_match:
+            metadata["kind_code"] = kind_match.group(1).upper()
+
+        # Decode HTML entities (e.g. &amp; -> &) from Markdown source
+        for key, val in metadata.items():
+            if isinstance(val, str):
+                metadata[key] = html.unescape(val)
+            elif isinstance(val, list):
+                metadata[key] = [html.unescape(v) if isinstance(v, str) else v for v in val]
+
+        return metadata

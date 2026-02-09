@@ -1,6 +1,7 @@
 """Knowledge graph-based retrieval."""
 
 from typing import Optional
+from src.knowledge_graph.schema import PatentChunk
 from src.knowledge_graph.store import KnowledgeGraphStore
 from src.knowledge_graph.traversal import KnowledgeGraphTraversal
 from src.extraction.entity_extractor import EntityExtractor
@@ -51,15 +52,12 @@ class GraphRetriever:
         4. Collect chunks containing traversed entities
         5. Score chunks by entity relevance and distance
         """
-        # Extract entities from query
-        # Create a simple chunk-like object for entity extraction
-        class QueryChunk:
-            def __init__(self, content):
-                self.content = content
-                self.chunk_id = "query"
-                self.patent_id = "query"
-
-        query_chunk = QueryChunk(query)
+        # Extract entities from query using a PatentChunk wrapper
+        query_chunk = PatentChunk(
+            content=query,
+            chunk_id="query",
+            patent_id="query",
+        )
         query_entities = self.entity_extractor.extract_entities(query_chunk)
         entity_names = [e.name for e in query_entities]  # Entity objects, not dicts
 
