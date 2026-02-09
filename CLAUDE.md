@@ -6,18 +6,20 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Patents Analyzer** - An agentic RAG system for extracting insights from patent PDFs using hybrid retrieval (BM25 + Semantic Search + Knowledge Graph). Designed for steel manufacturing patents with complex multi-column layouts, fragmented data (tables, formulas, cross-references), and technical specifications.
 
-**Current Status:** Complete RAG pipeline operational (feat/data-ingestion-pipeline branch). Successfully implemented:
-- Data ingestion: 10 patents → 2075 chunks with entity extraction and KG construction
+**Current Status:** Complete RAG system with web UI operational. Successfully implemented:
+- Data ingestion: PDF → chunks → entities → knowledge graph
 - Hybrid retrieval: BM25 + FAISS + Graph with RRF fusion ✓
 - LLM integration: Ollama/Bedrock support via LiteLLM ✓
+- Streamlit UI: Interactive search with PDF viewer, citation linking, and streaming answers ✓
 
 ## Technology Stack
 
 - **Python 3.13** with `uv` package manager
-- **PDF Processing:** `unstructured[pdf]`, `pdfplumber`
+- **PDF Processing:** Docling, PyMuPDF
 - **Knowledge Graph:** NetworkX, SQLite
 - **Retrieval:** BM25 (`rank-bm25`), FAISS (`faiss-cpu`), sentence-transformers
 - **LLM Integration:** LiteLLM (Ollama, AWS Bedrock, OpenAI)
+- **UI:** Streamlit
 - **NLP:** `nltk`, `tiktoken`
 
 ## Commands
@@ -36,18 +38,26 @@ uv run python <script.py>
 # Full extraction: PDFs → chunks → entities → indices
 uv run python scripts/data_ingestion_pipeline.py
 
-# Rebuild indices only (requires patents.json)
-uv run python scripts/build_indices.py
-
 # Demo retrieval system (BM25 + Semantic only)
-uv run python scripts/demo_retrieval.py
+uv run python scripts/retrieval.py
 
 # Demo hybrid retrieval + LLM answer generation
-uv run python scripts/demo_hybrid_llm.py
+uv run python scripts/retrieval_generation.py
+```
+
+### Running the Web Application
+```bash
+# Start Streamlit UI (requires processed data and LLM setup)
+uv run streamlit run src/app/app.py
+
+# Then open browser at http://localhost:8501
 ```
 
 ### Testing
 ```bash
+# Run all quality checks (lint, format, typecheck, security, deps)
+make check
+
 # Tests directory exists but is currently empty
 # Previous test files were removed during code refactoring
 # TODO: Add new integration tests for the complete pipeline
@@ -109,7 +119,7 @@ Answer + Sources
 ### Module Organization
 
 **`src/extraction/`** - PDF parsing and entity extraction
-- `pdf_parser.py` - Layout-aware extraction using `unstructured` (handles multi-column PDFs, tables, formulas)
+- `pdf_parser.py` - Layout-aware extraction using Docling (handles multi-column PDFs, tables, formulas)
 - `entity_extractor.py` - Rule-based entity extraction (no LLM needed)
 
 **`src/chunking/`** - Text chunking
@@ -131,11 +141,14 @@ Answer + Sources
 - `llm_client.py` - Unified LLM interface using LiteLLM (Ollama/Bedrock/OpenAI)
 - `answer_generator.py` - RAG pipeline for generating answers from retrieved chunks
 
-**`scripts/`** - Pipeline execution scripts
+**`src/app/`** - Streamlit web application
+- `app.py` - Interactive UI for patent search with hybrid retrieval, LLM-generated answers, PDF viewer with highlighting, and clickable source citations
+- `static/` - Static assets for UI
+
+**`scripts/`** - Pipeline execution and demo scripts
 - `data_ingestion_pipeline.py` - **Main pipeline:** PDF → chunks → entities → KG → indices (all phases)
-- `build_indices.py` - Rebuild BM25/FAISS indices from existing patents.json
-- `demo_retrieval.py` - Demo of BM25 + Semantic retrieval (Phase 3a)
-- `demo_hybrid_llm.py` - **Full RAG demo:** Hybrid retrieval + LLM answer generation ✓
+- `retrieval.py` - Quick demo of BM25 + Semantic retrieval
+- `retrieval_generation.py` - **Full RAG demo:** Hybrid retrieval + LLM answer generation
 
 **`tests/`** - Integration and unit tests
 - Currently empty (tests removed during refactoring)
@@ -205,7 +218,7 @@ def main():
 - **Configuration** - Environment-based (.env file) or programmatic
 
 ### Patent Structure Handling
-- **Multi-column PDFs:** `unstructured` library with hi-res strategy
+- **Multi-column PDFs:** Docling DocumentConverter with pypdfium2 backend
 - **Section detection:** Abstract, Claims, Background, Detailed Description, Examples, Embodiments
 - **Cross-references:** Automatic resolution of "Table 1", "Formula (2)", "FIG. 3"
 - **Chemical formulas:** Pattern-based detection: `Formula\s*\(\d+\)`, `[Element]/\d+`
@@ -386,31 +399,25 @@ LLM_MAX_TOKENS=2048
 1. Place PDFs in `data/raw/`
 2. Run `uv run python scripts/data_ingestion_pipeline.py`
 3. Validate output: check `data/processed/patents.json` has expected chunk count
-4. Test retrieval: `uv run python scripts/demo_retrieval.py`
+4. Test retrieval: `uv run python scripts/retrieval.py`
+5. Run the web app: `uv run streamlit run src/app/app.py`
 
 ### Configuring PDF Extraction
-The PDF parser supports two extraction modes configured via `PatentPDFParser(use_hi_res=True/False)`:
+The PDF parser uses Docling's DocumentConverter with pypdfium2 backend:
 
-- **Hi-res mode** (default, `use_hi_res=True`):
-  - Better accuracy for complex multi-column layouts
-  - Uses OCR for scanned documents
-  - ~5+ minutes per patent
-
-- **Fast mode** (`use_hi_res=False`):
-  - Faster extraction (~30 seconds per patent)
-  - Good for text-based PDFs
-  - May miss some layout details
-
-Edit line 58 in `scripts/data_ingestion_pipeline.py` to configure.
+- Handles multi-column patent layouts automatically
+- No OCR required for text-based PDFs
+- Extraction time: ~30-60 seconds per patent
+- Backend configured in `PatentPDFParser.__init__()` in `src/extraction/pdf_parser.py`
 
 ### Debugging Extraction Issues
 - **No entities found:** Check patterns in `entity_extractor.py` against actual PDF text
-- **Wrong sections:** Update `SECTION_PATTERNS` in `pdf_parser.py`
+- **Wrong sections:** Update state machine transitions in `PatentSectionStateMachine.TRANSITIONS`
 - **Poor chunking:** Adjust chunk_size/overlap in `PatentChunker.__init__()`
-- **Missing tables:** Verify `pdfplumber` fallback in `pdf_parser.py`
+- **Missing tables:** Check Docling's table extraction; tables are automatically detected and stitched across page breaks
 
 ### Performance Optimization
-- **Slow extraction:** Set `use_hi_res=False` in PatentPDFParser (trades accuracy for speed)
+- **Slow extraction:** Docling typically processes patents in 30-60 seconds; batch processing recommended for many PDFs
 - **Memory issues:** Process PDFs in batches, not all at once
 - **Slow FAISS:** Use smaller embedding model or reduce chunk count
 
@@ -420,25 +427,25 @@ Edit line 58 in `scripts/data_ingestion_pipeline.py` to configure.
 - **Pickle usage:** `bm25_index.pkl` uses pickle serialization. This is safe for this use case because the index is generated from our own trusted patent data (not loaded from external sources). The pickle file contains only the BM25 model state and tokenized corpus. Never load pickle files from untrusted sources in general applications.
 
 ### Dependencies
-- `unstructured[pdf]` requires system libraries: `poppler`, `tesseract` (for hi-res OCR)
+- Docling uses pypdfium2 backend for PDF parsing (no external system dependencies required)
 - FAISS CPU version used (no GPU required, but slower for large datasets)
 - Python 3.13 required due to `uv.lock` specifications
 
 ### Git Workflow
 - Main branch: `main`
-- Current branch: `feat/data-ingestion-pipeline`
-- Previous work: `feat/phase1`, `feat/phase2` (merged)
+- Current branch: `doc/fix`
+- Previous work: RAG pipeline, UI, and logging improvements merged to main
 - Data files (`data/`) excluded via `.gitignore`
 
 ### Implementation Status
 - **Phase 1-3a:** ✅ Data ingestion, entity extraction, KG, BM25/FAISS indices
 - **Phase 3b:** ✅ Graph retriever + hybrid fusion with RRF
 - **Phase 4:** ✅ LLM integration (Bedrock/Ollama) for answer generation
-- **Phase 5:** ⏳ Streamlit UI for interactive search (TODO)
+- **Phase 5:** ✅ Streamlit UI with PDF viewer, citation linking, and streaming answers
 
 ## Troubleshooting
 
-**Error: `ModuleNotFoundError: No module named 'unstructured'`**
+**Error: `ModuleNotFoundError: No module named 'docling'`**
 → Run `uv sync` to install dependencies
 
 **Error: `FileNotFoundError: data/processed/patents.json`**
@@ -447,8 +454,8 @@ Edit line 58 in `scripts/data_ingestion_pipeline.py` to configure.
 **Empty results from retrieval**
 → Check indices exist in `data/processed/`. If missing, rebuild with `build_indices.py`
 
-**Slow PDF extraction (>5 min per patent)**
-→ Expected in hi-res mode. Disable OCR: `PatentPDFParser(use_hi_res=False)`
+**Slow PDF extraction (>2 min per patent)**
+→ Docling typically processes in 30-60 seconds. If slower, check PDF complexity or system resources
 
 **FAISS dimension mismatch**
 → Embeddings changed. Delete `faiss.index` and `chunk_ids.json`, rebuild indices

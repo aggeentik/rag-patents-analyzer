@@ -2,6 +2,15 @@
 
 Extract insights from patent PDFs using hybrid retrieval combining BM25, semantic search, and knowledge graphs.
 
+## Tech Stack
+
+- **Python 3.13** with [uv](https://docs.astral.sh/uv/) package manager
+- **PDF Processing**: Docling (parsing), PyMuPDF (rendering)
+- **Retrieval**: BM25 (rank-bm25), FAISS (vector search), sentence-transformers
+- **Knowledge Graph**: NetworkX, SQLite
+- **LLM**: LiteLLM (supports Ollama and 100+ models across providers)
+- **UI**: Streamlit
+
 ## Quickstart
 
 ### 1. Install dependencies
