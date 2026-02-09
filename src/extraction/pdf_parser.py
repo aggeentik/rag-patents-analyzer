@@ -6,9 +6,12 @@ Replaces the previous unstructured+pdfplumber implementation with:
 """
 
 import html
+import logging
 import os
 import re
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 from docling.document_converter import DocumentConverter, PdfFormatOption
 from docling.datamodel.base_models import InputFormat
@@ -181,7 +184,7 @@ class PatentPDFParser:
         6. Build and return a ``PatentDocument``
         """
         pdf_path_obj = Path(pdf_path)
-        print(f"Extracting {pdf_path_obj.name} with Docling...")
+        logger.info("Extracting %s with Docling...", pdf_path_obj.name)
 
         # 1. Convert PDF
         result = self._converter.convert(pdf_path_obj)

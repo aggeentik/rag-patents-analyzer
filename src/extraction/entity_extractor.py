@@ -8,6 +8,7 @@ Supports two modes:
 Table / Formula / Figure / Sample references are always extracted via regex.
 """
 
+import logging
 import re
 from typing import Optional
 
@@ -20,6 +21,8 @@ from src.knowledge_graph.schema import (
     EntityType,
     PatentChunk,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class EntityExtractor:
@@ -61,7 +64,7 @@ class EntityExtractor:
             import litellm
             self._instructor_client = instructor.from_litellm(litellm.completion)
         except ImportError:
-            print("Warning: instructor not installed, falling back to regex-only extraction")
+            logger.warning("instructor not installed, falling back to regex-only extraction")
             self._use_llm = False
 
     # ------------------------------------------------------------------
@@ -118,7 +121,7 @@ class EntityExtractor:
                 max_tokens=1024,
             )
         except Exception as e:
-            print(f"  LLM extraction failed for {chunk.chunk_id}: {e}")
+            logger.warning("LLM extraction failed for %s: %s", chunk.chunk_id, e)
             return entities
 
         # Convert compositions -> Entity

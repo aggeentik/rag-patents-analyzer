@@ -1,8 +1,13 @@
 """LLM client using LiteLLM for Bedrock/Ollama integration."""
 
+import logging
 import os
+import sys
 from typing import Optional
+
 from dotenv import load_dotenv
+
+logger = logging.getLogger(__name__)
 
 try:
     from litellm import completion
@@ -52,7 +57,7 @@ class LLMClient:
         if model.startswith("bedrock/"):
             self._validate_bedrock_credentials()
 
-        print(f"LLM Client initialized: {model}")
+        logger.info("LLM Client initialized: %s", model)
 
     def _validate_bedrock_credentials(self):
         """Check if AWS credentials are configured for Bedrock."""
@@ -60,8 +65,11 @@ class LLMClient:
         missing = [var for var in required_vars if not os.getenv(var)]
 
         if missing:
-            print(f"⚠️  Warning: Missing AWS credentials: {', '.join(missing)}")
-            print("   Set these in .env file or environment variables for Bedrock access")
+            logger.warning(
+                "Missing AWS credentials: %s. Set these in .env file or environment "
+                "variables for Bedrock access.",
+                ", ".join(missing),
+            )
 
     def generate(
         self,

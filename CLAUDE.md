@@ -141,6 +141,37 @@ Answer + Sources
 - Currently empty (tests removed during refactoring)
 - TODO: Add comprehensive integration tests
 
+### Logging Configuration
+
+The project uses Python's standard `logging` module with a centralized configuration in `src/logging_config.py`.
+
+**In library modules (`src/`):**
+```python
+import logging
+logger = logging.getLogger(__name__)
+
+# Use appropriate log levels
+logger.debug("Detailed debugging info")
+logger.info("Progress/status messages")
+logger.warning("Warning messages")
+logger.error("Error messages")
+```
+
+**In scripts (`scripts/`):**
+```python
+from src.logging_config import setup_logging
+import logging
+
+logger = logging.getLogger(__name__)
+
+def main():
+    setup_logging()  # Call at start of script
+    # or setup_logging(level=logging.DEBUG) for verbose output
+    logger.info("Script started")
+```
+
+**Note:** LLM streaming output (`print(content, end="", flush=True)`) intentionally uses print() for real-time terminal output, not logging.
+
 ## Key Concepts
 
 ### Chunking Strategy

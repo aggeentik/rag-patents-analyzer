@@ -1,7 +1,11 @@
 """Answer generation using retrieved chunks and LLM."""
 
+import logging
 from typing import Optional
+
 from src.llm.llm_client import LLMClient
+
+logger = logging.getLogger(__name__)
 
 
 class AnswerGenerator:
@@ -68,9 +72,7 @@ class AnswerGenerator:
         system_message = self._get_system_message()
 
         # Generate answer
-        print(f"\n{'='*80}")
-        print(f"Generating answer with {len(context_chunks)} chunks...")
-        print(f"{'='*80}\n")
+        logger.info("Generating answer with %d context chunks...", len(context_chunks))
 
         messages = [
             {"role": "system", "content": system_message},

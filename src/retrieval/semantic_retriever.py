@@ -1,16 +1,20 @@
 """FAISS-based semantic retrieval."""
 
 import json
-import numpy as np
+import logging
+
 import faiss
+import numpy as np
 from sentence_transformers import SentenceTransformer
+
+logger = logging.getLogger(__name__)
 
 
 class SemanticRetriever:
     """FAISS-based semantic retrieval."""
 
     def __init__(self, model_name: str = "all-MiniLM-L6-v2"):
-        print(f"Loading sentence transformer model: {model_name}")
+        logger.info("Loading sentence transformer model: %s", model_name)
         self.model = SentenceTransformer(model_name)
         self.index = None
         self.chunk_ids = []
@@ -18,25 +22,29 @@ class SemanticRetriever:
 
     def build_index(self, chunks: list[dict]):
         """Build FAISS index from chunks."""
-        print(f"Building FAISS index for {len(chunks)} chunks...")
+        logger.info("Building FAISS index for %d chunks...", len(chunks))
         self.chunks_by_id = {c["chunk_id"]: c for c in chunks}
         self.chunk_ids = [c["chunk_id"] for c in chunks]
 
         # Generate embeddings
-        print("  Encoding chunks with sentence transformers...")
+        logger.debug("Encoding chunks with sentence transformers...")
         texts = [c["content"] for c in chunks]
         embeddings = self.model.encode(texts, show_progress_bar=True)
 
         # Normalize for cosine similarity
-        print("  Normalizing embeddings...")
+        logger.debug("Normalizing embeddings...")
         embeddings = embeddings / np.linalg.norm(embeddings, axis=1, keepdims=True)
 
         # Build FAISS index
-        print("  Building FAISS index...")
+        logger.debug("Building FAISS index...")
         dimension = embeddings.shape[1]
         self.index = faiss.IndexFlatIP(dimension)  # Inner product = cosine after normalization
         self.index.add(embeddings.astype(np.float32))
-        print(f"✓ FAISS index built with {self.index.ntotal} vectors ({dimension} dimensions)")
+        logger.info(
+            "FAISS index built with %d vectors (%d dimensions)",
+            self.index.ntotal,
+            dimension,
+        )
 
     def search(self, query: str, top_k: int = 10) -> list[dict]:
         """Search and return chunks with semantic scores."""
@@ -62,8 +70,8 @@ class SemanticRetriever:
         faiss.write_index(self.index, index_path)
         with open(mapping_path, "w") as f:
             json.dump(self.chunk_ids, f)
-        print(f"✓ FAISS index saved to {index_path}")
-        print(f"✓ Chunk mapping saved to {mapping_path}")
+        logger.info("FAISS index saved to %s", index_path)
+        logger.info("Chunk mapping saved to %s", mapping_path)
 
     @classmethod
     def load(

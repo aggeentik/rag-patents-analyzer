@@ -2,6 +2,7 @@
 """Quick demo of retrieval capabilities."""
 
 import json
+import logging
 import sys
 from pathlib import Path
 
@@ -9,8 +10,11 @@ from pathlib import Path
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
+from src.logging_config import setup_logging
 from src.retrieval import BM25Retriever, SemanticRetriever
 from src.knowledge_graph.store import KnowledgeGraphStore
+
+logger = logging.getLogger(__name__)
 
 # Paths
 DATA_DIR = project_root / "data"
@@ -22,61 +26,80 @@ FAISS_INDEX = PROCESSED_DIR / "faiss.index"
 CHUNK_IDS = PROCESSED_DIR / "chunk_ids.json"
 KG_DATABASE = PROCESSED_DIR / "knowledge_graph.db"
 
-# Load data
-print("Loading indices...")
-with open(PATENTS_JSON) as f:
-    data = json.load(f)
 
-chunks = data["chunks"]
+def main():
+    """Run retrieval demo."""
+    setup_logging()
 
-# Load retrievers
-bm25 = BM25Retriever.load(str(BM25_INDEX), chunks)
-semantic = SemanticRetriever.load(
-    str(FAISS_INDEX),
-    str(CHUNK_IDS),
-    chunks
-)
-kg_store = KnowledgeGraphStore(str(KG_DATABASE))
-kg_store.connect()
+    # Load data
+    logger.info("Loading indices...")
+    with open(PATENTS_JSON) as f:
+        data = json.load(f)
 
-print(f"✓ Loaded {len(chunks)} chunks\n")
+    chunks = data["chunks"]
 
-# Demo query
-query = "What silicon content is needed for high yield strength?"
-print(f"Query: {query}\n")
+    # Load retrievers
+    bm25 = BM25Retriever.load(str(BM25_INDEX), chunks)
+    semantic = SemanticRetriever.load(
+        str(FAISS_INDEX),
+        str(CHUNK_IDS),
+        chunks
+    )
+    kg_store = KnowledgeGraphStore(str(KG_DATABASE))
+    kg_store.connect()
 
-# BM25 results
-print("=" * 70)
-print("BM25 KEYWORD SEARCH:")
-print("=" * 70)
-bm25_results = bm25.search(query, top_k=3)
-for i, r in enumerate(bm25_results, 1):
-    print(f"\n{i}. {r['chunk_id']} (score: {r['bm25_score']:.2f})")
-    print(f"   Section: {r['metadata'].get('section', 'Unknown')}")
-    print(f"   Content: {r['content'][:200]}...")
+    logger.info("Loaded %d chunks", len(chunks))
 
-# Semantic results
-print("\n" + "=" * 70)
-print("SEMANTIC SEARCH:")
-print("=" * 70)
-semantic_results = semantic.search(query, top_k=3)
-for i, r in enumerate(semantic_results, 1):
-    print(f"\n{i}. {r['chunk_id']} (score: {r['semantic_score']:.2f})")
-    print(f"   Section: {r['metadata'].get('section', 'Unknown')}")
-    print(f"   Content: {r['content'][:200]}...")
+    # Demo query
+    query = "What silicon content is needed for high yield strength?"
+    logger.info("Query: %s", query)
 
-# Knowledge graph
-print("\n" + "=" * 70)
-print("KNOWLEDGE GRAPH ENTITIES:")
-print("=" * 70)
-si_entities = kg_store.find_entities("Si", entity_type="chemical_element")
-print(f"\nFound {len(si_entities)} Silicon entities")
-for e in si_entities[:3]:
-    props = e['properties']
-    print(f"  • {e['name']}: {props.get('value', '?')} {props.get('unit', '')}")
+    # BM25 results
+    logger.info("=" * 70)
+    logger.info("BM25 KEYWORD SEARCH:")
+    logger.info("=" * 70)
+    bm25_results = bm25.search(query, top_k=3)
+    for i, r in enumerate(bm25_results, 1):
+        logger.info(
+            "%d. %s (score: %.2f)",
+            i,
+            r['chunk_id'],
+            r['bm25_score'],
+        )
+        logger.info("   Section: %s", r['metadata'].get('section', 'Unknown'))
+        logger.info("   Content: %s...", r['content'][:200])
 
-yield_entities = kg_store.find_entities("yield", entity_type="property")
-print(f"\nFound {len(yield_entities)} yield stress entities")
+    # Semantic results
+    logger.info("=" * 70)
+    logger.info("SEMANTIC SEARCH:")
+    logger.info("=" * 70)
+    semantic_results = semantic.search(query, top_k=3)
+    for i, r in enumerate(semantic_results, 1):
+        logger.info(
+            "%d. %s (score: %.2f)",
+            i,
+            r['chunk_id'],
+            r['semantic_score'],
+        )
+        logger.info("   Section: %s", r['metadata'].get('section', 'Unknown'))
+        logger.info("   Content: %s...", r['content'][:200])
 
-kg_store.close()
-print("\n✅ Demo complete!")
+    # Knowledge graph
+    logger.info("=" * 70)
+    logger.info("KNOWLEDGE GRAPH ENTITIES:")
+    logger.info("=" * 70)
+    si_entities = kg_store.find_entities("Si", entity_type="chemical_element")
+    logger.info("Found %d Silicon entities", len(si_entities))
+    for e in si_entities[:3]:
+        props = e['properties']
+        logger.info("  - %s: %s %s", e['name'], props.get('value', '?'), props.get('unit', ''))
+
+    yield_entities = kg_store.find_entities("yield", entity_type="property")
+    logger.info("Found %d yield stress entities", len(yield_entities))
+
+    kg_store.close()
+    logger.info("Demo complete!")
+
+
+if __name__ == "__main__":
+    main()
