@@ -6,10 +6,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Patents Analyzer** - An agentic RAG system for extracting insights from patent PDFs using hybrid retrieval (BM25 + Semantic Search + Knowledge Graph). Designed for steel manufacturing patents with complex multi-column layouts, fragmented data (tables, formulas, cross-references), and technical specifications.
 
-**Current Status:** Complete RAG pipeline operational (feat/data-ingestion-pipeline branch). Successfully implemented:
-- Data ingestion: 10 patents → 2075 chunks with entity extraction and KG construction
+**Current Status:** Complete RAG system with web UI operational. Successfully implemented:
+- Data ingestion: PDF → chunks → entities → knowledge graph
 - Hybrid retrieval: BM25 + FAISS + Graph with RRF fusion ✓
 - LLM integration: Ollama/Bedrock support via LiteLLM ✓
+- Streamlit UI: Interactive search with PDF viewer, citation linking, and streaming answers ✓
 
 ## Technology Stack
 
@@ -18,6 +19,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Knowledge Graph:** NetworkX, SQLite
 - **Retrieval:** BM25 (`rank-bm25`), FAISS (`faiss-cpu`), sentence-transformers
 - **LLM Integration:** LiteLLM (Ollama, AWS Bedrock, OpenAI)
+- **UI:** Streamlit
 - **NLP:** `nltk`, `tiktoken`
 
 ## Commands
@@ -36,18 +38,26 @@ uv run python <script.py>
 # Full extraction: PDFs → chunks → entities → indices
 uv run python scripts/data_ingestion_pipeline.py
 
-# Rebuild indices only (requires patents.json)
-uv run python scripts/build_indices.py
-
 # Demo retrieval system (BM25 + Semantic only)
-uv run python scripts/demo_retrieval.py
+uv run python scripts/retrieval.py
 
 # Demo hybrid retrieval + LLM answer generation
-uv run python scripts/demo_hybrid_llm.py
+uv run python scripts/retrieval_generation.py
+```
+
+### Running the Web Application
+```bash
+# Start Streamlit UI (requires processed data and LLM setup)
+uv run streamlit run src/app/app.py
+
+# Then open browser at http://localhost:8501
 ```
 
 ### Testing
 ```bash
+# Run all quality checks (lint, format, typecheck, security, deps)
+make check
+
 # Tests directory exists but is currently empty
 # Previous test files were removed during code refactoring
 # TODO: Add new integration tests for the complete pipeline
@@ -131,11 +141,14 @@ Answer + Sources
 - `llm_client.py` - Unified LLM interface using LiteLLM (Ollama/Bedrock/OpenAI)
 - `answer_generator.py` - RAG pipeline for generating answers from retrieved chunks
 
-**`scripts/`** - Pipeline execution scripts
+**`src/app/`** - Streamlit web application
+- `app.py` - Interactive UI for patent search with hybrid retrieval, LLM-generated answers, PDF viewer with highlighting, and clickable source citations
+- `static/` - Static assets for UI
+
+**`scripts/`** - Pipeline execution and demo scripts
 - `data_ingestion_pipeline.py` - **Main pipeline:** PDF → chunks → entities → KG → indices (all phases)
-- `build_indices.py` - Rebuild BM25/FAISS indices from existing patents.json
-- `demo_retrieval.py` - Demo of BM25 + Semantic retrieval (Phase 3a)
-- `demo_hybrid_llm.py` - **Full RAG demo:** Hybrid retrieval + LLM answer generation ✓
+- `retrieval.py` - Quick demo of BM25 + Semantic retrieval
+- `retrieval_generation.py` - **Full RAG demo:** Hybrid retrieval + LLM answer generation
 
 **`tests/`** - Integration and unit tests
 - Currently empty (tests removed during refactoring)
@@ -386,7 +399,8 @@ LLM_MAX_TOKENS=2048
 1. Place PDFs in `data/raw/`
 2. Run `uv run python scripts/data_ingestion_pipeline.py`
 3. Validate output: check `data/processed/patents.json` has expected chunk count
-4. Test retrieval: `uv run python scripts/demo_retrieval.py`
+4. Test retrieval: `uv run python scripts/retrieval.py`
+5. Run the web app: `uv run streamlit run src/app/app.py`
 
 ### Configuring PDF Extraction
 The PDF parser uses Docling's DocumentConverter with pypdfium2 backend:
@@ -419,15 +433,15 @@ The PDF parser uses Docling's DocumentConverter with pypdfium2 backend:
 
 ### Git Workflow
 - Main branch: `main`
-- Current branch: `feat/data-ingestion-pipeline`
-- Previous work: `feat/phase1`, `feat/phase2` (merged)
+- Current branch: `doc/fix`
+- Previous work: RAG pipeline, UI, and logging improvements merged to main
 - Data files (`data/`) excluded via `.gitignore`
 
 ### Implementation Status
 - **Phase 1-3a:** ✅ Data ingestion, entity extraction, KG, BM25/FAISS indices
 - **Phase 3b:** ✅ Graph retriever + hybrid fusion with RRF
 - **Phase 4:** ✅ LLM integration (Bedrock/Ollama) for answer generation
-- **Phase 5:** ⏳ Streamlit UI for interactive search (TODO)
+- **Phase 5:** ✅ Streamlit UI with PDF viewer, citation linking, and streaming answers
 
 ## Troubleshooting
 
