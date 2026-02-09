@@ -14,7 +14,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Technology Stack
 
 - **Python 3.13** with `uv` package manager
-- **PDF Processing:** `unstructured[pdf]`, `pdfplumber`
+- **PDF Processing:** Docling, PyMuPDF
 - **Knowledge Graph:** NetworkX, SQLite
 - **Retrieval:** BM25 (`rank-bm25`), FAISS (`faiss-cpu`), sentence-transformers
 - **LLM Integration:** LiteLLM (Ollama, AWS Bedrock, OpenAI)
@@ -109,7 +109,7 @@ Answer + Sources
 ### Module Organization
 
 **`src/extraction/`** - PDF parsing and entity extraction
-- `pdf_parser.py` - Layout-aware extraction using `unstructured` (handles multi-column PDFs, tables, formulas)
+- `pdf_parser.py` - Layout-aware extraction using Docling (handles multi-column PDFs, tables, formulas)
 - `entity_extractor.py` - Rule-based entity extraction (no LLM needed)
 
 **`src/chunking/`** - Text chunking
@@ -205,7 +205,7 @@ def main():
 - **Configuration** - Environment-based (.env file) or programmatic
 
 ### Patent Structure Handling
-- **Multi-column PDFs:** `unstructured` library with hi-res strategy
+- **Multi-column PDFs:** Docling DocumentConverter with pypdfium2 backend
 - **Section detection:** Abstract, Claims, Background, Detailed Description, Examples, Embodiments
 - **Cross-references:** Automatic resolution of "Table 1", "Formula (2)", "FIG. 3"
 - **Chemical formulas:** Pattern-based detection: `Formula\s*\(\d+\)`, `[Element]/\d+`
@@ -389,28 +389,21 @@ LLM_MAX_TOKENS=2048
 4. Test retrieval: `uv run python scripts/demo_retrieval.py`
 
 ### Configuring PDF Extraction
-The PDF parser supports two extraction modes configured via `PatentPDFParser(use_hi_res=True/False)`:
+The PDF parser uses Docling's DocumentConverter with pypdfium2 backend:
 
-- **Hi-res mode** (default, `use_hi_res=True`):
-  - Better accuracy for complex multi-column layouts
-  - Uses OCR for scanned documents
-  - ~5+ minutes per patent
-
-- **Fast mode** (`use_hi_res=False`):
-  - Faster extraction (~30 seconds per patent)
-  - Good for text-based PDFs
-  - May miss some layout details
-
-Edit line 58 in `scripts/data_ingestion_pipeline.py` to configure.
+- Handles multi-column patent layouts automatically
+- No OCR required for text-based PDFs
+- Extraction time: ~30-60 seconds per patent
+- Backend configured in `PatentPDFParser.__init__()` in `src/extraction/pdf_parser.py`
 
 ### Debugging Extraction Issues
 - **No entities found:** Check patterns in `entity_extractor.py` against actual PDF text
-- **Wrong sections:** Update `SECTION_PATTERNS` in `pdf_parser.py`
+- **Wrong sections:** Update state machine transitions in `PatentSectionStateMachine.TRANSITIONS`
 - **Poor chunking:** Adjust chunk_size/overlap in `PatentChunker.__init__()`
-- **Missing tables:** Verify `pdfplumber` fallback in `pdf_parser.py`
+- **Missing tables:** Check Docling's table extraction; tables are automatically detected and stitched across page breaks
 
 ### Performance Optimization
-- **Slow extraction:** Set `use_hi_res=False` in PatentPDFParser (trades accuracy for speed)
+- **Slow extraction:** Docling typically processes patents in 30-60 seconds; batch processing recommended for many PDFs
 - **Memory issues:** Process PDFs in batches, not all at once
 - **Slow FAISS:** Use smaller embedding model or reduce chunk count
 
@@ -420,7 +413,7 @@ Edit line 58 in `scripts/data_ingestion_pipeline.py` to configure.
 - **Pickle usage:** `bm25_index.pkl` uses pickle serialization. This is safe for this use case because the index is generated from our own trusted patent data (not loaded from external sources). The pickle file contains only the BM25 model state and tokenized corpus. Never load pickle files from untrusted sources in general applications.
 
 ### Dependencies
-- `unstructured[pdf]` requires system libraries: `poppler`, `tesseract` (for hi-res OCR)
+- Docling uses pypdfium2 backend for PDF parsing (no external system dependencies required)
 - FAISS CPU version used (no GPU required, but slower for large datasets)
 - Python 3.13 required due to `uv.lock` specifications
 
@@ -438,7 +431,7 @@ Edit line 58 in `scripts/data_ingestion_pipeline.py` to configure.
 
 ## Troubleshooting
 
-**Error: `ModuleNotFoundError: No module named 'unstructured'`**
+**Error: `ModuleNotFoundError: No module named 'docling'`**
 → Run `uv sync` to install dependencies
 
 **Error: `FileNotFoundError: data/processed/patents.json`**
@@ -447,8 +440,8 @@ Edit line 58 in `scripts/data_ingestion_pipeline.py` to configure.
 **Empty results from retrieval**
 → Check indices exist in `data/processed/`. If missing, rebuild with `build_indices.py`
 
-**Slow PDF extraction (>5 min per patent)**
-→ Expected in hi-res mode. Disable OCR: `PatentPDFParser(use_hi_res=False)`
+**Slow PDF extraction (>2 min per patent)**
+→ Docling typically processes in 30-60 seconds. If slower, check PDF complexity or system resources
 
 **FAISS dimension mismatch**
 → Embeddings changed. Delete `faiss.index` and `chunk_ids.json`, rebuild indices
