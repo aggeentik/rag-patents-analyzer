@@ -21,6 +21,8 @@ import streamlit.components.v1 as components
 project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
+from src.logging_config import setup_logging
+
 # --- Constants ---
 RAW_DIR = project_root / "data" / "raw"
 DATA_DIR = project_root / "data" / "processed"
@@ -497,6 +499,9 @@ def patent_selection_dialog(patents_info):
 # Main app
 # ---------------------------------------------------------------------------
 def main():
+    # Configure logging (level from LOG_LEVEL env var, defaults to INFO)
+    setup_logging()
+
     st.set_page_config(
         page_title="Patent Search",
         page_icon="\u2697",

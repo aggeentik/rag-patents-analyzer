@@ -8,46 +8,67 @@ Usage in modules:
 
 Usage in scripts (at the top):
     from src.logging_config import setup_logging
-    setup_logging()  # or setup_logging(level=logging.DEBUG)
+    setup_logging()  # Uses LOG_LEVEL from .env or defaults to INFO
+
+Environment variables:
+    LOG_LEVEL: Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
 """
 
 import logging
+import os
 import sys
 from typing import TextIO
 
 
 def setup_logging(
-    level: int = logging.INFO,
+    level: int | None = None,
     format_string: str | None = None,
     stream: TextIO | None = None,
 ) -> None:
     """Configure logging for the application.
 
     Args:
-        level: Logging level (default: INFO)
+        level: Logging level (if None, reads from LOG_LEVEL env var, defaults to INFO)
         format_string: Custom format string (optional)
         stream: Output stream (default: sys.stdout)
     """
+    if level is None:
+        # Read from environment variable, default to INFO
+        log_level_str = os.getenv("LOG_LEVEL", "INFO").upper()
+        level_map = {
+            "DEBUG": logging.DEBUG,
+            "INFO": logging.INFO,
+            "WARNING": logging.WARNING,
+            "ERROR": logging.ERROR,
+            "CRITICAL": logging.CRITICAL,
+        }
+        level = level_map.get(log_level_str, logging.INFO)
     if format_string is None:
         format_string = "%(asctime)s | %(levelname)-8s | %(name)s | %(message)s"
 
     if stream is None:
         stream = sys.stdout
 
-    # Configure root logger for src package
-    handler = logging.StreamHandler(stream)
-    handler.setFormatter(logging.Formatter(format_string, datefmt="%H:%M:%S"))
-
     # Set up the src logger hierarchy
     src_logger = logging.getLogger("src")
     src_logger.setLevel(level)
-    src_logger.addHandler(handler)
+
+    # Only add handler if none exist (prevents duplicates on Streamlit reruns)
+    if not src_logger.handlers:
+        handler = logging.StreamHandler(stream)
+        handler.setFormatter(logging.Formatter(format_string, datefmt="%H:%M:%S"))
+        src_logger.addHandler(handler)
     src_logger.propagate = False
 
     # Also configure scripts logger
     scripts_logger = logging.getLogger("scripts")
     scripts_logger.setLevel(level)
-    scripts_logger.addHandler(handler)
+
+    # Only add handler if none exist
+    if not scripts_logger.handlers:
+        handler = logging.StreamHandler(stream)
+        handler.setFormatter(logging.Formatter(format_string, datefmt="%H:%M:%S"))
+        scripts_logger.addHandler(handler)
     scripts_logger.propagate = False
 
 
