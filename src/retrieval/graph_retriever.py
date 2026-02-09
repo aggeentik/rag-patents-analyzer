@@ -1,10 +1,14 @@
 """Knowledge graph-based retrieval."""
 
+import logging
 from typing import Optional
+
+from src.extraction.entity_extractor import EntityExtractor
 from src.knowledge_graph.schema import PatentChunk
 from src.knowledge_graph.store import KnowledgeGraphStore
 from src.knowledge_graph.traversal import KnowledgeGraphTraversal
-from src.extraction.entity_extractor import EntityExtractor
+
+logger = logging.getLogger(__name__)
 
 
 class GraphRetriever:
@@ -33,13 +37,13 @@ class GraphRetriever:
 
     def build_index(self, chunks: list[dict]):
         """Build chunk mapping and graph structure."""
-        print(f"Building graph retriever for {len(chunks)} chunks...")
+        logger.info("Building graph retriever for %d chunks...", len(chunks))
         self.chunks_by_id = {c["chunk_id"]: c for c in chunks}
 
         # Build NetworkX graph for traversal
-        print("  Building NetworkX graph for traversal...")
+        logger.debug("Building NetworkX graph for traversal...")
         self.traversal.build_networkx_graph()
-        print("✓ Graph retriever ready")
+        logger.info("Graph retriever ready")
 
     def search(self, query: str, top_k: int = 10) -> list[dict]:
         """
@@ -62,10 +66,12 @@ class GraphRetriever:
         entity_names = [e.name for e in query_entities]  # Entity objects, not dicts
 
         if not entity_names:
-            print("  No entities found in query, returning empty results")
+            logger.debug("No entities found in query, returning empty results")
             return []
 
-        print(f"  Extracted query entities: {entity_names[:5]}{'...' if len(entity_names) > 5 else ''}")
+        display_entities = entity_names[:5]
+        suffix = "..." if len(entity_names) > 5 else ""
+        logger.debug("Extracted query entities: %s%s", display_entities, suffix)
 
         # Use traversal to find related chunks
         chunk_scores = {}
@@ -104,12 +110,12 @@ class GraphRetriever:
                 chunk["graph_rank"] = rank
                 results.append(chunk)
 
-        print(f"  Graph retrieval found {len(results)} chunks")
+        logger.debug("Graph retrieval found %d chunks", len(results))
         return results
 
     def save(self, path: str):
         """Graph retriever doesn't need separate persistence (uses KG store)."""
-        print(f"✓ Graph retriever state saved (using KG store)")
+        logger.debug("Graph retriever state saved (using KG store)")
 
     @classmethod
     def load(

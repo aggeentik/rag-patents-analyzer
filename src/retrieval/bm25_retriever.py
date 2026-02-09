@@ -1,9 +1,13 @@
 """BM25 sparse retrieval."""
 
+import logging
 import pickle
-from rank_bm25 import BM25Okapi
+
 import nltk
 from nltk.tokenize import word_tokenize
+from rank_bm25 import BM25Okapi
+
+logger = logging.getLogger(__name__)
 
 
 class BM25Retriever:
@@ -18,20 +22,20 @@ class BM25Retriever:
         try:
             nltk.data.find('tokenizers/punkt')
         except LookupError:
-            print("Downloading NLTK punkt tokenizer...")
+            logger.info("Downloading NLTK punkt tokenizer...")
             nltk.download('punkt')
             nltk.download('punkt_tab')
 
     def build_index(self, chunks: list[dict]):
         """Build BM25 index from chunks."""
-        print(f"Building BM25 index for {len(chunks)} chunks...")
+        logger.info("Building BM25 index for %d chunks...", len(chunks))
         self.chunks = chunks
         self.tokenized_corpus = [
             word_tokenize(chunk["content"].lower())
             for chunk in chunks
         ]
         self.bm25 = BM25Okapi(self.tokenized_corpus)
-        print("✓ BM25 index built")
+        logger.info("BM25 index built successfully")
 
     def search(self, query: str, top_k: int = 10) -> list[dict]:
         """Search and return chunks with BM25 scores."""
@@ -58,7 +62,7 @@ class BM25Retriever:
                 "bm25": self.bm25,
                 "tokenized_corpus": self.tokenized_corpus,
             }, f)
-        print(f"✓ BM25 index saved to {path}")
+        logger.info("BM25 index saved to %s", path)
 
     @classmethod
     def load(cls, path: str, chunks: list[dict]) -> "BM25Retriever":

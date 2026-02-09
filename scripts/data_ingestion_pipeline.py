@@ -9,13 +9,19 @@ Uses:
 
 import argparse
 import json
+import logging
 import sys
 from pathlib import Path
+
 from tqdm import tqdm
 
 # Add project root to path
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
+
+from src.logging_config import setup_logging
+
+logger = logging.getLogger(__name__)
 
 from src.extraction.pdf_parser import PatentPDFParser
 from src.chunking.chunker import PatentChunker
@@ -30,7 +36,7 @@ try:
     RETRIEVAL_AVAILABLE = True
 except ImportError:
     RETRIEVAL_AVAILABLE = False
-    print("Warning: Retrieval modules not yet available. Will skip building BM25/FAISS indices.")
+    # Note: Will log warning after setup_logging() is called in main()
 
 
 # Paths
@@ -78,16 +84,23 @@ Examples:
 
 def main(patent_names=None, use_llm_extraction=False):
     """Run full extraction pipeline."""
-    print("=" * 70)
-    print("PATENT EXTRACTION PIPELINE")
-    print("=" * 70)
-    print()
+    # Set up logging
+    setup_logging()
+
+    logger.info("=" * 70)
+    logger.info("PATENT EXTRACTION PIPELINE")
+    logger.info("=" * 70)
+
+    if not RETRIEVAL_AVAILABLE:
+        logger.warning(
+            "Retrieval modules not available. Will skip building BM25/FAISS indices."
+        )
 
     # Ensure directories exist
     PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
 
     # Initialize components
-    print("Initializing components...")
+    logger.info("Initializing components...")
     pdf_parser = PatentPDFParser()
     chunker = PatentChunker()
 
@@ -96,11 +109,11 @@ def main(patent_names=None, use_llm_extraction=False):
     if use_llm_extraction:
         from src.llm.llm_client import LLMClient
         llm_client = LLMClient.from_env()
-        print(f"  LLM extraction enabled: {llm_client.model}")
+        logger.info("LLM extraction enabled: %s", llm_client.model)
 
     entity_extractor = EntityExtractor(llm_client=llm_client, use_llm=use_llm_extraction)
     kg_builder = KnowledgeGraphBuilder()
-    print("Components initialized\n")
+    logger.info("Components initialized")
 
     # Process PDFs
     all_pdf_files = sorted(RAW_DIR.glob("*.pdf"))
@@ -116,24 +129,26 @@ def main(patent_names=None, use_llm_extraction=False):
         found_names = {pdf.name.lower() for pdf in pdf_files}
         missing_names = requested_names - found_names
         if missing_names:
-            print(f"Warning: The following patents were not found in {RAW_DIR}:")
+            logger.warning("The following patents were not found in %s:", RAW_DIR)
             for name in missing_names:
-                print(f"   - {name}")
-            print()
+                logger.warning("   - %s", name)
 
-        print(f"Processing {len(pdf_files)} of {len(all_pdf_files)} PDF files from {RAW_DIR}")
+        logger.info(
+            "Processing %d of %d PDF files from %s",
+            len(pdf_files),
+            len(all_pdf_files),
+            RAW_DIR,
+        )
         if pdf_files:
-            print("Selected patents:")
+            logger.info("Selected patents:")
             for pdf in pdf_files:
-                print(f"  - {pdf.name}")
+                logger.info("  - %s", pdf.name)
     else:
         pdf_files = all_pdf_files
-        print(f"Found {len(pdf_files)} PDF files in {RAW_DIR}")
-
-    print()
+        logger.info("Found %d PDF files in %s", len(pdf_files), RAW_DIR)
 
     if not pdf_files:
-        print("No PDF files to process. Exiting.")
+        logger.warning("No PDF files to process. Exiting.")
         return
 
     all_chunks = []
@@ -163,18 +178,18 @@ def main(patent_names=None, use_llm_extraction=False):
             })
 
         except Exception as e:
-            print(f"\nError processing {pdf_path.name}: {str(e)}")
+            logger.error("Error processing %s: %s", pdf_path.name, str(e))
             continue
 
-    print(f"\nExtracted {len(patent_summaries)} patents with {len(all_chunks)} chunks")
+    logger.info("Extracted %d patents with %d chunks", len(patent_summaries), len(all_chunks))
 
     # Build relationships
-    print("\nBuilding knowledge graph relationships...")
+    logger.info("Building knowledge graph relationships...")
     kg_builder.build_relationships(all_chunks)
-    print(f"Built {len(kg_builder.relationships)} relationships")
+    logger.info("Built %d relationships", len(kg_builder.relationships))
 
     # Save patents.json using to_retrieval_dict()
-    print("\nSaving patents.json...")
+    logger.info("Saving patents.json...")
     chunk_dicts = [chunk.to_retrieval_dict() for chunk in all_chunks]
     output = {
         "patents": patent_summaries,
@@ -189,10 +204,10 @@ def main(patent_names=None, use_llm_extraction=False):
     }
     with open(PATENTS_JSON, "w", encoding="utf-8") as f:
         json.dump(output, f, indent=2, default=str, ensure_ascii=False)
-    print(f"Saved to {PATENTS_JSON}")
+    logger.info("Saved to %s", PATENTS_JSON)
 
     # Save knowledge graph
-    print("\nSaving knowledge graph to database...")
+    logger.info("Saving knowledge graph to database...")
     kg_store = KnowledgeGraphStore(str(KG_DATABASE))
     kg_store.connect()
 
@@ -204,41 +219,42 @@ def main(patent_names=None, use_llm_extraction=False):
         kg_store.save_relationship(rel)
 
     kg_store.close()
-    print(f"Saved {len(kg_data['entities'])} entities and {len(kg_data['relationships'])} relationships")
+    logger.info(
+        "Saved %d entities and %d relationships",
+        len(kg_data['entities']),
+        len(kg_data['relationships']),
+    )
 
     # Build BM25 index (if available)
     if RETRIEVAL_AVAILABLE:
-        print("\nBuilding BM25 index...")
+        logger.info("Building BM25 index...")
         bm25 = BM25Retriever()
         bm25.build_index(chunk_dicts)
         bm25.save(str(BM25_INDEX))
-        print(f"Saved BM25 index to {BM25_INDEX}")
 
-        print("\nBuilding FAISS index (this may take a while)...")
+        logger.info("Building FAISS index (this may take a while)...")
         semantic = SemanticRetriever()
         semantic.build_index(chunk_dicts)
         semantic.save(str(FAISS_INDEX), str(CHUNK_IDS))
-        print(f"Saved FAISS index to {FAISS_INDEX}")
     else:
-        print("\nSkipping BM25 and FAISS index building (retrieval modules not available)")
+        logger.info("Skipping BM25 and FAISS index building (retrieval modules not available)")
 
     # Final summary
-    print("\n" + "=" * 70)
-    print("EXTRACTION COMPLETE!")
-    print("=" * 70)
-    print(f"\nSummary:")
-    print(f"  Patents processed: {len(patent_summaries)}")
-    print(f"  Chunks created: {len(all_chunks)}")
-    print(f"  Entities extracted: {len(kg_data['entities'])}")
-    print(f"  Relationships built: {len(kg_data['relationships'])}")
-    print(f"\nOutput files:")
-    print(f"  - {PATENTS_JSON}")
-    print(f"  - {KG_DATABASE}")
+    logger.info("=" * 70)
+    logger.info("EXTRACTION COMPLETE!")
+    logger.info("=" * 70)
+    logger.info("Summary:")
+    logger.info("  Patents processed: %d", len(patent_summaries))
+    logger.info("  Chunks created: %d", len(all_chunks))
+    logger.info("  Entities extracted: %d", len(kg_data['entities']))
+    logger.info("  Relationships built: %d", len(kg_data['relationships']))
+    logger.info("Output files:")
+    logger.info("  - %s", PATENTS_JSON)
+    logger.info("  - %s", KG_DATABASE)
     if RETRIEVAL_AVAILABLE:
-        print(f"  - {BM25_INDEX}")
-        print(f"  - {FAISS_INDEX}")
-        print(f"  - {CHUNK_IDS}")
-    print()
+        logger.info("  - %s", BM25_INDEX)
+        logger.info("  - %s", FAISS_INDEX)
+        logger.info("  - %s", CHUNK_IDS)
 
 
 if __name__ == "__main__":

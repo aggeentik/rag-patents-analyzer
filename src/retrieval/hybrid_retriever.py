@@ -1,7 +1,10 @@
 """Hybrid retrieval combining BM25, Semantic, and Graph retrievers using RRF."""
 
-from typing import Optional
+import logging
 from collections import defaultdict
+from typing import Optional
+
+logger = logging.getLogger(__name__)
 
 
 class HybridRetriever:
@@ -53,7 +56,7 @@ class HybridRetriever:
         if graph_retriever:
             self.active_retrievers.append("graph")
 
-        print(f"Hybrid retriever initialized with: {', '.join(self.active_retrievers)}")
+        logger.info("Hybrid retriever initialized with: %s", ", ".join(self.active_retrievers))
 
     def search(
         self,
@@ -76,18 +79,16 @@ class HybridRetriever:
         if retriever_top_k is None:
             retriever_top_k = top_k * 3
 
-        print(f"\n{'='*80}")
-        print(f"Hybrid Retrieval Query: {query}")
-        print(f"{'='*80}")
+        logger.info("Hybrid retrieval query: %s", query)
 
         # Collect results from all retrievers
         all_results = {}
 
         # BM25 retrieval (keyword-based)
         if self.bm25_retriever:
-            print("\n[BM25 Retrieval]")
+            logger.debug("Running BM25 retrieval...")
             bm25_results = self.bm25_retriever.search(query, top_k=retriever_top_k)
-            print(f"  Retrieved {len(bm25_results)} chunks")
+            logger.debug("BM25 retrieved %d chunks", len(bm25_results))
             for result in bm25_results:
                 chunk_id = result["chunk_id"]
                 if chunk_id not in all_results:
@@ -97,9 +98,9 @@ class HybridRetriever:
 
         # Semantic retrieval (dense vectors)
         if self.semantic_retriever:
-            print("\n[Semantic Retrieval]")
+            logger.debug("Running semantic retrieval...")
             semantic_results = self.semantic_retriever.search(query, top_k=retriever_top_k)
-            print(f"  Retrieved {len(semantic_results)} chunks")
+            logger.debug("Semantic retrieved %d chunks", len(semantic_results))
             for result in semantic_results:
                 chunk_id = result["chunk_id"]
                 if chunk_id not in all_results:
@@ -109,9 +110,9 @@ class HybridRetriever:
 
         # Graph retrieval (knowledge graph traversal)
         if self.graph_retriever:
-            print("\n[Graph Retrieval]")
+            logger.debug("Running graph retrieval...")
             graph_results = self.graph_retriever.search(query, top_k=retriever_top_k)
-            print(f"  Retrieved {len(graph_results)} chunks")
+            logger.debug("Graph retrieved %d chunks", len(graph_results))
             for result in graph_results:
                 chunk_id = result["chunk_id"]
                 if chunk_id not in all_results:
@@ -120,7 +121,7 @@ class HybridRetriever:
                 all_results[chunk_id]["graph_score"] = result.get("graph_score", 0)
 
         # Calculate RRF scores
-        print("\n[RRF Fusion]")
+        logger.debug("Calculating RRF fusion scores...")
         for chunk_id, chunk in all_results.items():
             rrf_score = 0.0
             score_breakdown = []
@@ -157,15 +158,18 @@ class HybridRetriever:
         for rank, result in enumerate(ranked_results, 1):
             result["final_rank"] = rank
 
-        print(f"  Fused {len(all_results)} unique chunks → Top {len(ranked_results)}")
-        print(f"{'='*80}\n")
+        logger.info(
+            "RRF fusion: %d unique chunks -> top %d results",
+            len(all_results),
+            len(ranked_results),
+        )
 
         return ranked_results
 
     def set_weights(self, weights: dict[str, float]):
         """Update retriever weights dynamically."""
         self.weights.update(weights)
-        print(f"Updated weights: {self.weights}")
+        logger.info("Updated weights: %s", self.weights)
 
     def get_retriever_stats(self, results: list[dict]) -> dict:
         """
