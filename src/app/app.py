@@ -553,6 +553,7 @@ def main():
     if "retrievers_ready" not in st.session_state:
         with st.spinner("Loading retrieval indices..."):
             init_retrievers()
+        with st.spinner("Initializing LLM..."):
             init_llm()
         st.session_state.retrievers_ready = True
 
