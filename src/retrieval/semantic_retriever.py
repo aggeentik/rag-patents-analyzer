@@ -16,6 +16,7 @@ class SemanticRetriever:
     def __init__(self, model_name: str = "all-MiniLM-L6-v2"):
         logger.info("Loading sentence transformer model: %s", model_name)
         self.model = SentenceTransformer(model_name)
+        logger.info("Sentence transformer model loaded successfully")
         self.index: faiss.IndexFlatIP | None = None
         self.chunk_ids: list[str] = []
         self.chunks_by_id: dict[str, dict] = {}
@@ -87,8 +88,11 @@ class SemanticRetriever:
         retriever = cls(model_name)
         retriever.chunks_by_id = {c["chunk_id"]: c for c in chunks}
 
+        logger.info("Loading FAISS index from %s", index_path)
         retriever.index = faiss.read_index(index_path)
+        logger.info("Loading chunk mapping from %s", mapping_path)
         with open(mapping_path, "r") as f:
             retriever.chunk_ids = json.load(f)
 
+        logger.info("Semantic retriever loaded successfully with %d chunks", len(retriever.chunk_ids))
         return retriever

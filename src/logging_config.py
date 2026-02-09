@@ -71,6 +71,16 @@ def setup_logging(
         scripts_logger.addHandler(handler)
     scripts_logger.propagate = False
 
+    # Configure __main__ logger for scripts run directly
+    main_logger = logging.getLogger("__main__")
+    main_logger.setLevel(level)
+
+    if not main_logger.handlers:
+        handler = logging.StreamHandler(stream)
+        handler.setFormatter(logging.Formatter(format_string, datefmt="%H:%M:%S"))
+        main_logger.addHandler(handler)
+    main_logger.propagate = False
+
 
 def get_logger(name: str) -> logging.Logger:
     """Get a logger with the given name.

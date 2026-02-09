@@ -39,15 +39,23 @@ def main():
     chunks = data["chunks"]
 
     # Load retrievers
+    logger.info("Loading BM25 retriever...")
     bm25 = BM25Retriever.load(str(BM25_INDEX), chunks)
+    logger.info("BM25 retriever loaded")
+
+    logger.info("Loading semantic retriever...")
     semantic = SemanticRetriever.load(str(FAISS_INDEX), str(CHUNK_IDS), chunks)
+    logger.info("Semantic retriever loaded")
+
+    logger.info("Connecting to knowledge graph database...")
     kg_store = KnowledgeGraphStore(str(KG_DATABASE))
     kg_store.connect()
+    logger.info("Knowledge graph store connected")
 
     logger.info("Loaded %d chunks", len(chunks))
 
     # Demo query
-    query = "What silicon content is needed for high yield strength?"
+    query = "Which document discusses the coprecipitation of 'TiN' within 'REM sulfides' to improve crystal grain growth?"
     logger.info("Query: %s", query)
 
     # BM25 results
