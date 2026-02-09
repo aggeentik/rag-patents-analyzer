@@ -1,7 +1,7 @@
 """Graph traversal and query operations."""
 
-from typing import Optional
 import networkx as nx
+
 from src.knowledge_graph.store import KnowledgeGraphStore
 
 
@@ -14,6 +14,7 @@ class KnowledgeGraphTraversal:
 
     def build_networkx_graph(self):
         """Build NetworkX graph for traversal algorithms."""
+        assert self.store.conn is not None, "Database connection not established"
         self.graph = nx.DiGraph()
 
         # Add all entities as nodes
@@ -35,10 +36,7 @@ class KnowledgeGraphTraversal:
             )
 
     def find_related_chunks(
-        self,
-        query_entities: list[str],
-        max_hops: int = 2,
-        max_chunks: int = 10
+        self, query_entities: list[str], max_hops: int = 2, max_chunks: int = 10
     ) -> list[str]:
         """
         Find chunks related to query entities via graph traversal.
@@ -49,8 +47,7 @@ class KnowledgeGraphTraversal:
         3. Collect all chunks containing traversed entities
         4. Rank by number of connections
         """
-        visited_entities = set()
-        chunk_scores = {}
+        chunk_scores: dict[str, float] = {}
 
         # BFS from each query entity
         for entity_name in query_entities:
@@ -76,11 +73,7 @@ class KnowledgeGraphTraversal:
         ranked = sorted(chunk_scores.items(), key=lambda x: x[1], reverse=True)
         return [chunk_id for chunk_id, score in ranked[:max_chunks]]
 
-    def _bfs_traverse(
-        self,
-        start_entity_id: str,
-        max_hops: int
-    ) -> list[tuple[str, int]]:
+    def _bfs_traverse(self, start_entity_id: str, max_hops: int) -> list[tuple[str, int]]:
         """BFS traverse from entity, return (entity_id, distance) pairs."""
         if not self.graph or start_entity_id not in self.graph:
             return []
@@ -116,20 +109,26 @@ class KnowledgeGraphTraversal:
             return {}
 
         # Get outgoing relationships
-        outgoing = self.store.conn.execute("""
+        outgoing = self.store.conn.execute(
+            """
             SELECT r.*, e.name as target_name, e.type as target_type
             FROM relationships r
             JOIN entities e ON r.target_id = e.id
             WHERE r.source_id = ?
-        """, (entity_id,)).fetchall()
+        """,
+            (entity_id,),
+        ).fetchall()
 
         # Get incoming relationships
-        incoming = self.store.conn.execute("""
+        incoming = self.store.conn.execute(
+            """
             SELECT r.*, e.name as source_name, e.type as source_type
             FROM relationships r
             JOIN entities e ON r.source_id = e.id
             WHERE r.target_id = ?
-        """, (entity_id,)).fetchall()
+        """,
+            (entity_id,),
+        ).fetchall()
 
         return {
             "entity": self.store._row_to_entity(entity),

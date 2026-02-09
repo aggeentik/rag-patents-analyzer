@@ -16,9 +16,9 @@ class SemanticRetriever:
     def __init__(self, model_name: str = "all-MiniLM-L6-v2"):
         logger.info("Loading sentence transformer model: %s", model_name)
         self.model = SentenceTransformer(model_name)
-        self.index = None
-        self.chunk_ids = []
-        self.chunks_by_id = {}
+        self.index: faiss.IndexFlatIP | None = None
+        self.chunk_ids: list[str] = []
+        self.chunks_by_id: dict[str, dict] = {}
 
     def build_index(self, chunks: list[dict]):
         """Build FAISS index from chunks."""
@@ -48,6 +48,8 @@ class SemanticRetriever:
 
     def search(self, query: str, top_k: int = 10) -> list[dict]:
         """Search and return chunks with semantic scores."""
+        assert self.index is not None, "Index not built. Call build_index() first."
+
         # Encode query
         query_embedding = self.model.encode([query])
         query_embedding = query_embedding / np.linalg.norm(query_embedding)
@@ -79,7 +81,7 @@ class SemanticRetriever:
         index_path: str,
         mapping_path: str,
         chunks: list[dict],
-        model_name: str = "all-MiniLM-L6-v2"
+        model_name: str = "all-MiniLM-L6-v2",
     ) -> "SemanticRetriever":
         """Load index from disk."""
         retriever = cls(model_name)

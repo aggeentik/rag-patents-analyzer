@@ -1,7 +1,6 @@
 """Knowledge graph-based retrieval."""
 
 import logging
-from typing import Optional
 
 from src.extraction.entity_extractor import EntityExtractor
 from src.knowledge_graph.schema import PatentChunk
@@ -14,12 +13,7 @@ logger = logging.getLogger(__name__)
 class GraphRetriever:
     """Knowledge graph-based retrieval using entity extraction and traversal."""
 
-    def __init__(
-        self,
-        kg_store: KnowledgeGraphStore,
-        max_hops: int = 2,
-        score_decay: float = 0.5
-    ):
+    def __init__(self, kg_store: KnowledgeGraphStore, max_hops: int = 2, score_decay: float = 0.5):
         """
         Initialize graph retriever.
 
@@ -33,7 +27,7 @@ class GraphRetriever:
         self.score_decay = score_decay
         self.traversal = KnowledgeGraphTraversal(kg_store)
         self.entity_extractor = EntityExtractor()
-        self.chunks_by_id = {}
+        self.chunks_by_id: dict[str, dict] = {}
 
     def build_index(self, chunks: list[dict]):
         """Build chunk mapping and graph structure."""
@@ -74,7 +68,7 @@ class GraphRetriever:
         logger.debug("Extracted query entities: %s%s", display_entities, suffix)
 
         # Use traversal to find related chunks
-        chunk_scores = {}
+        chunk_scores: dict[str, float] = {}
 
         for entity_name in entity_names:
             # Find matching entities in KG
@@ -92,15 +86,11 @@ class GraphRetriever:
                     rel_chunks = self.kg_store.get_chunks_for_entity(rel_entity_id)
                     for chunk_id in rel_chunks:
                         # Score decreases exponentially with distance
-                        score = self.score_decay ** distance
+                        score = self.score_decay**distance
                         chunk_scores[chunk_id] = chunk_scores.get(chunk_id, 0) + score
 
         # Sort by score and return top-k
-        ranked_chunk_ids = sorted(
-            chunk_scores.items(),
-            key=lambda x: x[1],
-            reverse=True
-        )[:top_k]
+        ranked_chunk_ids = sorted(chunk_scores.items(), key=lambda x: x[1], reverse=True)[:top_k]
 
         results = []
         for rank, (chunk_id, score) in enumerate(ranked_chunk_ids, 1):
@@ -124,7 +114,7 @@ class GraphRetriever:
         chunks: list[dict],
         kg_store: KnowledgeGraphStore,
         max_hops: int = 2,
-        score_decay: float = 0.5
+        score_decay: float = 0.5,
     ) -> "GraphRetriever":
         """Load graph retriever (rebuilds index from chunks)."""
         retriever = cls(kg_store, max_hops, score_decay)

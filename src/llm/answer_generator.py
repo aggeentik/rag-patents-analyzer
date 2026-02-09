@@ -1,7 +1,6 @@
 """Answer generation using retrieved chunks and LLM."""
 
 import logging
-from typing import Optional
 
 from src.llm.llm_client import LLMClient
 
@@ -20,10 +19,7 @@ class AnswerGenerator:
     """
 
     def __init__(
-        self,
-        llm_client: LLMClient,
-        max_context_chunks: int = 5,
-        include_metadata: bool = True
+        self, llm_client: LLMClient, max_context_chunks: int = 5, include_metadata: bool = True
     ):
         """
         Initialize answer generator.
@@ -42,7 +38,7 @@ class AnswerGenerator:
         question: str,
         retrieved_chunks: list[dict],
         temperature: float = 0.0,
-        stream: bool = False
+        stream: bool = False,
     ) -> dict:
         """
         Generate answer to question using retrieved chunks.
@@ -60,7 +56,7 @@ class AnswerGenerator:
                 - metadata: Additional information (model, chunk_count, etc.)
         """
         # Select top chunks for context
-        context_chunks = retrieved_chunks[:self.max_context_chunks]
+        context_chunks = retrieved_chunks[: self.max_context_chunks]
 
         # Build context from chunks
         context = self._build_context(context_chunks)
@@ -76,14 +72,10 @@ class AnswerGenerator:
 
         messages = [
             {"role": "system", "content": system_message},
-            {"role": "user", "content": prompt}
+            {"role": "user", "content": prompt},
         ]
 
-        answer = self.llm_client.generate(
-            messages,
-            temperature=temperature,
-            stream=stream
-        )
+        answer = self.llm_client.generate(messages, temperature=temperature, stream=stream)
 
         return {
             "answer": answer,
@@ -94,7 +86,9 @@ class AnswerGenerator:
                     "section": chunk.get("metadata", {}).get("section", "unknown"),
                     "page": chunk.get("metadata", {}).get("page", "unknown"),
                     "rrf_score": chunk.get("rrf_score", 0.0),
-                    "preview": chunk["content"][:200] + "..." if len(chunk["content"]) > 200 else chunk["content"]
+                    "preview": chunk["content"][:200] + "..."
+                    if len(chunk["content"]) > 200
+                    else chunk["content"],
                 }
                 for chunk in context_chunks
             ],
@@ -102,8 +96,8 @@ class AnswerGenerator:
                 "model": self.llm_client.model,
                 "chunk_count": len(context_chunks),
                 "total_retrieved": len(retrieved_chunks),
-                "temperature": temperature
-            }
+                "temperature": temperature,
+            },
         }
 
     def stream_answer(
@@ -120,7 +114,7 @@ class AnswerGenerator:
             chunks suitable for st.write_stream(), and metadata is a dict
             with sources and model info.
         """
-        context_chunks = retrieved_chunks[:self.max_context_chunks]
+        context_chunks = retrieved_chunks[: self.max_context_chunks]
         context = self._build_context(context_chunks)
         prompt = self._build_prompt(question, context)
         system_message = self._get_system_message()
@@ -130,9 +124,7 @@ class AnswerGenerator:
             {"role": "user", "content": prompt},
         ]
 
-        stream = self.llm_client.generate_stream(
-            messages, temperature=temperature
-        )
+        stream = self.llm_client.generate_stream(messages, temperature=temperature)
 
         metadata = {
             "answer": "",  # placeholder, filled by caller after streaming
@@ -143,7 +135,9 @@ class AnswerGenerator:
                     "section": chunk.get("metadata", {}).get("section", "unknown"),
                     "page": chunk.get("metadata", {}).get("page", "unknown"),
                     "rrf_score": chunk.get("rrf_score", 0.0),
-                    "preview": chunk["content"][:200] + "..." if len(chunk["content"]) > 200 else chunk["content"],
+                    "preview": chunk["content"][:200] + "..."
+                    if len(chunk["content"]) > 200
+                    else chunk["content"],
                 }
                 for chunk in context_chunks
             ],
@@ -228,7 +222,7 @@ Always base your answers on the provided patent excerpts. If information is not 
         Returns:
             Summary text
         """
-        context = self._build_context(chunks[:self.max_context_chunks])
+        context = self._build_context(chunks[: self.max_context_chunks])
 
         prompt = f"""Summarize the key technical information from these patent excerpts:
 
@@ -244,7 +238,7 @@ SUMMARY:"""
 
         messages = [
             {"role": "system", "content": self._get_system_message()},
-            {"role": "user", "content": prompt}
+            {"role": "user", "content": prompt},
         ]
 
         return self.llm_client.generate(messages, temperature=0.0)
@@ -255,7 +249,7 @@ SUMMARY:"""
         chunks_a: list[dict],
         chunks_b: list[dict],
         label_a: str = "Set A",
-        label_b: str = "Set B"
+        label_b: str = "Set B",
     ) -> str:
         """
         Compare two sets of chunks (e.g., different patents or approaches).
@@ -270,8 +264,8 @@ SUMMARY:"""
         Returns:
             Comparison answer
         """
-        context_a = self._build_context(chunks_a[:self.max_context_chunks])
-        context_b = self._build_context(chunks_b[:self.max_context_chunks])
+        context_a = self._build_context(chunks_a[: self.max_context_chunks])
+        context_b = self._build_context(chunks_b[: self.max_context_chunks])
 
         prompt = f"""Compare the following two sets of patent excerpts and answer the question.
 
@@ -294,7 +288,7 @@ COMPARISON:"""
 
         messages = [
             {"role": "system", "content": self._get_system_message()},
-            {"role": "user", "content": prompt}
+            {"role": "user", "content": prompt},
         ]
 
         return self.llm_client.generate(messages, temperature=0.0)

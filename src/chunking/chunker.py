@@ -5,6 +5,7 @@ No token-based splitting or overlap -- boundaries come from document structure.
 """
 
 import re
+from typing import ClassVar
 
 from src.knowledge_graph.schema import (
     EntityType,
@@ -26,7 +27,7 @@ class PatentChunker:
     """
 
     # Reference patterns (used to build StructuredReference objects)
-    _REF_PATTERNS: list[tuple[re.Pattern, EntityType]] = [
+    _REF_PATTERNS: ClassVar[list[tuple[re.Pattern, EntityType]]] = [
         (re.compile(r"Table\s*(\d+)", re.IGNORECASE), EntityType.TABLE),
         (re.compile(r"Formula\s*\((\d+)\)", re.IGNORECASE), EntityType.FORMULA),
         (re.compile(r"FIG\.?\s*(\d+)", re.IGNORECASE), EntityType.FIGURE),
@@ -58,9 +59,7 @@ class PatentChunker:
             if section_name == PatentSection.CLAIMS.value:
                 chunks.extend(self._chunk_claims(text, patent_doc.patent_id))
             else:
-                chunks.extend(
-                    self._chunk_section(text, patent_doc.patent_id, section_name)
-                )
+                chunks.extend(self._chunk_section(text, patent_doc.patent_id, section_name))
 
         # 2. Table chunks (from Docling-extracted tables)
         table_pages = patent_doc.metadata.get("table_pages", [])
@@ -86,9 +85,7 @@ class PatentChunker:
     # Claims chunking
     # ------------------------------------------------------------------
 
-    def _chunk_claims(
-        self, text: str, patent_id: str
-    ) -> list[PatentChunk]:
+    def _chunk_claims(self, text: str, patent_id: str) -> list[PatentChunk]:
         """Split claims section: each numbered claim becomes one chunk."""
         # Split on lines that start with a claim number
         claim_blocks: list[str] = []
@@ -129,9 +126,7 @@ class PatentChunker:
     # General section chunking
     # ------------------------------------------------------------------
 
-    def _chunk_section(
-        self, text: str, patent_id: str, section_name: str
-    ) -> list[PatentChunk]:
+    def _chunk_section(self, text: str, patent_id: str, section_name: str) -> list[PatentChunk]:
         """Split section text into atomic paragraphs.
 
         Strategy:
@@ -143,8 +138,8 @@ class PatentChunker:
         chunks: list[PatentChunk] = []
         current_page = 1
         for para in paragraphs:
-            para = para.strip()
-            if not para:
+            stripped_para = para.strip()
+            if not stripped_para:
                 continue
 
             page, clean_para = self._extract_page_and_clean(para, current_page)
@@ -205,9 +200,7 @@ class PatentChunker:
     # ------------------------------------------------------------------
 
     @classmethod
-    def _extract_page_and_clean(
-        cls, text: str, default_page: int = 1
-    ) -> tuple[int, str]:
+    def _extract_page_and_clean(cls, text: str, default_page: int = 1) -> tuple[int, str]:
         """Extract page number from ``<!-- PB:N -->`` markers and strip them.
 
         Args:
@@ -231,12 +224,10 @@ class PatentChunker:
     # Reference resolution
     # ------------------------------------------------------------------
 
-    def _extract_references(
-        self, text: str, patent_id: str
-    ) -> list[StructuredReference]:
+    def _extract_references(self, text: str, patent_id: str) -> list[StructuredReference]:
         """Find and resolve cross-references (e.g. 'Table 1' -> patent-scoped ID)."""
         refs: list[StructuredReference] = []
-        seen: set[str] = set()
+        seen: set[tuple[EntityType, str]] = set()
 
         for pattern, ref_type in self._REF_PATTERNS:
             for match in pattern.finditer(text):

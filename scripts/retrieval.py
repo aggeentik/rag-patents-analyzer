@@ -10,9 +10,9 @@ from pathlib import Path
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
+from src.knowledge_graph.store import KnowledgeGraphStore
 from src.logging_config import setup_logging
 from src.retrieval import BM25Retriever, SemanticRetriever
-from src.knowledge_graph.store import KnowledgeGraphStore
 
 logger = logging.getLogger(__name__)
 
@@ -40,11 +40,7 @@ def main():
 
     # Load retrievers
     bm25 = BM25Retriever.load(str(BM25_INDEX), chunks)
-    semantic = SemanticRetriever.load(
-        str(FAISS_INDEX),
-        str(CHUNK_IDS),
-        chunks
-    )
+    semantic = SemanticRetriever.load(str(FAISS_INDEX), str(CHUNK_IDS), chunks)
     kg_store = KnowledgeGraphStore(str(KG_DATABASE))
     kg_store.connect()
 
@@ -63,11 +59,11 @@ def main():
         logger.info(
             "%d. %s (score: %.2f)",
             i,
-            r['chunk_id'],
-            r['bm25_score'],
+            r["chunk_id"],
+            r["bm25_score"],
         )
-        logger.info("   Section: %s", r['metadata'].get('section', 'Unknown'))
-        logger.info("   Content: %s...", r['content'][:200])
+        logger.info("   Section: %s", r["metadata"].get("section", "Unknown"))
+        logger.info("   Content: %s...", r["content"][:200])
 
     # Semantic results
     logger.info("=" * 70)
@@ -78,11 +74,11 @@ def main():
         logger.info(
             "%d. %s (score: %.2f)",
             i,
-            r['chunk_id'],
-            r['semantic_score'],
+            r["chunk_id"],
+            r["semantic_score"],
         )
-        logger.info("   Section: %s", r['metadata'].get('section', 'Unknown'))
-        logger.info("   Content: %s...", r['content'][:200])
+        logger.info("   Section: %s", r["metadata"].get("section", "Unknown"))
+        logger.info("   Content: %s...", r["content"][:200])
 
     # Knowledge graph
     logger.info("=" * 70)
@@ -91,8 +87,8 @@ def main():
     si_entities = kg_store.find_entities("Si", entity_type="chemical_element")
     logger.info("Found %d Silicon entities", len(si_entities))
     for e in si_entities[:3]:
-        props = e['properties']
-        logger.info("  - %s: %s %s", e['name'], props.get('value', '?'), props.get('unit', ''))
+        props = e["properties"]
+        logger.info("  - %s: %s %s", e["name"], props.get("value", "?"), props.get("unit", ""))
 
     yield_entities = kg_store.find_entities("yield", entity_type="property")
     logger.info("Found %d yield stress entities", len(yield_entities))

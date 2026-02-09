@@ -10,7 +10,6 @@ Table / Formula / Figure / Sample references are always extracted via regex.
 
 import logging
 import re
-from typing import Optional
 
 from src.knowledge_graph.schema import (
     CHEMICAL_ELEMENTS,
@@ -37,9 +36,7 @@ class EntityExtractor:
     """
 
     # ---- compiled regex patterns ----
-    PERCENTAGE_PATTERN = re.compile(
-        r"(\d+\.?\d*)\s*(%|mass\s*%|wt\s*%)", re.IGNORECASE
-    )
+    PERCENTAGE_PATTERN = re.compile(r"(\d+\.?\d*)\s*(%|mass\s*%|wt\s*%)", re.IGNORECASE)
     TEMPERATURE_PATTERN = re.compile(r"(\d+)\s*°?C")
     RANGE_PATTERN = re.compile(
         r"(\d+\.?\d*)\s*(?:to|-)\s*(\d+\.?\d*)\s*(%|°C|MPa|T)", re.IGNORECASE
@@ -60,8 +57,9 @@ class EntityExtractor:
     def _init_instructor(self):
         """Lazily initialise the Instructor-wrapped LiteLLM client."""
         try:
-            import instructor
-            import litellm
+            import instructor  # noqa: PLC0415
+            import litellm  # noqa: PLC0415
+
             self._instructor_client = instructor.from_litellm(litellm.completion)
         except ImportError:
             logger.warning("instructor not installed, falling back to regex-only extraction")
@@ -103,6 +101,7 @@ class EntityExtractor:
         entities: list[Entity] = []
 
         try:
+            assert self._instructor_client is not None, "Instructor client not initialized"
             result: ChunkExtractionResult = self._instructor_client.chat.completions.create(
                 model=self._llm_client.model,
                 response_model=ChunkExtractionResult,
@@ -193,52 +192,74 @@ class EntityExtractor:
                 if span in seen_spans:
                     continue
                 seen_spans.add(span)
-                entities.append(Entity(
-                    id=f"{chunk.patent_id}_{symbol}_{len(entities)}",
-                    type=EntityType.CHEMICAL_ELEMENT,
-                    name=symbol,
-                    properties={"full_name": name, "value": float(match.group(1)), "unit": match.group(2)},
-                    patent_id=chunk.patent_id,
-                    chunk_ids=[chunk.chunk_id],
-                ))
+                entities.append(
+                    Entity(
+                        id=f"{chunk.patent_id}_{symbol}_{len(entities)}",
+                        type=EntityType.CHEMICAL_ELEMENT,
+                        name=symbol,
+                        properties={
+                            "full_name": name,
+                            "value": float(match.group(1)),
+                            "unit": match.group(2),
+                        },
+                        patent_id=chunk.patent_id,
+                        chunk_ids=[chunk.chunk_id],
+                    )
+                )
 
             # --- Pattern B: element-first range  "Si: 2.5-10%" ---
-            pat_b = rf"\b{symbol}\s*[:=]?\s*(\d+\.?\d*)\s*(?:to|-)\s*(\d+\.?\d*)\s*(%|mass\s*%|wt\s*%)"
+            pat_b = (
+                rf"\b{symbol}\s*[:=]?\s*(\d+\.?\d*)\s*(?:to|-)\s*(\d+\.?\d*)\s*(%|mass\s*%|wt\s*%)"
+            )
             for match in re.finditer(pat_b, text, re.IGNORECASE):
                 span = match.span()
                 if span in seen_spans:
                     continue
                 seen_spans.add(span)
-                entities.append(Entity(
-                    id=f"{chunk.patent_id}_{symbol}_range_{len(entities)}",
-                    type=EntityType.COMPOSITION_RANGE,
-                    name=f"{symbol}_range",
-                    properties={"element": symbol, "min_val": float(match.group(1)), "max_val": float(match.group(2)), "unit": "%"},
-                    patent_id=chunk.patent_id,
-                    chunk_ids=[chunk.chunk_id],
-                ))
+                entities.append(
+                    Entity(
+                        id=f"{chunk.patent_id}_{symbol}_range_{len(entities)}",
+                        type=EntityType.COMPOSITION_RANGE,
+                        name=f"{symbol}_range",
+                        properties={
+                            "element": symbol,
+                            "min_val": float(match.group(1)),
+                            "max_val": float(match.group(2)),
+                            "unit": "%",
+                        },
+                        patent_id=chunk.patent_id,
+                        chunk_ids=[chunk.chunk_id],
+                    )
+                )
 
             # --- Pattern C (claims): value-first range  "2.5% to 10% by mass of Si" ---
             pat_c = (
-                rf"(\d+\.?\d*)\s*(%|mass\s*%|wt\s*%)\s*"        # min + unit
-                rf"(?:to|-)\s*"                                   # separator
-                rf"(\d+\.?\d*)\s*(%|mass\s*%|wt\s*%)"            # max + unit
-                rf"(?:\s+by\s+mass)?"                             # optional "by mass" qualifier
-                rf"\s+(?:of\s+)?\b{symbol}\b"                     # "of Si"
+                rf"(\d+\.?\d*)\s*(%|mass\s*%|wt\s*%)\s*"  # min + unit
+                rf"(?:to|-)\s*"  # separator
+                rf"(\d+\.?\d*)\s*(%|mass\s*%|wt\s*%)"  # max + unit
+                rf"(?:\s+by\s+mass)?"  # optional "by mass" qualifier
+                rf"\s+(?:of\s+)?\b{symbol}\b"  # "of Si"
             )
             for match in re.finditer(pat_c, text, re.IGNORECASE):
                 span = match.span()
                 if span in seen_spans:
                     continue
                 seen_spans.add(span)
-                entities.append(Entity(
-                    id=f"{chunk.patent_id}_{symbol}_range_{len(entities)}",
-                    type=EntityType.COMPOSITION_RANGE,
-                    name=f"{symbol}_range",
-                    properties={"element": symbol, "min_val": float(match.group(1)), "max_val": float(match.group(3)), "unit": "%"},
-                    patent_id=chunk.patent_id,
-                    chunk_ids=[chunk.chunk_id],
-                ))
+                entities.append(
+                    Entity(
+                        id=f"{chunk.patent_id}_{symbol}_range_{len(entities)}",
+                        type=EntityType.COMPOSITION_RANGE,
+                        name=f"{symbol}_range",
+                        properties={
+                            "element": symbol,
+                            "min_val": float(match.group(1)),
+                            "max_val": float(match.group(3)),
+                            "unit": "%",
+                        },
+                        patent_id=chunk.patent_id,
+                        chunk_ids=[chunk.chunk_id],
+                    )
+                )
 
             # --- Pattern D (claims): single value-first  "0.006% by mass or less of C" ---
             pat_d = (
@@ -251,14 +272,20 @@ class EntityExtractor:
                 if span in seen_spans:
                     continue
                 seen_spans.add(span)
-                entities.append(Entity(
-                    id=f"{chunk.patent_id}_{symbol}_{len(entities)}",
-                    type=EntityType.CHEMICAL_ELEMENT,
-                    name=symbol,
-                    properties={"full_name": name, "value": float(match.group(1)), "unit": match.group(2)},
-                    patent_id=chunk.patent_id,
-                    chunk_ids=[chunk.chunk_id],
-                ))
+                entities.append(
+                    Entity(
+                        id=f"{chunk.patent_id}_{symbol}_{len(entities)}",
+                        type=EntityType.CHEMICAL_ELEMENT,
+                        name=symbol,
+                        properties={
+                            "full_name": name,
+                            "value": float(match.group(1)),
+                            "unit": match.group(2),
+                        },
+                        patent_id=chunk.patent_id,
+                        chunk_ids=[chunk.chunk_id],
+                    )
+                )
 
         return entities
 
@@ -269,18 +296,20 @@ class EntityExtractor:
                 if alias.lower() in text.lower():
                     pattern = rf"{re.escape(alias)}\s*(?:of|:)?\s*(\d+)\s*(MPa|%|T|W/kg)"
                     match = re.search(pattern, text, re.IGNORECASE)
-                    properties = {"alias": alias}
+                    properties: dict[str, str | float | int] = {"alias": alias}
                     if match:
                         properties["value"] = float(match.group(1))
                         properties["unit"] = match.group(2)
-                    entities.append(Entity(
-                        id=f"{chunk.patent_id}_{prop_id}_{len(entities)}",
-                        type=EntityType.PROPERTY,
-                        name=prop_id,
-                        properties=properties,
-                        patent_id=chunk.patent_id,
-                        chunk_ids=[chunk.chunk_id],
-                    ))
+                    entities.append(
+                        Entity(
+                            id=f"{chunk.patent_id}_{prop_id}_{len(entities)}",
+                            type=EntityType.PROPERTY,
+                            name=prop_id,
+                            properties=properties,
+                            patent_id=chunk.patent_id,
+                            chunk_ids=[chunk.chunk_id],
+                        )
+                    )
                     break
         return entities
 
@@ -291,18 +320,20 @@ class EntityExtractor:
                 if alias.lower() in text.lower():
                     temp_pattern = rf"{re.escape(alias)}.*?(\d+)\s*°?C"
                     temp_match = re.search(temp_pattern, text, re.IGNORECASE)
-                    properties = {"alias": alias}
+                    process_props: dict[str, str | float | int] = {"alias": alias}
                     if temp_match:
-                        properties["temperature"] = int(temp_match.group(1))
-                        properties["temperature_unit"] = "°C"
-                    entities.append(Entity(
-                        id=f"{chunk.patent_id}_{process_id}_{len(entities)}",
-                        type=EntityType.PROCESS,
-                        name=process_id,
-                        properties=properties,
-                        patent_id=chunk.patent_id,
-                        chunk_ids=[chunk.chunk_id],
-                    ))
+                        process_props["temperature"] = int(temp_match.group(1))
+                        process_props["temperature_unit"] = "°C"
+                    entities.append(
+                        Entity(
+                            id=f"{chunk.patent_id}_{process_id}_{len(entities)}",
+                            type=EntityType.PROCESS,
+                            name=process_id,
+                            properties=process_props,
+                            patent_id=chunk.patent_id,
+                            chunk_ids=[chunk.chunk_id],
+                        )
+                    )
                     break
         return entities
 
@@ -311,36 +342,42 @@ class EntityExtractor:
 
         for match in self.TABLE_RE.finditer(text):
             table_num = match.group(1)
-            entities.append(Entity(
-                id=f"{chunk.patent_id}_table_{table_num}",
-                type=EntityType.TABLE,
-                name=f"Table {table_num}",
-                properties={"table_number": int(table_num)},
-                patent_id=chunk.patent_id,
-                chunk_ids=[chunk.chunk_id],
-            ))
+            entities.append(
+                Entity(
+                    id=f"{chunk.patent_id}_table_{table_num}",
+                    type=EntityType.TABLE,
+                    name=f"Table {table_num}",
+                    properties={"table_number": int(table_num)},
+                    patent_id=chunk.patent_id,
+                    chunk_ids=[chunk.chunk_id],
+                )
+            )
 
         for match in self.FORMULA_RE.finditer(text):
             formula_num = match.group(1)
-            entities.append(Entity(
-                id=f"{chunk.patent_id}_formula_{formula_num}",
-                type=EntityType.FORMULA,
-                name=f"Formula {formula_num}",
-                properties={"formula_number": int(formula_num)},
-                patent_id=chunk.patent_id,
-                chunk_ids=[chunk.chunk_id],
-            ))
+            entities.append(
+                Entity(
+                    id=f"{chunk.patent_id}_formula_{formula_num}",
+                    type=EntityType.FORMULA,
+                    name=f"Formula {formula_num}",
+                    properties={"formula_number": int(formula_num)},
+                    patent_id=chunk.patent_id,
+                    chunk_ids=[chunk.chunk_id],
+                )
+            )
 
         for match in self.FIGURE_RE.finditer(text):
             fig_num = match.group(1) or match.group(2)
-            entities.append(Entity(
-                id=f"{chunk.patent_id}_figure_{fig_num}",
-                type=EntityType.FIGURE,
-                name=f"Figure {fig_num}",
-                properties={"figure_number": int(fig_num)},
-                patent_id=chunk.patent_id,
-                chunk_ids=[chunk.chunk_id],
-            ))
+            entities.append(
+                Entity(
+                    id=f"{chunk.patent_id}_figure_{fig_num}",
+                    type=EntityType.FIGURE,
+                    name=f"Figure {fig_num}",
+                    properties={"figure_number": int(fig_num)},
+                    patent_id=chunk.patent_id,
+                    chunk_ids=[chunk.chunk_id],
+                )
+            )
 
         return entities
 
@@ -348,12 +385,14 @@ class EntityExtractor:
         entities: list[Entity] = []
         for match in self.SAMPLE_RE.finditer(text):
             sample_id = match.group(1)
-            entities.append(Entity(
-                id=f"{chunk.patent_id}_sample_{sample_id}",
-                type=EntityType.SAMPLE,
-                name=f"Sample {sample_id}",
-                properties={"sample_id": sample_id},
-                patent_id=chunk.patent_id,
-                chunk_ids=[chunk.chunk_id],
-            ))
+            entities.append(
+                Entity(
+                    id=f"{chunk.patent_id}_sample_{sample_id}",
+                    type=EntityType.SAMPLE,
+                    name=f"Sample {sample_id}",
+                    properties={"sample_id": sample_id},
+                    patent_id=chunk.patent_id,
+                    chunk_ids=[chunk.chunk_id],
+                )
+            )
         return entities

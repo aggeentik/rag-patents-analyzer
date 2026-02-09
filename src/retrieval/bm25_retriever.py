@@ -20,20 +20,17 @@ class BM25Retriever:
 
         # Ensure nltk data is available
         try:
-            nltk.data.find('tokenizers/punkt')
+            nltk.data.find("tokenizers/punkt")
         except LookupError:
             logger.info("Downloading NLTK punkt tokenizer...")
-            nltk.download('punkt')
-            nltk.download('punkt_tab')
+            nltk.download("punkt")
+            nltk.download("punkt_tab")
 
     def build_index(self, chunks: list[dict]):
         """Build BM25 index from chunks."""
         logger.info("Building BM25 index for %d chunks...", len(chunks))
         self.chunks = chunks
-        self.tokenized_corpus = [
-            word_tokenize(chunk["content"].lower())
-            for chunk in chunks
-        ]
+        self.tokenized_corpus = [word_tokenize(chunk["content"].lower()) for chunk in chunks]
         self.bm25 = BM25Okapi(self.tokenized_corpus)
         logger.info("BM25 index built successfully")
 
@@ -45,7 +42,7 @@ class BM25Retriever:
         # Get top-k indices
         top_indices = scores.argsort()[-top_k:][::-1]
 
-        results = []
+        results: list[dict] = []
         for idx in top_indices:
             chunk = self.chunks[idx].copy()
             chunk["bm25_score"] = float(scores[idx])
@@ -58,10 +55,13 @@ class BM25Retriever:
         """Save index to disk."""
         # Note: Using pickle for BM25 index storage (trusted data source)
         with open(path, "wb") as f:
-            pickle.dump({
-                "bm25": self.bm25,
-                "tokenized_corpus": self.tokenized_corpus,
-            }, f)
+            pickle.dump(
+                {
+                    "bm25": self.bm25,
+                    "tokenized_corpus": self.tokenized_corpus,
+                },
+                f,
+            )
         logger.info("BM25 index saved to %s", path)
 
     @classmethod

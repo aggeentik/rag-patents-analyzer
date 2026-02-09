@@ -13,13 +13,13 @@ Usage in scripts (at the top):
 
 import logging
 import sys
-from typing import Optional
+from typing import TextIO
 
 
 def setup_logging(
     level: int = logging.INFO,
-    format_string: Optional[str] = None,
-    stream: Optional[object] = None,
+    format_string: str | None = None,
+    stream: TextIO | None = None,
 ) -> None:
     """Configure logging for the application.
 

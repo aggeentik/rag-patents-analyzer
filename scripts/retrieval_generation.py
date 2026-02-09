@@ -21,10 +21,10 @@ from pathlib import Path
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-from src.logging_config import setup_logging
-from src.retrieval import BM25Retriever, SemanticRetriever, GraphRetriever, HybridRetriever
 from src.knowledge_graph.store import KnowledgeGraphStore
-from src.llm import LLMClient, AnswerGenerator
+from src.llm import AnswerGenerator, LLMClient
+from src.logging_config import setup_logging
+from src.retrieval import BM25Retriever, GraphRetriever, HybridRetriever, SemanticRetriever
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +37,7 @@ def load_chunks(data_path: Path) -> list[dict]:
 
     all_chunks = data["chunks"]
 
-    logger.info("Loaded %d chunks from %d patents", len(all_chunks), data['total_patents'])
+    logger.info("Loaded %d chunks from %d patents", len(all_chunks), data["total_patents"])
     return all_chunks
 
 
@@ -49,17 +49,12 @@ def initialize_retrievers(data_dir: Path, chunks: list[dict]) -> dict:
 
     # BM25 Retriever
     logger.info("[1/3] BM25 Retriever")
-    bm25_retriever = BM25Retriever.load(
-        str(data_dir / "bm25_index.pkl"),
-        chunks
-    )
+    bm25_retriever = BM25Retriever.load(str(data_dir / "bm25_index.pkl"), chunks)
 
     # Semantic Retriever
     logger.info("[2/3] Semantic Retriever")
     semantic_retriever = SemanticRetriever.load(
-        str(data_dir / "faiss.index"),
-        str(data_dir / "chunk_ids.json"),
-        chunks
+        str(data_dir / "faiss.index"), str(data_dir / "chunk_ids.json"), chunks
     )
 
     # Graph Retriever
@@ -71,7 +66,7 @@ def initialize_retrievers(data_dir: Path, chunks: list[dict]) -> dict:
         chunks=chunks,
         kg_store=kg_store,
         max_hops=2,
-        score_decay=0.5
+        score_decay=0.5,
     )
 
     logger.info("=" * 80)
@@ -80,7 +75,7 @@ def initialize_retrievers(data_dir: Path, chunks: list[dict]) -> dict:
         "bm25": bm25_retriever,
         "semantic": semantic_retriever,
         "graph": graph_retriever,
-        "kg_store": kg_store
+        "kg_store": kg_store,
     }
 
 
@@ -98,20 +93,20 @@ def demo_hybrid_retrieval(hybrid_retriever: HybridRetriever, query: str, top_k: 
     logger.info("=" * 80)
 
     for i, result in enumerate(results, 1):
-        metadata = result.get('metadata', {})
+        metadata = result.get("metadata", {})
         logger.info(
             "[Result %d] RRF Score: %.4f",
             i,
-            result['rrf_score'],
+            result["rrf_score"],
         )
         logger.info(
             "Patent: %s | Section: %s | Page: %s",
-            result.get('patent_id', 'unknown'),
-            metadata.get('section', 'unknown'),
-            metadata.get('page', 'unknown'),
+            result.get("patent_id", "unknown"),
+            metadata.get("section", "unknown"),
+            metadata.get("page", "unknown"),
         )
-        logger.info("Scores - %s", result.get('score_breakdown', 'N/A'))
-        logger.info("Content: %s...", result['content'][:200])
+        logger.info("Scores - %s", result.get("score_breakdown", "N/A"))
+        logger.info("Content: %s...", result["content"][:200])
         logger.info("-" * 80)
 
     # Show retriever statistics
@@ -119,11 +114,11 @@ def demo_hybrid_retrieval(hybrid_retriever: HybridRetriever, query: str, top_k: 
     logger.info("=" * 80)
     logger.info("RETRIEVER STATISTICS")
     logger.info("=" * 80)
-    logger.info("Total results: %d", stats['total_results'])
-    logger.info("BM25 hits: %d", stats['bm25_hits'])
-    logger.info("Semantic hits: %d", stats['semantic_hits'])
-    logger.info("Graph hits: %d", stats['graph_hits'])
-    logger.info("Multi-retriever hits: %d", stats['multi_retriever_hits'])
+    logger.info("Total results: %d", stats["total_results"])
+    logger.info("BM25 hits: %d", stats["bm25_hits"])
+    logger.info("Semantic hits: %d", stats["semantic_hits"])
+    logger.info("Graph hits: %d", stats["graph_hits"])
+    logger.info("Multi-retriever hits: %d", stats["multi_retriever_hits"])
     logger.info("=" * 80)
 
     return results
@@ -140,7 +135,7 @@ def demo_answer_generation(answer_generator: AnswerGenerator, query: str, chunks
         question=query,
         retrieved_chunks=chunks,
         temperature=0.0,
-        stream=True  # Stream the answer for better UX
+        stream=True,  # Stream the answer for better UX
     )
 
     logger.info("=" * 80)
@@ -148,26 +143,26 @@ def demo_answer_generation(answer_generator: AnswerGenerator, query: str, chunks
     logger.info("=" * 80)
     for i, source in enumerate(result["sources"], 1):
         logger.info("[Source %d]", i)
-        logger.info("  Chunk ID: %s", source['chunk_id'])
+        logger.info("  Chunk ID: %s", source["chunk_id"])
         logger.info(
             "  Patent: %s | Section: %s | Page: %s",
-            source['patent_id'],
-            source['section'],
-            source['page'],
+            source["patent_id"],
+            source["section"],
+            source["page"],
         )
-        logger.info("  RRF Score: %.4f", source['rrf_score'])
-        logger.info("  Preview: %s", source['preview'])
+        logger.info("  RRF Score: %.4f", source["rrf_score"])
+        logger.info("  Preview: %s", source["preview"])
 
     logger.info("=" * 80)
     logger.info("METADATA")
     logger.info("=" * 80)
-    logger.info("Model: %s", result['metadata']['model'])
+    logger.info("Model: %s", result["metadata"]["model"])
     logger.info(
         "Chunks used: %d / %d retrieved",
-        result['metadata']['chunk_count'],
-        result['metadata']['total_retrieved'],
+        result["metadata"]["chunk_count"],
+        result["metadata"]["total_retrieved"],
     )
-    logger.info("Temperature: %s", result['metadata']['temperature'])
+    logger.info("Temperature: %s", result["metadata"]["temperature"])
     logger.info("=" * 80)
 
     return result
@@ -203,11 +198,11 @@ def main():
         semantic_retriever=retrievers["semantic"],
         graph_retriever=retrievers["graph"],
         weights={
-            "bm25": 1.0,      # Keyword matching
+            "bm25": 1.0,  # Keyword matching
             "semantic": 1.0,  # Semantic similarity
-            "graph": 0.5      # Knowledge graph (less weight)
+            "graph": 0.5,  # Knowledge graph (less weight)
         },
-        rrf_k=60
+        rrf_k=60,
     )
     logger.info("=" * 80)
 
@@ -228,16 +223,14 @@ def main():
 
     # Create answer generator
     answer_generator = AnswerGenerator(
-        llm_client=llm_client,
-        max_context_chunks=5,
-        include_metadata=True
+        llm_client=llm_client, max_context_chunks=5, include_metadata=True
     )
 
     # Sample queries
     queries = [
         "What is the effect of silicon content on magnetic properties of steel?",
         "What are the annealing conditions for grain-oriented electrical steel?",
-        "How does chromium affect the core loss in electrical steel?"
+        "How does chromium affect the core loss in electrical steel?",
     ]
 
     logger.info("=" * 80)
@@ -255,7 +248,7 @@ def main():
     retrieved_chunks = demo_hybrid_retrieval(hybrid_retriever, query, top_k=10)
 
     # Step 2: Answer Generation
-    answer_result = demo_answer_generation(answer_generator, query, retrieved_chunks)
+    demo_answer_generation(answer_generator, query, retrieved_chunks)
 
     # Cleanup
     retrievers["kg_store"].close()

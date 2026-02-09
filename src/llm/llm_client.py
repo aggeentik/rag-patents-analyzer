@@ -2,8 +2,6 @@
 
 import logging
 import os
-import sys
-from typing import Optional
 
 from dotenv import load_dotenv
 
@@ -11,10 +9,8 @@ logger = logging.getLogger(__name__)
 
 try:
     from litellm import completion
-except ImportError:
-    raise ImportError(
-        "litellm is not installed. Please install it with: uv add litellm"
-    )
+except ImportError as err:
+    raise ImportError("litellm is not installed. Please install it with: uv add litellm") from err
 
 load_dotenv()
 
@@ -34,7 +30,7 @@ class LLMClient:
         model: str = "ollama/llama2",
         temperature: float = 0.0,
         max_tokens: int = 2048,
-        api_base: Optional[str] = None
+        api_base: str | None = None,
     ):
         """
         Initialize LLM client.
@@ -74,9 +70,9 @@ class LLMClient:
     def generate(
         self,
         messages: list[dict],
-        temperature: Optional[float] = None,
-        max_tokens: Optional[int] = None,
-        stream: bool = False
+        temperature: float | None = None,
+        max_tokens: int | None = None,
+        stream: bool = False,
     ) -> str:
         """
         Generate completion using LiteLLM.
@@ -120,8 +116,8 @@ class LLMClient:
     def generate_stream(
         self,
         messages: list[dict],
-        temperature: Optional[float] = None,
-        max_tokens: Optional[int] = None,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
     ):
         """
         Yield text chunks from a streaming LLM completion.
@@ -160,9 +156,9 @@ class LLMClient:
     def chat(
         self,
         user_message: str,
-        system_message: Optional[str] = None,
-        temperature: Optional[float] = None,
-        max_tokens: Optional[int] = None
+        system_message: str | None = None,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
     ) -> str:
         """
         Simple chat interface for single-turn conversations.
@@ -183,11 +179,7 @@ class LLMClient:
 
         messages.append({"role": "user", "content": user_message})
 
-        return self.generate(
-            messages,
-            temperature=temperature,
-            max_tokens=max_tokens
-        )
+        return self.generate(messages, temperature=temperature, max_tokens=max_tokens)
 
     @classmethod
     def from_env(cls, model_env_var: str = "LLM_MODEL") -> "LLMClient":
@@ -210,12 +202,7 @@ class LLMClient:
         max_tokens = int(os.getenv("LLM_MAX_TOKENS", "2048"))
         api_base = os.getenv("OLLAMA_API_BASE")
 
-        return cls(
-            model=model,
-            temperature=temperature,
-            max_tokens=max_tokens,
-            api_base=api_base
-        )
+        return cls(model=model, temperature=temperature, max_tokens=max_tokens, api_base=api_base)
 
 
 # Example usage
@@ -224,6 +211,6 @@ if __name__ == "__main__":
     client = LLMClient(model="ollama/llama2")
     response = client.chat(
         user_message="What is steel manufacturing?",
-        system_message="You are a helpful assistant that answers questions about metallurgy."
+        system_message="You are a helpful assistant that answers questions about metallurgy.",
     )
     print(response)
