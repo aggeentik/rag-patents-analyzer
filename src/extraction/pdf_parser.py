@@ -269,8 +269,13 @@ class PatentPDFParser:
                 section_last_page.setdefault(section_name, current_page)
                 continue
 
-            # Emit a page marker when the page changes within a section
-            if section_last_page.get(section_name) != current_page:
+            # Emit a page marker when:
+            # 1. This is the first content line in the section (to establish initial page)
+            # 2. The page changes within a section
+            section_list = section_lines.get(section_name, [])
+            is_first_content_line = len(section_list) == 0
+
+            if is_first_content_line or section_last_page.get(section_name) != current_page:
                 section_lines.setdefault(section_name, []).append(f"<!-- PB:{current_page} -->")
                 section_last_page[section_name] = current_page
 
