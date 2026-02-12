@@ -481,7 +481,8 @@ def generate_report(results: dict[str, Any], ragas_metrics: dict[str, float], ou
 
     results["category_statistics"] = category_stats
 
-    # Save to JSON
+    # Save to JSON (ensure output directory exists)
+    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
     with open(output_path, "w") as f:
         json.dump(results, f, indent=2)
 
