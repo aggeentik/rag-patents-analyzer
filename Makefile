@@ -24,31 +24,31 @@ install:
 
 # Ruff linter
 lint:
-	uv run ruff check src/ scripts/
+	uv run ruff check src/ evals/
 
 # Ruff linter with auto-fix
 lint-fix:
-	uv run ruff check --fix src/ scripts/
+	uv run ruff check --fix src/ evals/
 
 # Ruff formatter (check only)
 format:
-	uv run ruff format --check src/ scripts/
+	uv run ruff format --check src/ evals/
 
 # Ruff formatter (apply changes)
 format-fix:
-	uv run ruff format src/ scripts/
+	uv run ruff format src/ evals/
 
 # MyPy type checker
 typecheck:
-	uv run mypy src/ scripts/
+	uv run mypy src/
 
 # Bandit security linter
 security:
-	uv run bandit -r src/ scripts/ -c pyproject.toml
+	uv run bandit -r src/ evals/ -c pyproject.toml
 
 # Deptry dependency checker
 deps:
-	uv run deptry src/ scripts/
+	uv run deptry src/
 
 # Pip-audit vulnerability scanner
 audit:

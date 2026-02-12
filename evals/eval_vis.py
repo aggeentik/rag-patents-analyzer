@@ -13,23 +13,22 @@ from pathlib import Path
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-import json
-import argparse
-from typing import Dict, Any, List
-from collections import defaultdict
+import argparse  # noqa: E402
+import json  # noqa: E402
+from typing import Any  # noqa: E402
 
 
-def load_results(results_path: str) -> Dict[str, Any]:
+def load_results(results_path: str) -> dict[str, Any]:
     """Load RAGAS evaluation results."""
     with open(results_path, "r") as f:
         return json.load(f)
 
 
-def print_summary_report(results: Dict[str, Any]):
+def print_summary_report(results: dict[str, Any]):
     """Print summary report to console."""
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     print("RAGAS EVALUATION SUMMARY REPORT")
-    print("="*80)
+    print("=" * 80)
 
     # Overall statistics
     total_questions = len(results.get("questions", []))
@@ -41,18 +40,18 @@ def print_summary_report(results: Dict[str, Any]):
     # RAGAS metrics
     ragas_metrics = results.get("ragas_metrics", {})
     if ragas_metrics:
-        print("\n" + "-"*80)
+        print("\n" + "-" * 80)
         print("RAGAS METRICS")
-        print("-"*80)
+        print("-" * 80)
         for metric, value in ragas_metrics.items():
             print(f"{metric:30s}: {value:.4f}")
 
     # Category-wise statistics
     category_stats = results.get("category_statistics", {})
     if category_stats:
-        print("\n" + "-"*80)
+        print("\n" + "-" * 80)
         print("CATEGORY STATISTICS")
-        print("-"*80)
+        print("-" * 80)
 
         for category, stats in category_stats.items():
             print(f"\n{category}")
@@ -63,23 +62,29 @@ def print_summary_report(results: Dict[str, Any]):
             print(f"  Avg Graph hits: {stats['avg_graph_hits']:.1f}")
 
     # Retriever contribution analysis
-    print("\n" + "-"*80)
+    print("\n" + "-" * 80)
     print("RETRIEVER CONTRIBUTION ANALYSIS")
-    print("-"*80)
+    print("-" * 80)
 
     detailed_results = results.get("detailed_results", [])
     retriever_contribution = analyze_retriever_contribution(detailed_results)
 
     print(f"\nTotal retrievals: {retriever_contribution['total_retrievals']}")
-    print(f"BM25 contributions: {retriever_contribution['bm25_contributions']} "
-          f"({retriever_contribution['bm25_percentage']:.1f}%)")
-    print(f"Semantic contributions: {retriever_contribution['semantic_contributions']} "
-          f"({retriever_contribution['semantic_percentage']:.1f}%)")
-    print(f"Graph contributions: {retriever_contribution['graph_contributions']} "
-          f"({retriever_contribution['graph_percentage']:.1f}%)")
+    print(
+        f"BM25 contributions: {retriever_contribution['bm25_contributions']} "
+        f"({retriever_contribution['bm25_percentage']:.1f}%)"
+    )
+    print(
+        f"Semantic contributions: {retriever_contribution['semantic_contributions']} "
+        f"({retriever_contribution['semantic_percentage']:.1f}%)"
+    )
+    print(
+        f"Graph contributions: {retriever_contribution['graph_contributions']} "
+        f"({retriever_contribution['graph_percentage']:.1f}%)"
+    )
 
 
-def analyze_retriever_contribution(detailed_results: List[Dict[str, Any]]) -> Dict[str, Any]:
+def analyze_retriever_contribution(detailed_results: list[dict[str, Any]]) -> dict[str, Any]:
     """Analyze how much each retriever contributed to results."""
     total_bm25 = 0
     total_semantic = 0
@@ -103,16 +108,18 @@ def analyze_retriever_contribution(detailed_results: List[Dict[str, Any]]) -> Di
         "semantic_contributions": total_semantic,
         "graph_contributions": total_graph,
         "bm25_percentage": (total_bm25 / total_retrievals * 100) if total_retrievals > 0 else 0,
-        "semantic_percentage": (total_semantic / total_retrievals * 100) if total_retrievals > 0 else 0,
-        "graph_percentage": (total_graph / total_retrievals * 100) if total_retrievals > 0 else 0
+        "semantic_percentage": (total_semantic / total_retrievals * 100)
+        if total_retrievals > 0
+        else 0,
+        "graph_percentage": (total_graph / total_retrievals * 100) if total_retrievals > 0 else 0,
     }
 
 
-def print_detailed_report(results: Dict[str, Any], max_questions: int = None):
+def print_detailed_report(results: dict[str, Any], max_questions: int | None = None):
     """Print detailed results for each question."""
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     print("DETAILED QUESTION-BY-QUESTION RESULTS")
-    print("="*80)
+    print("=" * 80)
 
     detailed_results = results.get("detailed_results", [])
     if max_questions:
@@ -123,10 +130,10 @@ def print_detailed_report(results: Dict[str, Any], max_questions: int = None):
         category = result.get("category", "Unknown")
         retrieval_type = result.get("retrieval_type", "Unknown")
 
-        print(f"\n{'='*80}")
+        print(f"\n{'=' * 80}")
         print(f"[{idx}] {question_id} - {category}")
         print(f"Retrieval Type: {retrieval_type}")
-        print(f"{'='*80}")
+        print(f"{'=' * 80}")
 
         # Question
         question = result.get("question", "")
@@ -142,7 +149,7 @@ def print_detailed_report(results: Dict[str, Any], max_questions: int = None):
 
         # Retriever stats
         stats = result.get("retriever_stats", {})
-        print(f"\nRetriever Stats:")
+        print("\nRetriever Stats:")
         print(f"  BM25 hits: {stats.get('bm25_hits', 0)}")
         print(f"  Semantic hits: {stats.get('semantic_hits', 0)}")
         print(f"  Graph hits: {stats.get('graph_hits', 0)}")
@@ -151,12 +158,14 @@ def print_detailed_report(results: Dict[str, Any], max_questions: int = None):
         chunks = result.get("retrieved_chunks", [])
         print(f"\nRetrieved Chunks ({len(chunks)}):")
         for chunk_idx, chunk in enumerate(chunks, 1):
-            print(f"  [{chunk_idx}] Patent: {chunk.get('patent_id', 'Unknown')}, "
-                  f"Section: {chunk.get('section', 'Unknown')}, "
-                  f"RRF Score: {chunk.get('rrf_score', 0.0):.4f}")
+            print(
+                f"  [{chunk_idx}] Patent: {chunk.get('patent_id', 'Unknown')}, "
+                f"Section: {chunk.get('section', 'Unknown')}, "
+                f"RRF Score: {chunk.get('rrf_score', 0.0):.4f}"
+            )
 
 
-def generate_markdown_report(results: Dict[str, Any], output_path: str):
+def generate_markdown_report(results: dict[str, Any], output_path: str):
     """Generate markdown report file."""
     with open(output_path, "w") as f:
         f.write("# RAGAS Evaluation Report\n\n")
@@ -184,11 +193,13 @@ def generate_markdown_report(results: Dict[str, Any], output_path: str):
             f.write("| Category | Questions | Avg Contexts | BM25 | Semantic | Graph |\n")
             f.write("|----------|-----------|--------------|------|----------|-------|\n")
             for category, stats in category_stats.items():
-                f.write(f"| {category} | {stats['count']} | "
-                       f"{stats['avg_contexts']:.1f} | "
-                       f"{stats['avg_bm25_hits']:.1f} | "
-                       f"{stats['avg_semantic_hits']:.1f} | "
-                       f"{stats['avg_graph_hits']:.1f} |\n")
+                f.write(
+                    f"| {category} | {stats['count']} | "
+                    f"{stats['avg_contexts']:.1f} | "
+                    f"{stats['avg_bm25_hits']:.1f} | "
+                    f"{stats['avg_semantic_hits']:.1f} | "
+                    f"{stats['avg_graph_hits']:.1f} |\n"
+                )
             f.write("\n")
 
         # Retriever Contribution
@@ -199,17 +210,23 @@ def generate_markdown_report(results: Dict[str, Any], output_path: str):
         f.write(f"Total retrievals: {retriever_contribution['total_retrievals']}\n\n")
         f.write("| Retriever | Contributions | Percentage |\n")
         f.write("|-----------|---------------|------------|\n")
-        f.write(f"| BM25 | {retriever_contribution['bm25_contributions']} | "
-               f"{retriever_contribution['bm25_percentage']:.1f}% |\n")
-        f.write(f"| Semantic | {retriever_contribution['semantic_contributions']} | "
-               f"{retriever_contribution['semantic_percentage']:.1f}% |\n")
-        f.write(f"| Graph | {retriever_contribution['graph_contributions']} | "
-               f"{retriever_contribution['graph_percentage']:.1f}% |\n")
+        f.write(
+            f"| BM25 | {retriever_contribution['bm25_contributions']} | "
+            f"{retriever_contribution['bm25_percentage']:.1f}% |\n"
+        )
+        f.write(
+            f"| Semantic | {retriever_contribution['semantic_contributions']} | "
+            f"{retriever_contribution['semantic_percentage']:.1f}% |\n"
+        )
+        f.write(
+            f"| Graph | {retriever_contribution['graph_contributions']} | "
+            f"{retriever_contribution['graph_percentage']:.1f}% |\n"
+        )
         f.write("\n")
 
         # Detailed results
         f.write("## Question-by-Question Results\n\n")
-        for idx, result in enumerate(detailed_results, 1):
+        for _idx, result in enumerate(detailed_results, 1):
             question_id = result.get("id", "Unknown")
             category = result.get("category", "Unknown")
             retrieval_type = result.get("retrieval_type", "Unknown")
@@ -222,9 +239,11 @@ def generate_markdown_report(results: Dict[str, Any], output_path: str):
 
             # Retriever stats
             stats = result.get("retriever_stats", {})
-            f.write(f"**Retriever Stats:** BM25={stats.get('bm25_hits', 0)}, "
-                   f"Semantic={stats.get('semantic_hits', 0)}, "
-                   f"Graph={stats.get('graph_hits', 0)}\n\n")
+            f.write(
+                f"**Retriever Stats:** BM25={stats.get('bm25_hits', 0)}, "
+                f"Semantic={stats.get('semantic_hits', 0)}, "
+                f"Graph={stats.get('graph_hits', 0)}\n\n"
+            )
 
             # Ground truth (truncated)
             ground_truth = result.get("ground_truth", "")
@@ -240,27 +259,15 @@ def generate_markdown_report(results: Dict[str, Any], output_path: str):
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Visualize RAGAS evaluation results"
+    parser = argparse.ArgumentParser(description="Visualize RAGAS evaluation results")
+    parser.add_argument("results_file", help="Path to RAGAS results JSON file")
+    parser.add_argument(
+        "--detailed", action="store_true", help="Print detailed question-by-question results"
     )
     parser.add_argument(
-        "results_file",
-        help="Path to RAGAS results JSON file"
+        "--max-questions", type=int, help="Maximum number of questions to show in detailed report"
     )
-    parser.add_argument(
-        "--detailed",
-        action="store_true",
-        help="Print detailed question-by-question results"
-    )
-    parser.add_argument(
-        "--max-questions",
-        type=int,
-        help="Maximum number of questions to show in detailed report"
-    )
-    parser.add_argument(
-        "--markdown",
-        help="Generate markdown report at specified path"
-    )
+    parser.add_argument("--markdown", help="Generate markdown report at specified path")
 
     args = parser.parse_args()
 

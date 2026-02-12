@@ -21,10 +21,15 @@ from pathlib import Path
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-from src.knowledge_graph.store import KnowledgeGraphStore
-from src.llm import AnswerGenerator, LLMClient
-from src.logging_config import setup_logging
-from src.retrieval import BM25Retriever, GraphRetriever, HybridRetriever, SemanticRetriever
+from src.knowledge_graph.store import KnowledgeGraphStore  # noqa: E402
+from src.llm import AnswerGenerator, LLMClient  # noqa: E402
+from src.logging_config import setup_logging  # noqa: E402
+from src.retrieval import (  # noqa: E402
+    BM25Retriever,
+    GraphRetriever,
+    HybridRetriever,
+    SemanticRetriever,
+)
 
 logger = logging.getLogger(__name__)
 
