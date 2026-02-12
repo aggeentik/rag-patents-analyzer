@@ -21,17 +21,46 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **LLM Integration:** LiteLLM (Ollama, AWS Bedrock, OpenAI)
 - **UI:** Streamlit
 - **NLP:** `nltk`, `tiktoken`
+- **Evaluation:** RAGAS, LangChain (optional, see Evaluation Setup)
 
 ## Commands
 
 ### Environment Setup
 ```bash
-# Install dependencies (uv handles virtual env automatically)
+# Install core dependencies (uv handles virtual env automatically)
 uv sync
+
+# Install with evaluation dependencies (for running RAGAS evals)
+uv sync --group evals
+
+# Install with development tools
+uv sync --group dev
+
+# Install everything (core + evals + dev)
+uv sync --all-groups
 
 # Run with uv (ensures correct environment)
 uv run python <script.py>
 ```
+
+### Evaluation Setup
+The evaluation system uses RAGAS for measuring RAG quality. Install eval dependencies:
+
+```bash
+# Install evaluation dependencies
+uv sync --group evals
+
+# Verify installation
+uv run python -c "import ragas; print(f'RAGAS {ragas.__version__} installed')"
+
+# Run quick evaluation test
+make evaluate-quick
+
+# Run full evaluation (20 questions)
+make evaluate
+```
+
+**Note:** Evaluation dependencies are **optional**. The core system works without them. Only install if you need to run quality evaluations.
 
 ### Data Processing Pipeline
 ```bash
