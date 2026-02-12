@@ -36,13 +36,13 @@ uv run python <script.py>
 ### Data Processing Pipeline
 ```bash
 # Full extraction: PDFs → chunks → entities → indices
-uv run python scripts/data_ingestion_pipeline.py
+uv run python src/data_ingestion.py
 
 # Demo retrieval system (BM25 + Semantic only)
-uv run python scripts/retrieval.py
+uv run python src/retrieval.py
 
 # Demo hybrid retrieval + LLM answer generation
-uv run python scripts/retrieval_generation.py
+uv run python src/retrieval_generation.py
 ```
 
 ### Running the Web Application
@@ -397,9 +397,9 @@ LLM_MAX_TOKENS=2048
 
 ### Processing New Patents
 1. Place PDFs in `data/raw/`
-2. Run `uv run python scripts/data_ingestion_pipeline.py`
+2. Run `uv run python src/data_ingestion.py`
 3. Validate output: check `data/processed/patents.json` has expected chunk count
-4. Test retrieval: `uv run python scripts/retrieval.py`
+4. Test retrieval: `uv run python src/retrieval.py`
 5. Run the web app: `uv run streamlit run src/app/app.py`
 
 ### Configuring PDF Extraction
@@ -449,7 +449,7 @@ The PDF parser uses Docling's DocumentConverter with pypdfium2 backend:
 → Run `uv sync` to install dependencies
 
 **Error: `FileNotFoundError: data/processed/patents.json`**
-→ Run extraction pipeline first: `uv run python scripts/data_ingestion_pipeline.py`
+→ Run extraction pipeline first: `uv run python src/data_ingestion.py`
 
 **Empty results from retrieval**
 → Check indices exist in `data/processed/`. If missing, rebuild with `build_indices.py`

@@ -1,0 +1,50 @@
+{
+  "metadata": {
+    "description": "RAGAS evaluation dataset for Patents Analyzer RAG system",
+    "corpus": "10 European Patent Applications on non-oriented electrical steel sheets",
+    "total_questions": 3,
+    "categories": [
+      "Keyword & Formula Precision",
+      "Tabular & Numerical Reasoning",
+      "Semantic & Conceptual",
+      "Entity-Relationship / Knowledge Graph",
+      "Multi-Document Synthesis"
+    ],
+    "format_version": "1.0"
+  },
+  "test_cases": [
+    {
+      "id": "Q1",
+      "category": "Keyword & Formula Precision",
+      "retrieval_type": "Keyword (BM25)",
+      "question": "In patent EP 2 390 376, the parameter RTi is used to control the ratio of Ti to C and N. What is the exact mathematical expression for RTi, and what are its claimed lower and upper bounds?",
+      "ground_truth": "RTi = [Ti] / (4 × ([C] + [N])), where [Ti], [C], and [N] are contents in mass%. The lower bound is 1 and the upper bound is 10. More preferably, RTi ≥ 2 (more preferably ≥ 3) and RTi ≤ 9 (more preferably ≤ 7).",
+      "evidence": "EP2390376_A1, paragraphs [0010], [0018], [0019]",
+      "patent_ids": ["EP2390376"],
+      "contexts": [],
+      "answer": ""
+    },
+    {
+      "id": "Q2",
+      "category": "Keyword & Formula Precision",
+      "retrieval_type": "Keyword (BM25)",
+      "question": "EP 1 816 226 defines two simultaneous compositional constraints as [Formula 1] and [Formula 2] that must be satisfied for REM oxysulfide formation and TiN coprecipitation. Reproduce both formulas exactly.",
+      "ground_truth": "Formula 1: [REM]² × [O]² × [S] ≥ 1 × 10⁻¹⁵\nFormula 2: ([REM]² × [O]² × [S]) ÷ ([Ti] × [N]) ≥ 1 × 10⁻¹⁰\nwhere [REM], [O], [S], [Ti], and [N] are mass% of the respective elements.",
+      "evidence": "EP1816226_A1, paragraphs [0030], [0066], and the Claims section (Claim 1)",
+      "patent_ids": ["EP1816226"],
+      "contexts": [],
+      "answer": ""
+    },
+    {
+      "id": "Q3",
+      "category": "Keyword & Formula Precision",
+      "retrieval_type": "Keyword (BM25)",
+      "question": "In EP 2 278 034, the eddy current loss We10/400 is calculated using a dual frequency method. What is the exact calculation formula given in the patent for deriving We10/400 from two core loss measurements W1 and W2 at frequencies f1 and f2?",
+      "ground_truth": "We10/400 = (W2/f2 − W1/f1) / (f2 − f1) × 400 × 400. This is applied at a maximum magnetic flux density Bmax of 1.0 T.",
+      "evidence": "EP2278034_A1, paragraph [0065]",
+      "patent_ids": ["EP2278034"],
+      "contexts": [],
+      "answer": ""
+    }
+  ]
+}

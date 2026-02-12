@@ -1,0 +1,41 @@
+{
+  "metadata": {
+    "description": "Example RAGAS dataset format - use this as a template for creating custom test sets",
+    "format_version": "1.0"
+  },
+  "test_cases": [
+    {
+      "id": "EXAMPLE_Q1",
+      "category": "Keyword & Formula Precision",
+      "retrieval_type": "Keyword (BM25)",
+      "question": "What is the exact formula for calculating the RTi parameter in patent EP 2 390 376?",
+      "ground_truth": "RTi = [Ti] / (4 × ([C] + [N])), where [Ti], [C], and [N] are contents in mass%.",
+      "evidence": "EP2390376_A1, paragraph [0010]",
+      "patent_ids": ["EP2390376"],
+      "contexts": [],
+      "answer": ""
+    },
+    {
+      "id": "EXAMPLE_Q2",
+      "category": "Semantic & Conceptual",
+      "retrieval_type": "Semantic",
+      "question": "Which patent describes using rare earth elements to control titanium precipitation, and what is the mechanism?",
+      "ground_truth": "EP 1 816 226 describes using REM (rare earth metals) to fix titanium as TiN by coprecipitation on REM oxysulfide surfaces.",
+      "evidence": "EP1816226_A1, paragraphs [0053]–[0058]",
+      "patent_ids": ["EP1816226"],
+      "contexts": [],
+      "answer": ""
+    },
+    {
+      "id": "EXAMPLE_Q3",
+      "category": "Multi-Document Synthesis",
+      "retrieval_type": "Multi-Document",
+      "question": "Compare the approaches to high-strength electrical steel in patents EP 2 390 376 and EP 2 679 695.",
+      "ground_truth": "EP 2 390 376 uses high Ti content (0.1-0.3%) for precipitation and solid solution strengthening. EP 2 679 695 uses low Ti content (≤0.04%) for controlled fine carbide precipitation. The key difference is ~10x Ti content and different strengthening mechanisms.",
+      "evidence": "EP2390376_A1 [0010], [0017]–[0019]; EP2679695_A1 [0048], Claims",
+      "patent_ids": ["EP2390376", "EP2679695"],
+      "contexts": [],
+      "answer": ""
+    }
+  ]
+}

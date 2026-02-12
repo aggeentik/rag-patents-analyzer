@@ -9,7 +9,7 @@ This demonstrates the complete RAG pipeline:
 5. Generate comprehensive answers using LLM
 
 Usage:
-    uv run python scripts/retrieval_generation.py
+    uv run python src/retrieval_generation.py
 """
 
 import json

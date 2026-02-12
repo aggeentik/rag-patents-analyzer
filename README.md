@@ -64,7 +64,7 @@ LOG_LEVEL=INFO  # Options: DEBUG, INFO, WARNING, ERROR, CRITICAL
 Place patent PDFs in `data/raw/`, then run:
 
 ```bash
-uv run python scripts/data_ingestion_pipeline.py
+uv run python src/data_ingestion.py
 ```
 
 This will parse PDFs, chunk text, extract entities, build a knowledge graph, and create search indices in `data/processed/`.
