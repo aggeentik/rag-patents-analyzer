@@ -1,0 +1,587 @@
+# EVALS.md - Evaluation System Documentation
+
+## Overview
+
+The Patents Analyzer evaluation system uses **RAGAS (Retrieval-Augmented Generation Assessment)** to measure the quality of the RAG pipeline. It evaluates how well the system retrieves relevant patent information and generates accurate answers.
+
+## Table of Contents
+
+- [Quick Start](#quick-start)
+- [Evaluation Metrics](#evaluation-metrics)
+- [Running Evaluations](#running-evaluations)
+- [Dataset Structure](#dataset-structure)
+- [Configuration](#configuration)
+- [Understanding Results](#understanding-results)
+- [Best Practices](#best-practices)
+- [Troubleshooting](#troubleshooting)
+
+## Quick Start
+
+### Run Quick Evaluation (3 questions)
+```bash
+make evaluate-quick
+```
+
+### Run Full Evaluation (20 questions)
+```bash
+make evaluate
+```
+
+### Generate Report from Latest Results
+```bash
+make report
+```
+
+Output files are automatically timestamped:
+- **JSON**: `evals/experiments/ragas_results_quick_20260212_173413.json`
+- **Report**: `evals/experiments/evaluation_report_quick_20260212_173413.md`
+
+## Evaluation Metrics
+
+RAGAS measures four key aspects of RAG system performance:
+
+### 1. Faithfulness (0.0 - 1.0)
+**What it measures**: Whether the LLM's answer is factually grounded in the retrieved context.
+
+- **Formula**: `Number of supported claims / Total claims`
+- **Good score**: >0.85 for technical/legal domains
+- **Your score**: 0.76 (76%)
+
+**Interpretation**:
+- ✅ 1.0 = Perfect - every statement is supported by retrieved chunks
+- ⚠️ 0.76 = Acceptable - 24% of statements may be hallucinated
+- ❌ <0.5 = Poor - significant hallucination risk
+
+**What affects it**:
+- Quality of retrieved chunks
+- LLM prompt engineering
+- Context window size
+
+**Example**:
+```
+Question: "What is the RTi formula?"
+Answer: "RTi = [Ti] / (4 × ([C] + [N]))" [Source 1]  ← Faithful
+Answer: "RTi is always greater than 5"               ← Unfaithful (not in context)
+```
+
+### 2. Answer Relevancy (0.0 - 1.0)
+**What it measures**: How well the answer addresses the specific question (not just correct, but relevant).
+
+- **Formula**: Cosine similarity between question and answer embeddings
+- **Good score**: >0.70 for technical domains
+- **Your score**: 0.30 (30%) ⚠️ **LOW**
+
+**Interpretation**:
+- ✅ 1.0 = Perfect - answer directly addresses the question
+- ⚠️ 0.30 = Poor - answer contains excessive irrelevant information
+- ❌ <0.3 = Very poor - answer is mostly off-topic
+
+**Common causes of low scores**:
+- LLM provides too much background context
+- Answer includes related but not requested information
+- Verbose explanations when precise extraction is needed
+
+**Example**:
+```
+Question: "What is the exact RTi formula?"
+High relevancy: "RTi = [Ti] / (4 × ([C] + [N]))"
+Low relevancy:  "The RTi parameter is important for controlling Ti content.
+                 It was developed to optimize steel properties by balancing
+                 titanium with carbon and nitrogen. The formula is RTi = ..."
+```
+
+### 3. Context Precision (0.0 - 1.0)
+**What it measures**: Whether the retrieved chunks are relevant to answering the question (precision of retrieval).
+
+- **Formula**: Weighted precision based on relevance rank
+- **Good score**: >0.70
+- **Your score**: 0.51 (51%)
+
+**Interpretation**:
+- ✅ 1.0 = Perfect - all retrieved chunks are relevant
+- ⚠️ 0.51 = Moderate - half the chunks are noise
+- ❌ <0.3 = Poor - mostly irrelevant chunks retrieved
+
+**What affects it**:
+- Hybrid retrieval weights (BM25 vs Semantic vs Graph)
+- Number of chunks retrieved (top_k)
+- Query preprocessing
+
+**Impact**:
+- Low precision → LLM gets distracted by irrelevant context
+- Low precision → Wastes context window tokens
+- Low precision → Reduces answer relevancy
+
+### 4. Context Recall (0.0 - 1.0)
+**What it measures**: Whether all necessary information from the ground truth is present in retrieved chunks.
+
+- **Formula**: `Ground truth statements found / Total ground truth statements`
+- **Good score**: >0.80
+- **Your score**: 0.78 (78%) ✅
+
+**Interpretation**:
+- ✅ 1.0 = Perfect - all needed information retrieved
+- ✅ 0.78 = Good - most information retrieved, minor gaps
+- ❌ <0.5 = Poor - missing critical information
+
+**What affects it**:
+- Number of chunks retrieved (top_k)
+- Retrieval algorithm effectiveness
+- Chunk size and overlap
+
+**Impact**:
+- Low recall → Incomplete answers
+- Low recall → LLM cannot answer correctly even if it wants to
+
+## Running Evaluations
+
+### Using Makefile (Recommended)
+
+#### Quick Evaluation (3 questions, ~2 minutes)
+```bash
+make evaluate-quick
+```
+**Use when**: Testing changes, rapid iteration
+
+#### Full Evaluation (20 questions, ~10 minutes)
+```bash
+make evaluate
+```
+**Use when**: Comprehensive assessment, before deployment
+
+#### Generate Report Only
+```bash
+# From latest results
+make report
+
+# From specific file
+make report FILE=evals/experiments/ragas_results_20260212_173413.json
+```
+
+### Using Python Script Directly
+
+#### Basic Usage
+```bash
+uv run python evals/eval.py \
+    --dataset evals/datasets/ragas_dataset_3.json \
+    --ragas-model azure_ai/gpt-4.1 \
+    --output evals/experiments/my_results.json
+```
+
+#### Advanced Options
+```bash
+uv run python evals/eval.py \
+    --dataset evals/datasets/ragas_dataset_20.json \
+    --ragas-model azure_ai/gpt-4.1 \
+    --output evals/experiments/results.json \
+    --top-k 10 \                      # Retrieve 10 chunks instead of 5
+    --data-dir data/processed \       # Custom data directory
+    --verbose                         # Detailed logging
+```
+
+#### Skip RAGAS Metrics (Faster)
+```bash
+uv run python evals/eval.py \
+    --dataset evals/datasets/ragas_dataset_3.json \
+    --output evals/experiments/results.json \
+    --skip-ragas
+```
+
+### Available Datasets
+
+| Dataset | Questions | Categories | Use Case |
+|---------|-----------|------------|----------|
+| `ragas_dataset_3.json` | 3 | Quick test | Development, debugging |
+| `ragas_dataset_20.json` | 20 | Comprehensive | Full evaluation, benchmarking |
+
+## Dataset Structure
+
+### RAGAS Dataset Format
+
+```json
+{
+  "test_cases": [
+    {
+      "id": "Q1",
+      "category": "Keyword & Formula Precision",
+      "retrieval_type": "Keyword (BM25)",
+      "question": "What is the exact RTi formula?",
+      "ground_truth": "RTi = [Ti] / (4 × ([C] + [N]))",
+      "reference_chunks": ["EP2390376_0050", "EP2390376_0051"]
+    }
+  ]
+}
+```
+
+### Creating Custom Datasets
+
+1. **Copy template**:
+```bash
+cp evals/datasets/ragas_dataset_3.json evals/datasets/my_dataset.json
+```
+
+2. **Edit test cases**: Add questions relevant to your evaluation focus
+
+3. **Run evaluation**:
+```bash
+make evaluate FILE=evals/datasets/my_dataset.json
+```
+
+### Test Case Categories
+
+Current categories in the evaluation:
+
+1. **Keyword & Formula Precision**: Exact formula extraction
+2. **Cross-Patent Comparison**: Compare information across patents
+3. **Multi-Hop Reasoning**: Complex queries requiring multiple steps
+4. **Table & Numeric Data**: Extracting structured data
+5. **Process Reasoning**: Understanding manufacturing processes
+
+## Configuration
+
+### LLM Configuration
+
+Evaluations use two LLMs:
+
+1. **Main LLM** (for generating answers):
+   - Configured in `.env` file
+   - Default: `ollama/mistral:7b`
+
+2. **RAGAS LLM** (for calculating metrics):
+   - Configured via `--ragas-model` flag
+   - Default: `azure_ai/gpt-4.1`
+
+**Supported RAGAS Models**:
+```bash
+# Azure OpenAI
+--ragas-model azure_ai/gpt-4.1
+
+# OpenAI
+--ragas-model gpt-4o-mini
+--ragas-model gpt-4
+
+# Anthropic (via LiteLLM)
+--ragas-model anthropic/claude-3-sonnet-20240229
+```
+
+### Retrieval Configuration
+
+Configured in `evals/eval.py`:
+
+```python
+# Hybrid retrieval weights
+weights = {
+    "bm25": 1.0,      # Keyword matching
+    "semantic": 1.0,  # Vector similarity
+    "graph": 0.5      # Knowledge graph
+}
+
+# Number of chunks to retrieve
+top_k = 5
+
+# RRF fusion parameter
+rrf_k = 60
+```
+
+### Environment Variables
+
+Create `.env` file:
+```bash
+# Main LLM (for answer generation)
+LLM_MODEL=ollama/mistral:7b
+OLLAMA_API_BASE=http://localhost:11434
+
+# Or AWS Bedrock
+# LLM_MODEL=bedrock/anthropic.claude-3-sonnet-20240229-v1:0
+# AWS_ACCESS_KEY_ID=your_key
+# AWS_SECRET_ACCESS_KEY=your_secret
+# AWS_REGION_NAME=us-east-1
+
+# LLM parameters
+LLM_TEMPERATURE=0.0
+LLM_MAX_TOKENS=2048
+```
+
+## Understanding Results
+
+### Output Files
+
+Each evaluation produces two files:
+
+#### 1. JSON Results (`ragas_results_TIMESTAMP.json`)
+```json
+{
+  "ragas_metrics": {
+    "faithfulness": 0.7635,
+    "answer_relevancy": 0.3043,
+    "context_precision": 0.5111,
+    "context_recall": 0.7778
+  },
+  "category_statistics": {
+    "Keyword & Formula Precision": {
+      "count": 3,
+      "avg_contexts": 5.0,
+      "avg_bm25_hits": 5.0,
+      "avg_semantic_hits": 4.67,
+      "avg_graph_hits": 0.0
+    }
+  },
+  "detailed_results": [...]
+}
+```
+
+#### 2. Markdown Report (`evaluation_report_TIMESTAMP.md`)
+- Executive summary
+- Metric visualizations
+- Per-question analysis
+- Retriever statistics
+- Recommendations
+
+### Interpreting Category Statistics
+
+```json
+"category_statistics": {
+  "Keyword & Formula Precision": {
+    "count": 3,                    // Number of questions
+    "avg_contexts": 5.0,           // Average chunks retrieved
+    "avg_bm25_hits": 5.0,          // BM25 contributed to all top-5
+    "avg_semantic_hits": 4.67,     // Semantic contributed to 4.67/5
+    "avg_graph_hits": 0.0          // Graph didn't contribute
+  }
+}
+```
+
+**What it means**:
+- **BM25 dominant**: Questions benefit from exact keyword matching
+- **Semantic strong**: Questions need semantic understanding
+- **Graph weak**: Knowledge graph not contributing (entities not found in queries)
+
+### Retriever Performance Analysis
+
+Check `retriever_stats` in detailed results:
+```json
+"retriever_stats": {
+  "total_results": 5,
+  "bm25_hits": 5,           // All 5 chunks from BM25
+  "semantic_hits": 5,       // All 5 chunks from semantic
+  "graph_hits": 0,          // 0 chunks from graph
+  "multi_retriever_hits": 5 // 5 chunks found by multiple retrievers
+}
+```
+
+**Interpretation**:
+- `multi_retriever_hits = 5` → Strong agreement (good)
+- `multi_retriever_hits = 0` → No overlap (investigate)
+- `graph_hits = 0` → Graph not contributing (check entity extraction)
+
+## Best Practices
+
+### 1. Run Evaluations Regularly
+
+```bash
+# Before making changes
+make evaluate > baseline.txt
+
+# After changes
+make evaluate > after_changes.txt
+
+# Compare
+diff baseline.txt after_changes.txt
+```
+
+### 2. Start Small, Scale Up
+
+```bash
+# 1. Quick test (3 questions)
+make evaluate-quick
+
+# 2. If looks good, run full eval
+make evaluate
+```
+
+### 3. Track Evaluation History
+
+Results are timestamped automatically:
+```bash
+ls -lt evals/experiments/ragas_results_*.json | head -5
+```
+
+Compare metrics over time:
+```bash
+jq '.ragas_metrics' evals/experiments/ragas_results_*.json
+```
+
+### 4. Focus on Low-Hanging Fruit
+
+Priority order for improvements:
+
+1. **Answer Relevancy < 0.5**: Fix prompts first (biggest impact, easiest fix)
+2. **Context Precision < 0.5**: Tune retrieval weights
+3. **Faithfulness < 0.7**: Improve chunk quality or add constraints
+4. **Context Recall < 0.7**: Increase top_k or improve retrieval
+
+### 5. Create Domain-Specific Datasets
+
+For patent analysis, create test sets for:
+- Formula extraction
+- Numeric bounds/ranges
+- Table data extraction
+- Cross-reference resolution
+- Patent comparisons
+
+### 6. Use Consistent RAGAS Models
+
+Always use the same `--ragas-model` for comparable results:
+```bash
+# Good: Consistent
+make evaluate  # Uses azure_ai/gpt-4.1
+make evaluate  # Uses azure_ai/gpt-4.1
+
+# Bad: Different models give different scores
+--ragas-model gpt-4o-mini
+--ragas-model azure_ai/gpt-4.1
+```
+
+## Troubleshooting
+
+### Empty RAGAS Metrics
+
+**Symptom**:
+```json
+"ragas_metrics": {}
+```
+
+**Solution**: Fixed in latest version. Ensure you have:
+```bash
+uv pip install langchain-litellm langchain-huggingface
+```
+
+### Deprecation Warnings
+
+**Symptom**:
+```
+DeprecationWarning: Importing answer_relevancy from 'ragas.metrics' is deprecated
+```
+
+**Status**: Warnings are suppressed in code. Using legacy API for LangChain compatibility.
+
+### RAGAS Calculation Fails
+
+**Error**:
+```
+Error calculating RAGAS metrics: All metrics must be initialised metric objects
+```
+
+**Solution**: Already handled with legacy API. If you see this, check your RAGAS version:
+```bash
+uv pip list | grep ragas
+```
+
+### Low Answer Relevancy Across All Questions
+
+**Diagnosis**: Prompt is too verbose
+
+**Fix**: Update `src/llm/answer_generator.py`:
+```python
+# Before:
+"Provide a comprehensive answer..."
+
+# After:
+"Extract ONLY the specific information requested. Be concise."
+```
+
+### Graph Retriever Never Contributes
+
+**Diagnosis**: Entities not being extracted from queries
+
+**Debug**:
+```bash
+# Check entity extraction
+uv run python -c "
+from src.extraction.entity_extractor import EntityExtractor
+extractor = EntityExtractor()
+query = 'What is the effect of silicon on magnetic properties?'
+entities = extractor.extract_entities(query)
+print(entities)
+"
+```
+
+**Fix**: Add more entity patterns in `src/extraction/entity_extractor.py`
+
+### Evaluation Takes Too Long
+
+**Solutions**:
+1. Use `--skip-ragas` for faster testing
+2. Reduce dataset size
+3. Use faster RAGAS model: `--ragas-model gpt-4o-mini`
+4. Reduce `top_k` parameter
+
+### Out of Memory Errors
+
+**Solutions**:
+1. Reduce `top_k`
+2. Use smaller embedding model
+3. Process fewer questions at once
+4. Clear cache: `make clean`
+
+## Advanced Topics
+
+### Custom Metrics
+
+To add custom evaluation metrics:
+
+1. Create metric in `evals/custom_metrics.py`:
+```python
+def formula_extraction_accuracy(answer, ground_truth):
+    """Check if exact formula is present."""
+    import re
+    formula_pattern = r'RTi\s*=\s*\[Ti\]\s*/\s*\(4\s*×\s*\([^\)]+\)\)'
+    return 1.0 if re.search(formula_pattern, answer) else 0.0
+```
+
+2. Add to evaluation loop in `evals/eval.py`
+
+3. Include in results JSON
+
+### Batch Evaluation
+
+Run evaluations on multiple configurations:
+```bash
+#!/bin/bash
+for top_k in 3 5 10 15; do
+    uv run python evals/eval.py \
+        --dataset evals/datasets/ragas_dataset_20.json \
+        --ragas-model azure_ai/gpt-4.1 \
+        --top-k $top_k \
+        --output evals/experiments/results_topk${top_k}.json
+done
+```
+
+### A/B Testing
+
+Compare two retrieval configurations:
+```bash
+# Configuration A: BM25-heavy
+make evaluate > results_A.txt
+
+# Configuration B: Semantic-heavy
+# (modify weights in code)
+make evaluate > results_B.txt
+
+# Compare
+diff results_A.txt results_B.txt
+```
+
+## References
+
+- **RAGAS Documentation**: https://docs.ragas.io/
+- **RAGAS Paper**: "RAGAS: Automated Evaluation of Retrieval Augmented Generation"
+- **LangChain Integration**: https://python.langchain.com/docs/integrations/providers/ragas
+- **Our Implementation**: `docs/HYBRID_RETRIEVAL_AND_LLM.md`
+
+## Change Log
+
+- **2026-02-12**: Added timestamp support to Makefile targets
+- **2026-02-12**: Fixed RAGAS metrics extraction from EvaluationResult.scores
+- **2026-02-12**: Suppressed deprecation warnings, added new LangChain packages
+- **2026-02-12**: Created comprehensive EVALS.md documentation

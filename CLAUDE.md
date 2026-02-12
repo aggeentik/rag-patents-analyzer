@@ -480,5 +480,6 @@ sys.path.insert(0, str(project_root))
 - **Full architecture:** See `docs/solution.md` for diagrams and phase breakdown
 - **Data ingestion (Phase 1-3a):** See `docs/DATA_INGESTION_PIPELINE.md` for detailed component usage
 - **Hybrid retrieval + LLM (Phase 3b-4):** See `docs/HYBRID_RETRIEVAL_AND_LLM.md` for RRF fusion and LLM integration
+- **Evaluation system:** See `docs/EVALS.md` for comprehensive evaluation guide (RAGAS metrics, running evals, interpreting results)
 - **Implementation plan:** See `docs/patent-demo-full-plan.md` for complete code examples
 - **Configuration:** See `.env.example` for LLM and retriever settings
