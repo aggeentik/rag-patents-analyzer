@@ -202,9 +202,14 @@ def calculate_ragas_metrics(
     Requires: pip install ragas
     """
     try:
+        import warnings  # noqa: PLC0415
+
+        # Suppress RAGAS deprecation warnings
+        # Note: Using legacy metrics API (deprecated but functional with LangChain LLMs)
+        # RAGAS v1.0+ API requires using llm_factory() which is incompatible with LangChain
+        warnings.filterwarnings("ignore", category=DeprecationWarning, message=".*ragas.metrics.*")
+
         from datasets import Dataset  # noqa: PLC0415  # type: ignore[attr-defined]
-        from langchain_community.chat_models import ChatLiteLLM  # noqa: PLC0415
-        from langchain_community.embeddings import HuggingFaceEmbeddings  # noqa: PLC0415
         from ragas import evaluate  # noqa: PLC0415
         from ragas.metrics import (  # noqa: PLC0415
             answer_relevancy,
@@ -212,6 +217,18 @@ def calculate_ragas_metrics(
             context_recall,
             faithfulness,
         )
+
+        # Try to import from new LangChain packages first, fall back to old ones
+        try:
+            from langchain_litellm import ChatLiteLLM  # noqa: PLC0415
+        except ImportError:
+            from langchain_community.chat_models import ChatLiteLLM  # noqa: PLC0415
+
+        try:
+            from langchain_huggingface import HuggingFaceEmbeddings  # noqa: PLC0415
+        except ImportError:
+            from langchain_community.embeddings import HuggingFaceEmbeddings  # noqa: PLC0415
+
     except ImportError as e:
         logger.warning(f"RAGAS library not installed or import error: {e}")
         logger.info("To install: uv pip install ragas datasets langchain-community")
@@ -275,35 +292,140 @@ def calculate_ragas_metrics(
 
         # Convert to dict (evaluation_results is an EvaluationResult object or DataFrame)
         metrics_dict = {}
+
+        logger.info(f"Evaluation results type: {type(evaluation_results)}")
+        logger.debug(f"Evaluation results repr: {repr(evaluation_results)}")
+
         try:
-            # Try to convert to dict (works for pandas DataFrame)
-            if hasattr(evaluation_results, "to_dict"):
-                result_dict = evaluation_results.to_dict()
-                for key, value in result_dict.items():
-                    if isinstance(value, dict) and len(value) == 1:
-                        # Extract the single value from nested dict
-                        metrics_dict[key] = float(next(iter(value.values())))
-                    elif isinstance(value, (int, float)):
-                        metrics_dict[key] = float(value)
-            # Try as dict directly
-            elif isinstance(evaluation_results, dict):
-                for key, value in evaluation_results.items():
-                    if isinstance(value, (int, float)):
-                        metrics_dict[key] = float(value)
-            # Try as object attributes
-            else:
-                for attr in [
-                    "faithfulness",
-                    "answer_relevancy",
-                    "context_precision",
-                    "context_recall",
-                ]:
-                    if hasattr(evaluation_results, attr):
-                        metrics_dict[attr] = float(getattr(evaluation_results, attr))
+            # RAGAS v1.0+ returns an EvaluationResult object with a 'scores' attribute
+            if hasattr(evaluation_results, "scores"):
+                logger.info("Extracting metrics from .scores attribute...")
+                scores = evaluation_results.scores
+
+                # scores could be a DataFrame or a list of dicts
+                if hasattr(scores, "to_dict"):
+                    # It's a DataFrame - get the mean of each column
+                    logger.info("Converting scores DataFrame to dict...")
+                    if hasattr(scores, "mean"):
+                        # Get mean values
+                        mean_scores = scores.mean()
+                        if hasattr(mean_scores, "to_dict"):
+                            metrics_dict = {k: float(v) for k, v in mean_scores.to_dict().items()}
+                        else:
+                            # mean_scores might be a Series, try direct iteration
+                            for key in scores.columns:
+                                metrics_dict[key] = float(scores[key].mean())
+                    else:
+                        # No mean method, try to_dict directly
+                        scores_dict = scores.to_dict()
+                        # Might be column-oriented like {'metric': {0: val1, 1: val2}}
+                        for key, values in scores_dict.items():
+                            if isinstance(values, dict):
+                                # Extract any numeric value
+                                for val in values.values():
+                                    if isinstance(val, (int, float)):
+                                        metrics_dict[key] = float(val)
+                                        break
+                            elif isinstance(values, (int, float)):
+                                metrics_dict[key] = float(values)
+
+                elif isinstance(scores, (list, tuple)) and len(scores) > 0:
+                    # It's a list of score dicts - aggregate them
+                    logger.info(f"Aggregating {len(scores)} score entries...")
+                    # Collect all values for each metric
+                    metric_values = {}
+                    for score_entry in scores:
+                        if isinstance(score_entry, dict):
+                            for key, value in score_entry.items():
+                                if isinstance(value, (int, float)):
+                                    if key not in metric_values:
+                                        metric_values[key] = []
+                                    metric_values[key].append(float(value))
+
+                    # Calculate means
+                    for key, values in metric_values.items():
+                        if values:
+                            metrics_dict[key] = sum(values) / len(values)
+
+            # Fallback: Try dict() conversion (for dict-like objects)
+            if not metrics_dict:
+                try:
+                    logger.info("Trying dict() conversion...")
+                    result_dict = dict(evaluation_results)
+                    logger.info(f"Converted to dict: {result_dict}")
+
+                    for key, value in result_dict.items():
+                        if isinstance(value, (int, float)):
+                            metrics_dict[key] = float(value)
+                        elif isinstance(value, dict) and len(value) > 0:
+                            # Handle nested dict
+                            for nested_val in value.values():
+                                if isinstance(nested_val, (int, float)):
+                                    metrics_dict[key] = float(nested_val)
+                                    break
+
+                except (TypeError, ValueError) as e:
+                    logger.debug(f"dict() conversion failed: {e}")
+
+                # Try direct dictionary access (for dict instances)
+                if isinstance(evaluation_results, dict):
+                    logger.info("Parsing as dict...")
+                    for key, value in evaluation_results.items():
+                        if isinstance(value, (int, float)):
+                            metrics_dict[key] = float(value)
+                        elif isinstance(value, dict) and len(value) > 0:
+                            for nested_val in value.values():
+                                if isinstance(nested_val, (int, float)):
+                                    metrics_dict[key] = float(nested_val)
+                                    break
+
+                # Try to_dict() method (for pandas DataFrame and some Result objects)
+                elif hasattr(evaluation_results, "to_dict"):
+                    logger.info("Parsing with to_dict()...")
+                    result_dict = evaluation_results.to_dict()
+                    logger.debug(f"Result dict: {result_dict}")
+
+                    for key, value in result_dict.items():
+                        if isinstance(value, (int, float)):
+                            metrics_dict[key] = float(value)
+                        elif isinstance(value, dict) and len(value) > 0:
+                            for nested_val in value.values():
+                                if isinstance(nested_val, (int, float)):
+                                    metrics_dict[key] = float(nested_val)
+                                    break
+
+                # Try as object attributes (for Result objects)
+                else:
+                    logger.info("Parsing as object attributes...")
+                    for attr in [
+                        "faithfulness",
+                        "answer_relevancy",
+                        "context_precision",
+                        "context_recall",
+                    ]:
+                        if hasattr(evaluation_results, attr):
+                            value = getattr(evaluation_results, attr)
+                            if isinstance(value, (int, float)):
+                                metrics_dict[attr] = float(value)
+
+            logger.info(f"Extracted metrics: {metrics_dict}")
+
+            if not metrics_dict:
+                logger.warning("No metrics extracted! Trying alternative approaches...")
+                # Last resort: check if it's a pandas DataFrame with mean values
+                if hasattr(evaluation_results, "mean"):
+                    logger.info("Trying DataFrame.mean()...")
+                    mean_values = evaluation_results.mean()
+                    if hasattr(mean_values, "to_dict"):
+                        metrics_dict = {k: float(v) for k, v in mean_values.to_dict().items()}
+
         except Exception as e:
             logger.error(f"Error parsing evaluation results: {e}")
             logger.info(f"Evaluation results type: {type(evaluation_results)}")
-            logger.info(f"Evaluation results: {evaluation_results}")
+            logger.info(f"Evaluation results dir: {dir(evaluation_results)}")
+            # Try to show the actual structure
+            if hasattr(evaluation_results, "__dict__"):
+                logger.info(f"Evaluation results __dict__: {evaluation_results.__dict__}")
 
         return metrics_dict
 

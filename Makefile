@@ -70,26 +70,57 @@ clean:
 	find . -type f -name "*.pyc" -delete 2>/dev/null || true
 	@echo "Cache files cleaned"
 
+
 # Run full evaluation with RAGAS metrics (20 questions)
 evaluate:
 	@echo "Running full RAGAS evaluation (20 questions)..."
-	@echo "Note: RAGAS will use your LLM from .env (Ollama/Bedrock). Make sure it's running."
-	uv run python evals/eval.py --output evals/experiments/ragas_results.json
+	@echo "Note: RAGAS will use your LLM from .env (Ollama/Bedrock)."
+	$(eval TIMESTAMP := $(shell date +%Y%m%d_%H%M%S))
+	uv run python evals/eval.py \
+		--dataset evals/datasets/ragas_dataset_20.json \
+		--ragas-model azure_ai/gpt-4.1 \
+		--output evals/experiments/ragas_results_$(TIMESTAMP).json
 	@echo "Generating report..."
-	uv run python evals/eval_vis.py evals/experiments/ragas_results.json --markdown evals/experiments/evaluation_report.md
-	@echo "Evaluation complete! Check evals/experiments/"
+	uv run python evals/eval_vis.py \
+		evals/experiments/ragas_results_$(TIMESTAMP).json \
+		--markdown evals/experiments/evaluation_report_$(TIMESTAMP).md
+	@echo "Evaluation complete! Results saved:"
+	@echo "  JSON: evals/experiments/ragas_results_$(TIMESTAMP).json"
+	@echo "  Report: evals/experiments/evaluation_report_$(TIMESTAMP).md"
 
-# Run quick evaluation (3 questions)
+# Run quick evaluation test (3 questions)
 evaluate-quick:
-	@echo "Running quick evaluation (3 questions)..."
-	uv run python evals/eval.py --dataset evals/datasets/ragas_dataset_3.json --output evals/experiments/ragas_results_quick.json
+	@echo "Running quick RAGAS evaluation (3 questions)..."
+	@echo "Note: RAGAS will use your LLM from .env (Ollama/Bedrock)."
+	$(eval TIMESTAMP := $(shell date +%Y%m%d_%H%M%S))
+	uv run python evals/eval.py \
+		--dataset evals/datasets/ragas_dataset_3.json \
+		--ragas-model azure_ai/gpt-4.1 \
+		--output evals/experiments/ragas_results_quick_$(TIMESTAMP).json
 	@echo "Generating report..."
-	uv run python evals/eval_vis.py evals/experiments/ragas_results_quick.json
-	@echo "Quick evaluation complete! Check evals/experiments/"
+	uv run python evals/eval_vis.py \
+		evals/experiments/ragas_results_quick_$(TIMESTAMP).json \
+		--markdown evals/experiments/evaluation_report_quick_$(TIMESTAMP).md
+	@echo "Quick evaluation complete! Results saved:"
+	@echo "  JSON: evals/experiments/ragas_results_quick_$(TIMESTAMP).json"
+	@echo "  Report: evals/experiments/evaluation_report_quick_$(TIMESTAMP).md"
 
-# Generate report from latest results
+# Generate report from latest or specific results file
 report:
-	@echo "Generating report from evals/experiments/ragas_results.json..."
-	uv run python evals/eval_vis.py evals/experiments/ragas_results.json
-	uv run python evals/eval_vis.py evals/experiments/ragas_results.json --markdown evals/experiments/evaluation_report.md
-	@echo "Report saved to evals/experiments/evaluation_report.md"
+	@if [ -z "$(FILE)" ]; then \
+		LATEST=$$(ls -t evals/experiments/ragas_results_*.json 2>/dev/null | head -1); \
+		if [ -z "$$LATEST" ]; then \
+			echo "Error: No evaluation results found in evals/experiments/"; \
+			echo "Run 'make evaluate' or 'make evaluate-quick' first."; \
+			exit 1; \
+		fi; \
+		echo "Generating report from latest results: $$LATEST"; \
+		BASENAME=$$(basename $$LATEST .json); \
+		uv run python evals/eval_vis.py $$LATEST --markdown evals/experiments/$${BASENAME}_report.md; \
+		echo "Report saved: evals/experiments/$${BASENAME}_report.md"; \
+	else \
+		echo "Generating report from: $(FILE)"; \
+		BASENAME=$$(basename $(FILE) .json); \
+		uv run python evals/eval_vis.py $(FILE) --markdown evals/experiments/$${BASENAME}_report.md; \
+		echo "Report saved: evals/experiments/$${BASENAME}_report.md"; \
+	fi
