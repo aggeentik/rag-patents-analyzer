@@ -31,6 +31,7 @@ class EntityType(Enum):
     MATERIAL = "material"
     PROBLEM = "problem"
     SOLUTION = "solution"
+    PATENT_DOC_REFERENCE = "patent_doc_reference"
 
 
 class RelationType(Enum):
@@ -253,6 +254,15 @@ CHEMICAL_ELEMENTS = {
     "B": "Boron",
     "Fe": "Iron",
     "Co": "Cobalt",
+    "La": "Lanthanum",
+    "Ce": "Cerium",
+    "Nd": "Neodymium",
+    "Y": "Yttrium",
+    "Ca": "Calcium",
+    "Bi": "Bismuth",
+    "Sn": "Tin",
+    "Sb": "Antimony",
+    "Mg": "Magnesium",
 }
 
 PROPERTIES = {
@@ -303,4 +313,9 @@ MATERIALS = {
     "high_strength_steel": ["high strength steel", "high-strength steel", "HSLA steel"],
     "stainless_steel": ["stainless steel", "austenitic stainless", "ferritic stainless"],
     "carbon_steel": ["carbon steel", "low carbon steel", "ultra-low carbon steel"],
+    "rare_earth_metal": [
+        "rare earth metal", "rare earth metals", "REM", "REMs",
+        "rare earth element", "rare earth elements", "REE",
+        "REM oxysulfide", "REM oxysulfides",
+    ],
 }

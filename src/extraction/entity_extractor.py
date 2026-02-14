@@ -59,6 +59,11 @@ class EntityExtractor:
     ASSIGNEE_RE = re.compile(
         r"(?:[Aa]ssignee|[Aa]pplicant)(?:s)?\s*[:;]\s*(.+?)(?:\n|$)"
     )
+    PATENT_DOC_RE = re.compile(
+        r"Patent\s+(?:Document|Literature|Lit\.?)\s+(\d+)",
+        re.IGNORECASE,
+    )
+
     PROBLEM_PHRASES = [
         "problem", "drawback", "disadvantage", "limitation",
         "difficulty", "deficiency", "shortcoming", "insufficient",
@@ -118,6 +123,7 @@ class EntityExtractor:
         entities.extend(self._extract_assignees(text, chunk))
         entities.extend(self._extract_applications(text, chunk))
         entities.extend(self._extract_materials(text, chunk))
+        entities.extend(self._extract_patent_doc_references(text, chunk))
         entities.extend(self._extract_problems(text, chunk))
         entities.extend(self._extract_solutions(text, chunk))
 
@@ -525,6 +531,28 @@ class EntityExtractor:
                     type=EntityType.PATENT_REFERENCE,
                     name=raw,
                     properties={"normalized": norm},
+                    patent_id=chunk.patent_id,
+                    chunk_ids=[chunk.chunk_id],
+                )
+            )
+        return entities
+
+    def _extract_patent_doc_references(self, text: str, chunk: PatentChunk) -> list[Entity]:
+        """Extract internal patent document references (e.g. 'Patent Document 2', 'Patent Literature 1')."""
+        entities: list[Entity] = []
+        seen: set[str] = set()
+        for match in self.PATENT_DOC_RE.finditer(text):
+            num = match.group(1)
+            name = f"Patent Document {num}"
+            if name in seen:
+                continue
+            seen.add(name)
+            entities.append(
+                Entity(
+                    id=f"{chunk.patent_id}_patdoc_{num}",
+                    type=EntityType.PATENT_DOC_REFERENCE,
+                    name=name,
+                    properties={"doc_number": int(num)},
                     patent_id=chunk.patent_id,
                     chunk_ids=[chunk.chunk_id],
                 )
