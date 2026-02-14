@@ -24,6 +24,13 @@ class EntityType(Enum):
     FORMULA = "formula"
     SAMPLE = "sample"
     FIGURE = "figure"
+    INVENTOR = "inventor"
+    ASSIGNEE = "assignee"
+    PATENT_REFERENCE = "patent_reference"
+    APPLICATION = "application"
+    MATERIAL = "material"
+    PROBLEM = "problem"
+    SOLUTION = "solution"
 
 
 class RelationType(Enum):
@@ -41,6 +48,11 @@ class RelationType(Enum):
     REFERENCES = "references"
     MENTIONS = "mentions"
     NEXT_STEP = "next_step"
+    CITES = "cites"
+    ADDRESSES_PROBLEM = "addresses_problem"
+    USED_FOR = "used_for"
+    INVENTED_BY = "invented_by"
+    ASSIGNEE_OF = "assignee_of"
 
 
 class PatentSection(Enum):
@@ -88,12 +100,35 @@ class ProcessStep(BaseModel):
     parameters: dict = Field(default_factory=dict, description="Additional parameters")
 
 
+class PatentMeta(BaseModel):
+    """Patent-level metadata extracted from a chunk."""
+
+    inventors: list[str] = Field(default_factory=list, description="Inventor names")
+    assignees: list[str] = Field(default_factory=list, description="Assignee / applicant names")
+    cited_patents: list[str] = Field(
+        default_factory=list, description="Cited patent numbers, e.g. 'US 7,234,567'"
+    )
+    applications: list[str] = Field(
+        default_factory=list, description="Use-case / application domains, e.g. 'electric vehicles'"
+    )
+    materials: list[str] = Field(
+        default_factory=list, description="Named materials / alloy types, e.g. 'grain-oriented electrical steel'"
+    )
+    problems: list[str] = Field(
+        default_factory=list, description="Problems or limitations of prior art"
+    )
+    solutions: list[str] = Field(
+        default_factory=list, description="Advantages or solutions provided by the invention"
+    )
+
+
 class ChunkExtractionResult(BaseModel):
     """Structured extraction result from a single chunk (used by Instructor)."""
 
     compositions: list[ChemicalComposition] = Field(default_factory=list)
     properties: list[PropertyMeasurement] = Field(default_factory=list)
     processes: list[ProcessStep] = Field(default_factory=list)
+    patent_meta: PatentMeta = Field(default_factory=PatentMeta)
 
 
 # ---------------------------------------------------------------------------
@@ -237,4 +272,35 @@ PROCESSES = {
     "pickling": ["pickling", "pickled", "acid pickling"],
     "coating": ["coating", "coated", "insulation coating"],
     "heat_treatment": ["heat treatment", "heat treated"],
+}
+
+APPLICATIONS = {
+    "electric_vehicle": ["electric vehicle", "EV", "electric car", "electric motor vehicle"],
+    "transformer": ["transformer", "power transformer", "distribution transformer"],
+    "electric_motor": ["electric motor", "motor core", "rotating machine"],
+    "generator": ["generator", "power generator", "wind turbine generator"],
+    "inductor": ["inductor", "reactor", "choke coil"],
+    "sensor": ["sensor", "magnetic sensor"],
+    "energy_storage": ["energy storage", "battery", "fuel cell"],
+    "power_electronics": ["power electronics", "inverter", "converter"],
+}
+
+MATERIALS = {
+    "grain_oriented_electrical_steel": [
+        "grain-oriented electrical steel",
+        "grain oriented electrical steel",
+        "GO steel",
+        "GO electrical steel",
+    ],
+    "non_oriented_electrical_steel": [
+        "non-oriented electrical steel",
+        "non oriented electrical steel",
+        "NO steel",
+        "NO electrical steel",
+    ],
+    "electrical_steel_sheet": ["electrical steel sheet", "magnetic steel sheet"],
+    "silicon_steel": ["silicon steel", "Si steel", "Fe-Si"],
+    "high_strength_steel": ["high strength steel", "high-strength steel", "HSLA steel"],
+    "stainless_steel": ["stainless steel", "austenitic stainless", "ferritic stainless"],
+    "carbon_steel": ["carbon steel", "low carbon steel", "ultra-low carbon steel"],
 }
