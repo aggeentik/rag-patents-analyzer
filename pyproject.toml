@@ -9,7 +9,7 @@ dependencies = [
     "pydantic>=2.0.0",
     "instructor>=1.0.0",
     "python-dotenv==1.0.0",
-    "tqdm>=4.66.3",  # Updated for datasets compatibility
+    "tqdm>=4.66.3", # Updated for datasets compatibility
     "networkx>=3.2.1",
     "rank-bm25>=0.2.2",
     "sentence-transformers>=2.3.1",
@@ -18,6 +18,7 @@ dependencies = [
     "litellm>=1.0.0",
     "streamlit>=1.54.0",
     "pymupdf>=1.26.7",
+    "llama-parse>=0.5.20",
 ]
 
 [dependency-groups]
