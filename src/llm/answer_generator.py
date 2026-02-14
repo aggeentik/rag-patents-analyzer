@@ -152,12 +152,18 @@ class AnswerGenerator:
         return stream, metadata
 
     def _build_context(self, chunks: list[dict]) -> str:
-        """Build context string from chunks."""
+        """Build context string from chunks with signal-quality labels."""
         context_parts = []
 
         for i, chunk in enumerate(chunks, 1):
             # Build chunk header with metadata
             header = f"[Source {i}]"
+
+            # Label high-signal graph connections so the LLM can prioritise them
+            signal_label = self._get_signal_label(chunk)
+            if signal_label:
+                header += f" {signal_label}"
+
             if self.include_metadata:
                 metadata_parts = []
                 if "patent_id" in chunk:
@@ -177,27 +183,50 @@ class AnswerGenerator:
 
         return "\n".join(context_parts)
 
-    def _build_prompt(self, question: str, context: str) -> str:
-        """Build prompt for LLM."""
-        prompt = f"""Based on the following patent excerpts, answer the question below.
+    @staticmethod
+    def _get_signal_label(chunk: dict) -> str:
+        """Return a signal-quality label based on retrieval scores.
 
-PATENT EXCERPTS:
+        High graph_rank (low number = high rank) or high rrf_score indicate
+        chunks that came from precise entity-graph traversal rather than
+        broad keyword matching — these tend to carry the specific technical
+        data needed for faithful answers.
+        """
+        graph_rank = chunk.get("graph_rank", 0)
+        rrf_score = chunk.get("rrf_score", 0.0)
+
+        # Top-5 graph hit OR top-3 overall RRF score → high-signal
+        if (graph_rank > 0 and graph_rank <= 5) or rrf_score >= 0.03:
+            return "[HIGH-SIGNAL GRAPH CONNECTION]"
+        return ""
+
+    def _build_prompt(self, question: str, context: str) -> str:
+        """Build prompt with Chain-of-Note evaluation logic."""
+        prompt = f"""PATENT EXCERPTS:
 {context}
 
 QUESTION:
 {question}
 
-INSTRUCTIONS:
-1. Provide a comprehensive answer based ONLY on the information in the patent excerpts
-2. Include specific technical details, numerical values, and formulas when available
-3. **CRITICAL**: When citing information, you MUST use ONLY the source number format: [Source 1], [Source 2], etc.
-   - DO NOT mention section names, page numbers, or patent IDs directly in your answer
-   - DO use: "according to [Source 1]", "as shown in [Source 2]", "[Source 1, Source 3]"
-   - DO NOT use: "Section 0002 (Page 2)", "EP1816226", "Page 10", etc.
-   Example: "The steel contains 0.05% Si [Source 1], which improves yield stress [Source 2]."
-4. If the excerpts don't contain enough information to answer completely, state what's missing
-5. Organize your answer clearly with sections if answering multiple aspects
-6. Use technical language appropriate for patent analysis
+INSTRUCTIONS — follow these two steps in order:
+
+STEP 1 — EVALUATE (do this mentally, do NOT write it out):
+For each Source above, decide:
+  • "Technical Signal" — contains specific numbers, compositions, process parameters, or quantitative results relevant to the question.
+  • "General Background" — contains definitions, broad context, or information unrelated to the question.
+Only use "Technical Signal" sources to build your answer. Ignore "General Background" sources entirely.
+
+STEP 2 — ANSWER:
+Write your answer following this structure:
+  1. **Direct conclusion first** — state the key technical finding in 1–2 sentences with citations.
+  2. **Supporting data** — present the specific values, compositions, or parameters that support the conclusion. Cite every claim with [Source X].
+  3. **Gaps** — if the excerpts lack data to fully answer, state what is missing.
+
+RULES:
+- Use ONLY information explicitly stated in the excerpts. Do not infer or add outside knowledge.
+- Cite with [Source 1], [Source 2], etc. NEVER mention section names, page numbers, or patent IDs.
+- Prefer sources marked [HIGH-SIGNAL GRAPH CONNECTION] — they contain entity-linked technical data.
+- If no source contains relevant technical data for the question, say so directly.
 
 ANSWER:"""
 
@@ -205,21 +234,30 @@ ANSWER:"""
 
     def _get_system_message(self) -> str:
         """Get system message for LLM."""
-        return """You are a patent analysis assistant specializing in steel manufacturing and metallurgy.
+        return """You are a Senior Patent Metallurgist with deep expertise in steel manufacturing, alloy design, and thermomechanical processing. You think like an engineer, not a summariser.
 
-Your role is to:
-- Analyze patent documents and extract relevant technical information
-- Provide accurate, detailed answers based on patent content
-- Cite sources using ONLY the [Source X] format provided in the excerpts (never mention section names, page numbers, or patent IDs directly)
-- Explain complex metallurgical processes and compositions
-- Identify key innovations, methods, and technical specifications
+PRIORITY HIERARCHY — follow this strictly:
+1. HIGH-SIGNAL DATA (use as primary evidence):
+   - Numerical values: chemical compositions (e.g. Si 0.05–0.10 wt%), temperatures (e.g. 1150 °C), mechanical properties (e.g. yield stress ≥ 350 MPa)
+   - Specific process parameters: rolling speeds, annealing times, cooling rates
+   - Quantitative results from tables, formulas, and examples
+   - Sources marked [HIGH-SIGNAL GRAPH CONNECTION] — these contain precise entity-linked data
 
-CITATION FORMAT RULES:
-- Use [Source 1], [Source 2], etc. when referencing information
-- NEVER write section numbers, page numbers, or patent IDs in your answer text
-- The source numbers are clickable links that will show the user the exact location
+2. BACKGROUND NOISE (ignore unless directly asked):
+   - Generic definitions ("Steel is an alloy of iron and carbon…")
+   - Broad industry context or prior-art summaries
+   - Vague statements without specific values or conditions
 
-Always base your answers on the provided patent excerpts. If information is not available in the excerpts, clearly state this limitation."""
+CITATION RULES (mandatory):
+- For every sentence you write, you must first identify the [Source X] you are using. If you cannot find a specific [Source X] for a claim, do not include that claim in your answer.
+- Use ONLY [Source 1], [Source 2], etc. NEVER write section names, page numbers, or patent IDs in your text
+- If a claim draws from multiple sources, list them: [Source 1, Source 3]
+
+FAITHFULNESS:
+- State ONLY what is explicitly written in the provided excerpts
+- Do NOT infer, extrapolate, or add knowledge from outside the excerpts
+- If a specific value (e.g., an exact percentage or temperature) is not found in the provided sources, you must explicitly say "data not available in sources" rather than providing a general range or estimate
+- If the excerpts lack sufficient data, say so clearly"""
 
     def generate_summary(self, chunks: list[dict]) -> str:
         """

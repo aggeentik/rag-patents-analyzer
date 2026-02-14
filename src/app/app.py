@@ -163,6 +163,14 @@ def init_retrievers():
 
 
 @st.cache_resource(show_spinner=False)
+def init_reranker():
+    """Initialize cross-encoder reranker if enabled via env (expensive, cached for session)."""
+    from src.retrieval import reranker_from_env
+
+    return reranker_from_env()
+
+
+@st.cache_resource(show_spinner=False)
 def init_llm():
     """Initialize LLM client."""
     from src.llm import LLMClient
@@ -190,6 +198,7 @@ def run_retrieval(query: str, selected_patents: list[str], top_k: int, weights: 
         graph_retriever=retrievers["graph"],
         weights=weights,
         rrf_k=60,
+        reranker=init_reranker(),
     )
 
     retrieval_top_k = top_k * 3 if selected_patents else top_k
@@ -590,7 +599,7 @@ def main():
                 "Related concepts",
                 0.0,
                 2.0,
-                0.5,
+                1.2,
                 0.1,
                 key="w_graph",
                 help="Higher values include results based on related topics and connections (Knowledge graph weight)",

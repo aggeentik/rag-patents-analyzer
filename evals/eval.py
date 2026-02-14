@@ -32,6 +32,7 @@ from src.retrieval import (
     GraphRetriever,
     HybridRetriever,
     SemanticRetriever,
+    reranker_from_env,
 )
 
 logger = logging.getLogger(__name__)
@@ -108,8 +109,9 @@ def initialize_retrievers(chunks: list[dict[str, Any]], data_dir: Path) -> Hybri
         bm25_retriever=bm25,
         semantic_retriever=semantic,
         graph_retriever=graph,
-        weights={"bm25": 1.0, "semantic": 1.0, "graph": 0.5},
+        weights={"bm25": 1.0, "semantic": 1.0, "graph": 1.2},
         rrf_k=60,
+        reranker=reranker_from_env(),
     )
     logger.info(f"Hybrid retriever initialized with {len(chunks)} chunks")
     return hybrid

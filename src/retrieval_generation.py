@@ -29,6 +29,7 @@ from src.retrieval import (  # noqa: E402
     GraphRetriever,
     HybridRetriever,
     SemanticRetriever,
+    reranker_from_env,
 )
 
 logger = logging.getLogger(__name__)
@@ -205,9 +206,10 @@ def main():
         weights={
             "bm25": 1.0,  # Keyword matching
             "semantic": 1.0,  # Semantic similarity
-            "graph": 0.5,  # Knowledge graph (less weight)
+            "graph": 1.2,  # Knowledge graph (boosted for precise entity hits)
         },
         rrf_k=60,
+        reranker=reranker_from_env(),
     )
     logger.info("=" * 80)
 
