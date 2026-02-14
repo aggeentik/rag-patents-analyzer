@@ -217,6 +217,21 @@ def main(patent_names=None, use_llm_extraction=False):
     for rel in tqdm(kg_data["relationships"], desc="  Saving relationships"):
         kg_store.save_relationship(rel)
 
+    # Embed entity names for semantic matching
+    logger.info("Embedding entity names for semantic matching...")
+    from sentence_transformers import SentenceTransformer  # noqa: PLC0415
+
+    embed_model = SentenceTransformer("all-MiniLM-L6-v2")
+    entity_items = list(kg_data["entities"].items())
+    entity_names = [entity["name"] for _, entity in entity_items]
+    embeddings = embed_model.encode(entity_names, show_progress_bar=False)
+
+    embedding_pairs = [
+        (entity["id"], embeddings[i]) for i, (_, entity) in enumerate(entity_items)
+    ]
+    kg_store.save_entity_embeddings_batch(embedding_pairs)
+    logger.info("Saved %d entity embeddings", len(embedding_pairs))
+
     kg_store.close()
     logger.info(
         "Saved %d entities and %d relationships",
