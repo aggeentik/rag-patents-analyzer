@@ -1,0 +1,1002 @@
+{
+  "questions": [
+    "Who is OMURA, Takeshi in relation to the European Patent Application EP 1 577 413 A1?",
+    "What Fe-Cr-Si steel do for high frequency, like in electric car motors and reactors, and what frequency is high frequency mean here?",
+    "What is the main limitation of Patent Document 1 regarding high-frequency magnetic properties in electrical steel sheets?",
+    "Patent Documents 2 steel sheet, what problem it got?",
+    "Why high-strength non-oriented magnetic steel sheet is needed for high-speed motors like in electric vehicles, and what problems happen with other high-strength materials used before?",
+    "How high-strength non-oriented magnetic steel sheet get good high-frequency magnetic properties, and what role controlling nitrides containing chromium play?",
+    "How does the addition of bismuth (Bi) to a non-oriented electrical steel sheet influence the suppression of Ti inclusions and the resulting magnetic properties, and what compositional and process conditions are necessary to maximize these effects for high-speed motor rotor applications?",
+    "How does forming an Fe-Ni alloy film on a high-strength non-oriented magnetic steel sheet affect its magnetic properties, and what compositional considerations are important for both the steel sheet and the Fe-Ni alloy film?",
+    "What steel slab components in Table 3 give better magnetic properties, and how does rolling reduction affect results?",
+    "How does Table 5 show the relationship between the Si-Mg phase volume percentage and the Cr content ratio in the alloy layer for the different examples, and what trends can be seen when comparing Examples 1-8 with Comp. Ex. 1?",
+    "What components are listed in Table 1 for the steel slab, and how do these components relate to the magnetic properties measured after processing as described in the experiments?",
+    "How does the addition of REMs to steel influence the precipitation of TiN and TiC, and what is the resulting effect on the properties of electrical steel?"
+  ],
+  "ground_truths": [
+    "OMURA, Takeshi is listed as one of the inventors of the European Patent Application EP 1 577 413 A1, with an address at JFE STEEL CORPORATION I.P.D., Tokyo 100-0011 (JP).",
+    "Fe-Cr-Si based non-oriented electrical steel sheets are used for high-frequency applications such as iron cores of electric car motors, power generators for gas microturbines, and high-frequency reactors. In this context, high-frequency range is defined as a frequency of several hundred hertz or more, particularly about 400 Hz or more, and the steel sheet is noted for having excellent magnetic properties in a high frequency range of 1 kHz or more.",
+    "Patent Document 1 assumes a frequency range of less than 1 kHz for use and does not provide sufficient high-frequency magnetic properties in a frequency range of 1 kHz or more, making it unsatisfactory for non-oriented electrical steel sheets required in the range of about 400 Hz to about 50 kHz.",
+    "In Patent Documents 2, the steel sheets show superior iron loss at frequencies of 10 kHz or more due to high electrical resistance, but in the high-frequency range of less than 10 kHz, the high electrical resistance from high Si and Cr content does not give satisfactory iron loss, so further improvement is needed.",
+    "High-strength non-oriented magnetic steel sheet is needed for high-speed motors, such as those used in electric vehicles, because these motors are designed for high-speed rotation to achieve high torque, and the rotor structure includes very narrow bridge portions (1 to 2 mm wide) between magnets and the steel sheet. This narrow width requires the steel sheet to have high strength to prevent failure during operation. Other high-strength materials used before, like non-oriented electrical steel sheets strengthened by adding Mn and Ni, could not provide enough strength and also reduced toughness, leading to poor productivity and yield, and the cost was high due to expensive alloying elements like Ni. Methods using carbonitride dispersion or Cu precipitates also failed to achieve sufficient strength or caused problems like coarsening of crystal grains, reduced fracture elongation, or magnetic aging due to carbide precipitation at motor operating temperatures. Therefore, a high-strength non-oriented magnetic steel sheet with a specific composition and controlled microstructure is required to meet the demands of high-speed motors in electric vehicles.",
+    "High-strength non-oriented magnetic steel sheet get good high-frequency magnetic properties by controlling the number of nitrides containing chromium inside the steel sheet. If too many nitrides with chromium form during annealing, iron loss gets worse, especially at high frequency. By adjusting the annealing atmosphere, like using less nitrogen gas or adding elements like Al, Sn, or Sb, the amount of nitrides with chromium can be kept low (2,500 or less per mm2), so the steel shows better high-frequency magnetic properties and lower iron loss.",
+    "The addition of bismuth (Bi) to a non-oriented electrical steel sheet plays a critical role in suppressing the formation of Ti inclusions, such as TiN, TiS, and TiC, which can otherwise degrade the magnetic properties of the steel. According to the context, when an appropriate amount of Bi is present (typically between 0.001 mass% and 0.01 mass%), the production of Ti inclusions after annealing is reduced, leading to enhanced crystal grain growth and improved magnetic properties (see <9-hop>). This effect is particularly important for high-speed motor rotors, where low core loss and high efficiency are required (<2-hop>, <3-hop>, <4-hop>).\n\nTo maximize the beneficial effects of Bi addition, several compositional and process conditions must be met:\n- The steel composition should include Si (1.0\u20133.5 mass%), Al (0.1\u20133.0 mass%), Mn (0.1\u20132.0 mass%), Ti (0.001\u20130.01 mass%), and Bi (0.001\u20130.01 mass%), with low levels of C (\u22640.01 mass%), P (\u22640.1 mass%), S (\u22640.005 mass%), and N (\u22640.005 mass%) (<8-hop>, <11-hop>).\n- The Bi must be added to the molten steel shortly before solidification, ideally within three minutes, to ensure sufficient Bi remains in solution and is not lost due to volatilization (<11-hop>).\n- The presence of sulfur (S) must be controlled. If S exceeds 0.005 mass%, desulfurizing elements such as rare earth metals (REM) or Ca should be added to reduce free S, preventing Bi from being trapped in MnS and ensuring it remains available to suppress Ti inclusions (<10-hop>).\n\nWhen these conditions are satisfied, Bi effectively suppresses the precipitation of TiN and TiS during annealing and TiC during stress relief annealing, resulting in fewer inclusions, larger grain size, and improved magnetic properties, such as lower core loss (W10/800 or W10/1000) (<9-hop>, <11-hop>). This directly supports the requirements for high-speed motor rotors, where both high tensile strength and low high-frequency core loss are essential for efficiency and miniaturization (<2-hop>, <3-hop>, <4-hop>).",
+    "Forming an Fe-Ni alloy film on a high-strength non-oriented magnetic steel sheet significantly improves the relative permeability and reduces the core loss of the material. The optimal improvement is achieved when the Fe-Ni alloy film contains 60% to 90% Ni and has a thickness of at least 0.1 \u03bcm, with the effect saturating above 0.6 \u03bcm. For the steel sheet itself, key compositional considerations include maintaining C content at 0.05% or less to avoid increased core loss, Si content between 0.1% and 7% for sufficient resistivity without compromising cold-rolling performance, and Al content between 0.01% and 7% for electrical resistance and deoxidation. Additionally, Mn, Ti, N, S, Sn, Cu, and Ni should be controlled within specified ranges to optimize magnetic properties and inhibit surface nitridation and oxidation during annealing.",
+    "Steel slabs in Table 3 with Sn (condition 13) or Cu (condition 14) have better magnetic properties than those without Sn and Cu (condition 11). Also, rolling reduction in the second cold-rolling affects results: when it is less than 40% (condition 12) or over 85% (condition 15), magnetic properties are worse than when it is around 68% (conditions 11, 13, 14).",
+    "Table 5 presents data for several examples, listing the Si-Mg phase volume percentage and the Cr content ratio in the alloy layer among other properties. For Examples 1-8, as the Si-Mg phase volume percentage decreases from 4.54 (Example 1) to 1.35 (Example 8), the Cr content ratio increases from 0.5 to 49.2. This indicates an inverse relationship: lower Si-Mg phase volume percentages correspond to higher Cr content ratios in the alloy layer. In contrast, Comp. Ex. 1 shows a much lower Si-Mg phase volume percentage (0.18) and a significantly higher Cr content ratio (76.3), further supporting this trend. Therefore, Table 5 demonstrates that as the Si-Mg phase volume percentage decreases, the Cr content ratio in the alloy layer tends to increase across the examples provided.",
+    "Table 1 lists the components of the steel slab as C (0.0019%), Si (2.91%), Al (0.48%), Mn (0.27%), and P (0.022%), with the balance being Fe and inevitable impurities. These components were used to produce steel slabs that underwent hot-rolling and two stages of cold-rolling, with specific processing conditions detailed in the experiments. After processing, magnetic properties such as magnetic flux density B50 and iron loss W15/50 were measured. The results, as shown in Table 2, indicate that by using the components from Table 1 and optimizing the rolling and annealing conditions, the steel achieved improved magnetic properties in the rolling direction, demonstrating the importance of both composition and processing in achieving desirable electrical steel characteristics.",
+    "The addition of REMs (rare earth metals) to steel leads to the formation of REM oxysulfides, which have a crystalline structure closely resembling that of TiN. This similarity promotes the coprecipitation of TiN on REM oxysulfides when the amounts of REM, O, S, Ti, and N are within suitable ranges. TiN precipitates at high temperatures (1200 to 1300\u00b0C) during processes like casting or slab reheating and becomes fixed in the steel. Once Ti is fixed as TiN, it does not redissolve during lower temperature processes such as finish annealing or stress relief annealing, preventing the precipitation of TiC, which typically forms at lower temperatures (700 to 800\u00b0C). As a result, the formation of fine TiC is suppressed, leading to low core loss non-oriented electrical steel sheet with good growth of crystal grains."
+  ],
+  "contexts": [
+    [
+      "- OMURA, Takeshi, c/o JFE STEEL CORPORATION I.P.D. Tokyo 100-0011 (JP)",
+      "## EUROPEAN PATENT APPLICATION",
+      "## EUROPEAN PATENT APPLICATION",
+      "## EUROPEAN PATENT APPLICATION",
+      "## EUROPEAN PATENT APPLICATION"
+    ],
+    [
+      "[0001] The present invention relates to Fe-Cr-Si based non-oriented electrical steel sheets for high-frequency use which are suitable for iron cores of electric car motors, power generators for gas microturbines, high-frequency reactors, etc. Herein, the term \"high-frequency range\" is defined as a frequency range of several hundred hertz or more, and in particular, of about 400 Hz or more. The present invention more particularly relates to a steel sheet having excellent magnetic properties in a high frequency range of 1 kHz or more.",
+      "[0002] Recently, devices used in the higher frequency ranges than conventionally used, for example, electric car motors, gas microturbines, and high-frequency reactors, have been increasingly used, and there has been a demand for electrical steel sheets having excellent magnetic properties in the high frequency range. These devices are used in a high frequency range of several hundred hertz to several tens of kilohertz.",
+      "[0009] Accordingly, it is an object of the present invention to advantageously solve the problem that the high electrical resistance obtained by the high Si content and the high Cr content is not sufficiently reflected to iron loss in a highfrequency range of less than 10 kHz and to provide an Fe-Cr-Si based non-oriented electrical steel sheet having excellent magnetic properties in the high-frequency range, in particular, in a frequency range of 1 kHz or more.",
+      "[0004] However, in the conventional Fe-Si based non-oriented electrical steel sheet for high-frequency use, the Si content in the steel is 3.5% by mass or less, and the electrical resistance of the steel is not so high. In particular, in a high frequency range of 1 kHz or more, the iron loss is high, which is disadvantageous. Therefore, in order to meet the recent needs in society, development of new electrical steel sheets suitable for use in the high frequency range is absolutely necessary.",
+      "Si is a principal element for increasing the electrical resistance of steel. Furthermore, due to the synergic effect with Cr, Si significantly increases electrical resistance, and in particular, Si is an effective element for improving iron loss in the high frequency range. If the Si content is less than about 2.5% by mass, even if Cr is used together, only an electrical resistance that is substantially the same as the electrical resistance of the conventional electrical steel sheet is obtained, and thus it is not possible to obtain satisfactory iron loss in the high frequency range. On the other hand, if the Si content exceeds about 10% by mass, even if Cr is added, toughness that normally allows the steel to be rolled is not ensured. Therefore, the Si content is set at about 2.5% to about 10% by mass. The upper limit may be set at 10.0% by mass."
+    ],
+    [
+      "[0006] A technique for increasing the electrical resistance of steel by adding Cr, Al, etc., to steel without increasing the Si content is disclosed in Patent Document 1. However, in the technique disclosed in Patent Document 1, a frequency range of less than 1 kHz is assumed for use as in the conventional electrical steel sheet for high-frequency use, and it is not possible to obtain sufficient high-frequency magnetic properties in a frequency range of 1 kHz or more. Thus, the steel sheet disclosed in Patent Document 1 does not have a satisfactory effect as a non-oriented electrical steel sheet for high-frequency use suitable in the range of about 400 Hz to about 50 kHz required in recent years. Additionally, the Si content in Patent Document 1 does not exceed that of a typical silicon steel sheet, and rather, Patent Document 1 mainly targets a low-silicon steel sheet with a Si content of about 1.5%.",
+      "[0093] As described above, non-oriented electrical steel sheets of the present invention have excellent high-frequency magnetic properties. The steel sheets of the present invention are most suitable for devices used in the high-frequency range, for example, electric car motors, power generators for gas microturbines, and high-frequency reactors, and the industrial values thereof are great.",
+      "[0001] The present invention relates to Fe-Cr-Si based non-oriented electrical steel sheets for high-frequency use which are suitable for iron cores of electric car motors, power generators for gas microturbines, high-frequency reactors, etc. Herein, the term \"high-frequency range\" is defined as a frequency range of several hundred hertz or more, and in particular, of about 400 Hz or more. The present invention more particularly relates to a steel sheet having excellent magnetic properties in a high frequency range of 1 kHz or more.",
+      "[0008] In the steel sheets described in Patent Documents 2, 3, etc., superior iron loss is shown in response to high electrical resistance in a frequency range of 10 kHz or more. On the other hand, it has been newly found that, although these steel sheets have better iron loss compared with the conventional electrical steel sheet in a high-frequency range",
+      "[0002] Recently, devices used in the higher frequency ranges than conventionally used, for example, electric car motors, gas microturbines, and high-frequency reactors, have been increasingly used, and there has been a demand for electrical steel sheets having excellent magnetic properties in the high frequency range. These devices are used in a high frequency range of several hundred hertz to several tens of kilohertz."
+    ],
+    [
+      "[0006] A technique for increasing the electrical resistance of steel by adding Cr, Al, etc., to steel without increasing the Si content is disclosed in Patent Document 1. However, in the technique disclosed in Patent Document 1, a frequency range of less than 1 kHz is assumed for use as in the conventional electrical steel sheet for high-frequency use, and it is not possible to obtain sufficient high-frequency magnetic properties in a frequency range of 1 kHz or more. Thus, the steel sheet disclosed in Patent Document 1 does not have a satisfactory effect as a non-oriented electrical steel sheet for high-frequency use suitable in the range of about 400 Hz to about 50 kHz required in recent years. Additionally, the Si content in Patent Document 1 does not exceed that of a typical silicon steel sheet, and rather, Patent Document 1 mainly targets a low-silicon steel sheet with a Si content of about 1.5%.",
+      "Patent Document 2: Japanese Laid-open Patent Publication No. 08-165520",
+      "[0005] In Patent Documents 2 and 3, there are disclosed non-oriented electrical steel sheets in which carbonitrides are dispersed in steel to achieve strengthening. However, it is not possible to obtain sufficient strength even by these non-oriented electrical steel sheets.",
+      "steel sheet steel sheet",
+      "[0008] In the steel sheets described in Patent Documents 2, 3, etc., superior iron loss is shown in response to high electrical resistance in a frequency range of 10 kHz or more. On the other hand, it has been newly found that, although these steel sheets have better iron loss compared with the conventional electrical steel sheet in a high-frequency range"
+    ],
+    [
+      "[0001] The present invention relates to a non-oriented electrical steel sheet, and in particular, to a non-oriented electrical steel sheet having high strength and excellent fatigue properties, and furthermore, excellent magnetic properties that is suitably used for components that are subject to high stress, typically, drive motors for turbine generators, electric vehicles and hybrid vehicles, or rotors for high-speed rotating machinery, such as servo motors for robots, machine tools or the like, and a method for manufacturing the same. Additionally, the present invention provides the above-described nonoriented electrical steel sheet at low cost as compared to the conventional art.",
+      "[0012] As described above, some proposals have been made on high-strength non-oriented electrical steel sheets. In the proposals made to date, however, it has not been possible until now to manufacture, with the use of an ordinary facility for manufacturing electrical steel sheets, such a high-strength non-oriented electrical steel sheet in an industrially stable manner with good yield and at low cost that has good magnetic properties in addition to high tensile strength and high fatigue strength, and furthermore, satisfy the quality requirements of steel sheet, such as those relating to surface defects, internal defects, sheet shape or the like. Particularly, the high-strength electrical steel sheets that have so far been provided for rotors of high speed motors are in a situation where the resulting rotors will be subject to unavoidable heat generation due to their magnetic property, i.e., high iron loss at high frequency, which necessarily poses limitations on the design specification of the motors.",
+      "[0022] According to the present invention, a non-oriented electrical steel sheet may be provided that is excellent in both mechanical properties and magnetic properties required for a rotor material of motors rotating at high speed, and that has excellent quality of steel sheet in terms of scab, sheet shape, and so on. The present invention also allows stable production of such non-oriented electrical steel sheets with high yield, without incurring a significant increase in cost or imposing severe constraints on manufacture or requiring extra steps, as compared to the normal production of non-oriented electrical steel sheets. Therefore, the present invention is applicable in the field of motors, such as drive motors of electric vehicles and hybrid vehicles or servo motors of robots and machine tools, where demand for higher rotational speed is expected to grow in the future. Thus, the present invention has a high industrial value and makes a significant contribution to the industry.",
+      "[0093] As described above, non-oriented electrical steel sheets of the present invention have excellent high-frequency magnetic properties. The steel sheets of the present invention are most suitable for devices used in the high-frequency range, for example, electric car motors, power generators for gas microturbines, and high-frequency reactors, and the industrial values thereof are great.",
+      "[0002] In recent years, higher performance properties are required for a non-oriented electrical steel sheet to be used as an iron core material of a rotary machine due to a worldwide increase in achievement of energy saving of an electrical apparatus. Recently in particular, as a motor to be used for an electric vehicle or the like, a demand for a small-sized high-power motor is high. Such an electric vehicle motor is designed to make high-speed rotation possible to thereby obtain high torque."
+    ],
+    [
+      "is 60 \u00b5\u2126cm or more, and the number of nitrides containing chromium per mm 2 in the interior of the steel sheet is 2,500 or less. Consequently, the problem that high electrical resistance resulting from the high Si content and high Cr content is not satisfactorily utilized is advantageously solved, and it is possible to provide a nonoriented electrical steel sheet having excellent magnetic properties in the high-frequency range, in particular; in a frequency range of 1 kHz or more.",
+      "(1) An Fe-Cr-Si based non-oriented electrical steel sheet having excellent high-frequency magnetic properties contains 2.5% to 10% by mass of Si, 1.5% to 20% by mass of Cr, 0.006% by mass or less of C, 0.002% by mass or less of N, 0.005% by mass or less of S, 0.005% by mass or less of Ti, 0.005% by mass or less of Nb, and the balance being Fe and incidental impurities, wherein the electrical resistivity of the steel is 60 \u00b5\u2126cm or more, and the number of nitrides containing chromium per mm 2 in the interior of the steel sheet is 2,500 or less.",
+      "[0010] As a result of intensive research into the problems described above, the present inventors have found that, although the percentage of eddy current loss in the iron loss is generally high in the high-frequency range, the influence of hysteresis loss is relatively large with respect to the Fe-Cr-Si based electrical steel sheet. It has been found that because of a deterioration of hysteresis loss, the decrease in eddy current loss due to high electrical resistance does not sufficiently contribute to high-frequency magnetic properties. It has been discovered that in order to obtain improved hysteresis loss, it is necessary to control the frequency of nitrides containing chromium (nitrides including chromium) in the interior of the steel sheet. The present invention has been achieved based on the findings described above.",
+      "(3) An Fe-Cr-Si based non-oriented electrical steel sheet having excellent high-frequency magnetic properties contains 2.5% to 10% by mass of Si, 1.5% to 20% by mass of Cr, 0.1% to 2% by mass of Al, 0.006% by mass or less of C, 0.004% by mass or less of N, 0.005% by mass or less of S, 0.005% by mass or less of Ti, 0.005% by mass or less of Nb, and the balance being Fe and incidental impurities, wherein the electrical resistivity of the steel is 60 \u00b5\u2126cm or more, and the number of nitrides containing chromium per mm 2 in the interior of the steel sheet is 2,500 or less.",
+      "## (54) HIGH-STRENGTH NON-ORIENTED MAGNETIC STEEL SHEET AND PROCESS FOR PRODUCING THE HIGH-STRENGTH NON-ORIENTED MAGNETIC STEEL SHEET"
+    ],
+    [
+      "[0026] Further, it is also found out that as the Ti content of the non-oriented electrical steel sheet becomes higher, the Bi content necessary for obtaining the good magnetic property also becomes higher. However, when the Bi content exceeds 0.01 mass%, a large number of inclusions containing Bi exist, and thereby the magnetic property becomes poor. Consequently, the Bi content of the non-oriented electrical steel sheet is required to be 0.01 mass% or less.",
+      "[0029] According to these expressions, it is obvious that, for example, in the case of the Ti content being 0.006 mass%, when the Bi content is less than 0.005 mass%, the result of 3 mark is obtained, and when the Bi content exceeds 0.005 mass%, the result of s mark is obtained, and when the Bi content exceeds 0.007 mass%, the result of &amp; mark is obtained. That is, it is obvious that with the increase in Bi content, Ti inclusions are reduced, and as the Bi content becomes much higher, an effect of reducing Ti inclusions is further enhanced. Such a phenomenon was clarified by the inventors of the present invention through the above examinations for the first time. That is, as a result of these examinations, it became obvious that in the case when an appropriate amount of Bi is contained in the non-oriented electrical steel sheet, Ti inclusions after the annealing is performed are reduced and crystal grains are likely to grow, and thereby the magnetic property is improved.",
+      "[0002] In recent years, higher performance properties are required for a non-oriented electrical steel sheet to be used as an iron core material of a rotary machine due to a worldwide increase in achievement of energy saving of an electrical apparatus. Recently in particular, as a motor to be used for an electric vehicle or the like, a demand for a small-sized high-power motor is high. Such an electric vehicle motor is designed to make high-speed rotation possible to thereby obtain high torque.",
+      "[0003] A high-speed rotation motor is also used for a machine tool and an electrical apparatus such as a vacuum cleaner. An outer size of a high-speed rotation motor for an electric vehicle is larger than that of a high-speed rotation motor for an electrical apparatus. Further, as the high-speed rotation motor for an electric vehicle, a DC brushless motor is mainly used. In the DC brushless motor, magnets are embedded in the vicinity of an outer periphery of a rotor. In the above structure, a width of a bridge portion in an outer periphery portion of the rotor (a width between magnets from the most outer periphery of the rotor to a steel sheet) is extremely narrow, which is 1 to 2 mm, depending on a position. Thus, a high-strength steel sheet has been required for the high-speed rotation motor for an electric vehicle rather than a conventional non-oriented electrical steel sheet.",
+      "[0044] Such a functional effect of Bi is to bring about the reduction in Ti inclusions in the non-oriented electrical steel sheet. That is, Bi suppresses precipitations of TiN and TiS in the annealing of the hot-rolled sheet and the finish annealing of the cold-rolled sheet, and further suppresses precipitation of TiC in the stress relief annealing."
+    ],
+    [
+      "[0027] The present inventors learned from these results of experiments that by forming the Fe-Ni alloy film on a surface of the non-oriented electrical steel sheet, the relative permeability and the core loss are dramatically improved. Further, the present inventors also learned that it is necessary that the Ni content of the Fe-Ni alloy film is 60% to 90% aid the thickness of the Fe-Ni alloy film is 0.1 Pm or more for improving the relative permeability and the core loss. Further, the",
+      "[0022] The present inventors formed Fe-Ni alloy films having various thicknesses (0.05 Pm to 0.8Pm) on one surface of a non-oriented electrical steel sheet by an immersion plating method in order to find the thickness of the Fe-Ni alloy film suitable for improving a magnetic property. That is, one surface of a non-oriented electrical steel sheet was coated with Fe-Ni alloy films having different thicknesses. As the non-oriented electrical steel sheet, one containing C: 0.003%, Si: 2.4%, and Al: 0.5%, a balance of which being composed of Fe and inevitable impurities, and having a thickness of 0.35 mm was used. Further, the Ni contents of the Fe-Ni alloy films were set to 78% in any of the thicknesses. Then, a DC magnetizing property was measured. When measuring the DC magnetizing property, the maximum magnetic flux density Bm was set to 0.8 T, and a relationship between the thickness (a coating thickness) of the Fe-Ni alloy film and the relative permeability Ps was obtained. Further, similar measurement was also conducted in one having the Fe-Ni alloy films formed on both surfaces of the non-oriented electrical steel sheet. Results thereof are shown in Fig. 4.",
+      "[0043] Next, there will be explained a magnetic property of the non-oriented electrical steel sheet having the Fe-Ni alloy film formed on at least one surface thereof.",
+      "[0050] Each of Fe-Ni alloy films having compositions shown in Table 1 was formed on one surface or both surfaces of a non-oriented electrical steel sheet (base materials), which was after finish annealing and before an insulating film was formed thereof, by an electroplating method. That is, one surface or both surfaces of a non-oriented electrical steel sheet was/were coated with Fe-Ni alloy film(s). As the non-oriented electrical steel sheet, one containing C: 0.002%, Si: 3.2%, and Al: 1.0%, a balance of which being composed of Fe and inevitable impurities, and having a thickness of 0.35 mm was used. Further, thickness of the Fe-Ni alloy film was set to 0.5 Pm per one surface. Next, an insulating film was formed on an entire surface of the non-oriented electrical steel sheet. Then, the relative permeability Ps in the rolling direction at the maximum magnetic flux density Bm of 0.8 T was measured. A result thereof is shown in Table 1.",
+      "(57) A non-oriented electrical steel sheet is provided with a base material and an Fe-Ni alloy film formed on at least one surface of the base material. The Fe-Ni alloy film contains, by mass%, Fe: 10% to 40% and Ni: 60% to 90%, and has a thickness of 0.1 Pm or more are provided."
+    ],
+    [
+      "[0041] First, steel slabs each containing components presented in Table 3 and a balance composed of Fe and inevitable impurities were produced. Then, hot-rolling of each steel slab was conducted to produce a steel strip (hot-rolled sheet), and cold-rolling was performed twice. At this time, the first cold-rolling was started without performing hot-rolled sheet annealing after the hot-rolling, and intermediate annealing was conducted at 950\u00b0C for 2 minutes between the two times of the cold-rolling. A thickness of each steel strip after the cold-rolling was set to 0.35 mm. Finish temperatures in the hot-rolling, thicknesses of the hot-rolled sheets, thicknesses of the steel strips after performing the first cold-rolling, and rolling reductions in the second cold-rolling are presented in Table 4. After performing the second cold-rolling, finish annealing was performed at 970\u00b0C for 40 seconds. As is apparent from table 4, a rolling reduction in the first cold-rolling was set to approximately 40%. Further, a sample was taken from each steel strip after the finish annealing, and as magnetic properties thereof, a magnetic flux density B50 and an iron loss W10/400 were measured. The iron loss W10/400 is an iron loss under a condition where a frequency is 400 Hz, and the maximum magnetic flux density is 1.0T. Results of these are also presented in Table 4.",
+      "[0032] It can be understood that in the condition where the hot-rolled sheet annealing is not performed, the magnetic properties in the rolling direction of the non-oriented electrical steel sheet can be significantly improved by appropriately combining the finish temperature in the hot-rolling and the rolling reduction in the second cold-rolling, as seen from Table 2. In other words, it can be said that when the finish temperature in the hot-rolling is 900\u00b0C or less, and the rolling reduction in the second cold-rolling is not less than 40% nor more than 85%, it is possible to obtain extremely good magnetic properties in the rolling direction.",
+      "[0010] The present inventors repeatedly conducted earnest studies from a point of view in which magnetic properties in a rolling direction in a non-oriented electrical steel sheet are improved by changing conditions of contents of respective components, treatment before cold-rolling, the number of times of the cold-rolling, a rolling reduction in the cold-rolling and the like.",
+      "[0045] Further, in the condition No. 13, in which Sn was contained, and the condition No. 14, in which Cu was contained, the magnetic properties in the rolling direction were better than those in the condition No. 11, in which Sn and Cu were not contained. As seen from the results, it can be understood that when Sn or Cu is contained, the magnetic properties in the rolling direction are further improved. Moreover, as is apparent from Table 4, it can be understood that, according to the examples of the present invention, it is possible to manufacture the non-oriented electrical steel sheets excellent in magnetic properties in the rolling direction.",
+      "[0029] The present inventors first produced steel slabs each containing components presented in Table 1 and a balance composed of Fe and inevitable impurities. Then, hot-rolling of each steel slab was conducted so as to produce a steel strip (hot-rolled sheet), and cold-rolling was performed twice. At this time, the first cold-rolling was started without performing hot-rolled sheet annealing after the hot-rolling, and intermediate annealing was conducted at 1000\u00b0C for 1 minute between the two times of cold-rolling. A thickness of each steel strip after the cold-rolling (cold-rolled sheet) was set to 0.35 mm. Finish temperatures in the hot-rolling, thicknesses of the hot-rolled sheets, thicknesses of the steel strips after the first cold-rolling, and rolling reductions in the second cold-rolling are presented in Table 2. After performing the second cold-rolling, finish annealing was performed at 950\u00b0C for 30 seconds. As is apparent from table 2, a rolling reduction in the first cold-rolling was set to 31.4% to 36.4%. Then, a sample was taken from each steel strip after the finish annealing, and as magnetic properties thereof, a magnetic flux density B50 and an iron loss W15/50 were measured. Here, the iron loss W15/50 is an iron loss under a condition where a frequency is 50 Hz, and the maximum magnetic flux density is 1.5T. Results of these are also presented in Table 2."
+    ],
+    [
+      "[0058] An alloy layer containing Al and Cr is preferably interposed between the plating layer and the steel substrate. In the present invention, the alloy layer is considered to be a layer that differs from the plating layer. The alloy layer may also contain various metal elements such as Mn, Fe, Co, Ni, Cu, Zn or Sn other than Al and Cr as constituent elements thereof. When such an alloy layer is present, growth of the Si-Mg phase in the plating layer is promoted by the Cr in the alloy layer, the volume percentage of the Si-Mg phase in the plating layer increases, and the ratio of Mg in the Si-Mg phase to the total weight of Mg in the plating layer increases. As a result, wrinkling and running of the plating layer are further inhibited. In particular, the ratio of the content ratio of Cr in the alloy layer to the content ratio of Cr in the plating layer is preferably 2 to 50. In this case, the area ratio of the Si-Mg phase on the surface of the plating layer becomes lower as a result of growth of the Si-Mg phase being promoted near the alloy layer in the plating layer, thereby further inhibiting running and maintaining corrosion resistance of the plating layer over a longer period of time. The ratio of the content ratio of Cr in the alloy layer to the content ratio of Cr in the plating layer is more preferably 3 to 40 and even more preferably 4 to 25. The amount of Cr in the alloy layer can be derived by measuring a cross-section of the plating layer using an energy-dispersive X-ray spectrometer (EDS).",
+      "[0164] The volume percentage of the Si-Mg phase was evaluated by considering the percent area (%) obtained in this manner to coincide with the volume percentage of the Si-Mg phase. The results are shown in Tables 5 to 8.",
+      "[0036] The volume percentage of the Si-Mg phase in the plating layer is equal to the percent area of the Si-Mg phase in a cross-section in the case of cutting the plating layer in the direction of thickness thereof. The Si-Mg phase in a crosssection of the plating layer can be clearly confirmed by observing with an electron microscope. Consequently, the volume percentage of the Si-Mg phase in the plating layer can be measured indirectly by measuring the percent area of the SiMg phase in a cross-section.",
+      "[0040] The weight ratio of Mg in the Si-Mg phase based on the total weight of Mg in the plating layer can be calculated by considering the Si-Mg phase to have the stoichiometric composition of Mg2Si. Furthermore, although the composite ratios of Si and Mg in the Si-Mg phase may actually vary slightly from the stoichiometric composition since there is the possibility of the Si-Mg phase containing small amounts of elements other than Si and Mg such as Al, Zn, Cr or Fe, it is extremely difficult to precisely determine the amount of Mg in the Si-Mg phase when these are taken into consideration. Consequently, in the present invention, when determining the weight ratio of Mg in the Si-Mg phase based on the total weight of Mg in the plating layer, the Si-Mg phase is considered to have the stoichiometric composition of Mg2Si as previously described.",
+      "| Si-Mg phase  volume  percentage Mg  weight   | Surface  layer Mg  Surface  layer Cr  content   | Si-Mg phase  area ratio on  plating layer  surface   | Alloy layer                  |\n|----------------------------------------------|-------------------------------------------------|------------------------------------------------------|------------------------------|\n| ratio                                        | content                                         |                                                      | Thickness Cr  content  ratio |\n|                                              | vol% % wt% ppm by  weight                       | area%                                                | mm --                        |\n| 67 3.15 38.9 28.9 324                        |                                                 | 3.1                                                  | 1.60 23.5                    |\n| 68 2.87 38.4 28.9 314                        |                                                 | 2.7                                                  | 1.50 22.8                    |\n| 69 2.75 35.2 28.6 306                        |                                                 | 2.1                                                  | 1.45 22.7                    |\n| 70 2.61 38.3 27.7 346                        |                                                 | 2.3                                                  | 1.40 19.4                    |\n| 71 3.17 38.7 28.9 305                        |                                                 | 1.7                                                  | 1.50 23.4                    |\n| 72 2.95 38.0 30.8 249                        |                                                 | 5.0                                                  | 1.10 21.2                    |\n| 73 2.53 37.5 31.2 245                        |                                                 | 6.1                                                  | 3.50 62.5                    |"
+    ],
+    [
+      "[0027] The present inventors confirmed these effects by the following experiments. First, a slab containing C: 0.017 mass%, Si: 3.12 mass%, Al: 0.65 mass%, Ni: 2.54 mass%, P: 0.02 mass%, N: 0.003 mass%, and Ti: 0.18 mass% was hot-rolled, and a hot-rolled steel sheet was obtained. The value R Ti of the above hot-rolled steel sheet is 2.3. Next, the hot-rolled steel sheet was cold-rolled to have four types of thicknesses shown in Table 1, and a cold-rolled steel sheet was obtained. Thereafter, continuous finish annealing at 780\u00b0C for 20 seconds was applied to the cold-rolled steel sheet, and a non-oriented electrical steel sheet was obtained. Then, Epstein samples and tensile test pieces were cut out from the non-oriented electrical steel sheet, and magnetic properties and mechanical properties were measured by using them. Results thereof are also shown in Table 1. In Tables as below, \"W 15/50 \" represents a core loss W15/50, \"B50\" represents a magnetic flux density B50, and \"W10/1000\" represents the core loss W10/1000. Further, \"YP\" represents a yield point, \"TS\" represents the tensile strength, and \"EL\" represents elongation.",
+      "[0029] The present inventors first produced steel slabs each containing components presented in Table 1 and a balance composed of Fe and inevitable impurities. Then, hot-rolling of each steel slab was conducted so as to produce a steel strip (hot-rolled sheet), and cold-rolling was performed twice. At this time, the first cold-rolling was started without performing hot-rolled sheet annealing after the hot-rolling, and intermediate annealing was conducted at 1000\u00b0C for 1 minute between the two times of cold-rolling. A thickness of each steel strip after the cold-rolling (cold-rolled sheet) was set to 0.35 mm. Finish temperatures in the hot-rolling, thicknesses of the hot-rolled sheets, thicknesses of the steel strips after the first cold-rolling, and rolling reductions in the second cold-rolling are presented in Table 2. After performing the second cold-rolling, finish annealing was performed at 950\u00b0C for 30 seconds. As is apparent from table 2, a rolling reduction in the first cold-rolling was set to 31.4% to 36.4%. Then, a sample was taken from each steel strip after the finish annealing, and as magnetic properties thereof, a magnetic flux density B50 and an iron loss W15/50 were measured. Here, the iron loss W15/50 is an iron loss under a condition where a frequency is 50 Hz, and the maximum magnetic flux density is 1.5T. Results of these are also presented in Table 2.",
+      "[0034] Then, Epstein samples and tensile test pieces were cut out from the non-oriented electrical steel sheets. Next, magnetic properties were measured by using the Epstein samples, and mechanical properties were measured by using the tensile test pieces. Results thereof are shown in Table 3.",
+      "[0046] First, steel slabs each containing components presented in Table 5 and a balance composed of Fe and inevitable impurities were produced. Then, hot-rolling of each steel slab was conducted to produce a steel strip (hot-rolled sheet) having a thickness of 2.3 nm, and cold-rolling was performed twice. At this time, although the first cold-rolling was started without performing hot-rolled sheet annealing after the hot-rolling in conditions No. 21, No. 23 and No. 24, the first coldrolling was conducted after performing the hot-rolled sheet annealing at 950\u00b0C for 2 minutes in a condition No. 22. Further, intermediate annealing was conducted at 980\u00b0C for 1 minute between the two times of cold-rolling. Finish temperatures in the hot-rolling are presented in Table 6. A thickness of each steel strip after the first cold-rolling was set to 0.8 mm, and a rolling reduction in the second cold-rolling was set to 62.5%, to thereby set a thickness of each steel strip after the second cold-rolling to 0.30 mm. After performing the second cold-rolling, finish annealing was performed at 950\u00b0C for 20 seconds. Further, a sample was taken from each steel strip after the finish annealing, and as magnetic properties thereof, the magnetic flux density B50 and the iron loss W10/400 were measured. Results of these are presented in Table 6.",
+      "[0039] Then, Epstein samples and tensile test pieces were cut out from the non-oriented electrical steel sheets. Next, magnetic properties were measured by using the Epstein samples, and mechanical properties were measured by using the tensile test pieces. Results thereof are shown in Table 5."
+    ],
+    [
+      "5) In the above way, by fixing a large amount of Ti in the steel by coprecipitation on the REM oxysulfides in the form of TiN, it is possible to suppress the precipitation of fine TiC conventionally somewhat inevitably occurring at the low temperature parts during finish annealing or stress relief annealing and obtain low core loss non-oriented electrical steel sheet with good growth of crystal grains.",
+      "[0002] More specifically, the present invention makes TiN sufficiently coprecipitate in REM sulfides in non-oriented electrical steel sheet and thereby provides non-oriented electrical steel sheet which decreases the solid solution Ti in the steel, suppresses the precipitation of fine TiC easily occurring at low temperature parts when annealing the steel sheet, and as a result is superior in crystal grain growth and low in core loss.",
+      "[0067] Further, they discovered that if the steel contains REM oxysulfides having cracks or fractures, when the ratio of number of REM oxysulfides bonded with TiN among the REM oxysulfides of a size of 1 Pm to 5 Pm having cracks or fractures is 5% or more, a larger amount of Ti is fixed on the REM oxysulfides as TiN and the effect of suppression of the formation of TiC is strengthened more.",
+      "[0126] [Ca] and [Mg]: Ca and Mg are desulfurization elements. They react with the S in the steel to form sulfides and thereby fix the S. However, unlike REMs, they have little effect of causing coprecipitation of TiN.",
+      "[0016] Further, US-B1-6290783 discloses the addition of Ti and Zr in controlled amounts together with REMs for effective precipitation of nitrides on REM oxide or REM sulfide. Nevertheless, TiN is known to adhere on REM-oxysulfides as EP-A1-1632582 reveals."
+    ]
+  ],
+  "answers": [
+    " OMURA, Takeshi is associated with JFE STEEL CORPORATION I.P.D. Tokyo 100-0011 (JP) according to [Source 1]. This information suggests that he may be an inventor or a representative of the corporation in relation to European Patent Application EP 1577413 A1. However, the provided patent excerpts do not contain additional details about his specific role or the nature of the patent application.",
+    " The Fe-Cr-Si steel addressed in the patent [Source 1] is designed for high-frequency use, particularly suitable for iron cores of electric car motors, power generators for gas microturbines, high-frequency reactors, etc. The high frequency range referred to here is defined as several hundred hertz or more, and specifically, about 400 Hz or more [Source 1]. According to [Source 2], these devices are used in a high frequency range of several hundred hertz to several tens of kilohertz.\n\nThe steel's objective, as stated in [Source 3], is to address the issue of insufficient reflection of high electrical resistance obtained by the high Si content and high Cr content on iron loss in a high-frequency range less than 10 kHz. The patent aims to provide an Fe-Cr-Si based non-oriented electrical steel sheet having excellent magnetic properties in the high-frequency range, specifically in a frequency range of 1 kHz or more [Source 3].\n\nThe Si content in the steel is set between about 2.5% and about 10% by mass according to [Source 5], with the upper limit possibly being 10.0% by mass. The patent suggests that this range allows for satisfactory iron loss in the high-frequency range while ensuring toughness that normally allows the steel to be rolled [Source 5]. If the Si content is less than about 2.5% by mass, even with Cr addition, only an electrical resistance substantially the same as conventional electrical steel sheet can be obtained, and thus it is not possible to obtain satisfactory iron loss in the high-frequency range [Source 5]. On the other hand, if the Si content exceeds about 10% by mass, toughness is not ensured even with Cr addition [Source 5].",
+    " The main limitation of Patent Document 1 regarding high-frequency magnetic properties in electrical steel sheets is that it does not provide sufficient properties in the frequency range of 1 kHz or more [Source 1, Source 3]. This is due to the technique disclosed in Patent Document 1 assuming a frequency range of less than 1 kHz for use as in conventional electrical steel sheets for high-frequency applications [Source 1]. As a result, the steel sheet disclosed in Patent Document 1 does not have satisfactory effects as a non-oriented electrical steel sheet for high-frequency use suitable in the range of about 400 Hz to about 50 kHz required in recent years [Source 1]. Additionally, it should be noted that the Si content in Patent Document 1 does not exceed that of a typical silicon steel sheet, and rather, Patent Document 1 mainly targets a low-silicon steel sheet with a Si content of about 1.5% [Source 1].",
+    " The Patent Document 2 steel sheet, according to [Source 3], does not provide sufficient strength. Additionally, as stated in [Source 5], while this steel sheet exhibits superior iron loss compared to conventional electrical steel sheets in a high-frequency range, it still faces the problem of insufficient strength, particularly in the frequency range of 10 kHz or more [Source 5]. However, the patent excerpts do not provide specific numerical values for the strength or iron loss of the steel sheet from Patent Document 2.",
+    " High-strength non-oriented magnetic steel sheets are needed for high-speed motors in electric vehicles due to their ability to provide excellent mechanical and magnetic properties required for a rotor material of motors rotating at high speed [Source 3]. The specific advantages of these steel sheets include high tensile strength, high fatigue strength, and good magnetic properties that minimize heat generation due to iron loss at high frequency [Sources 1, 4].\n\nBefore the development of these high-strength non-oriented electrical steel sheets, other high-strength materials were used for rotors in high-speed motors. However, according to the provided patent excerpts, these materials often resulted in unavoidable heat generation due to their magnetic properties, which posed limitations on the design specifications of the motors [Source 2]. This issue is particularly relevant for electric vehicles and other applications where demand for higher rotational speed is expected to grow in the future [Source 3]. The high-strength non-oriented magnetic steel sheets addressed in the patents help mitigate this problem by providing improved properties that allow for more efficient motor operation.\n\nIt's worth noting that, while the patent excerpts do not provide specific numerical values or formulas related to the mechanical and magnetic properties of these high-strength non-oriented electrical steel sheets, they do mention that the invention allows for stable production with good yield without incurring a significant increase in cost or imposing severe constraints on manufacture [Source 3]. Additionally, the patents suggest that these steel sheets are suitable for various applications beyond electric vehicles, such as drive motors for turbine generators and servo motors for robots and machine tools [Source 1].\n\nHowever, it's important to note that the provided patent excerpts do not contain enough information to fully understand the specific differences between these high-strength non-oriented magnetic steel sheets and other materials previously used in high-speed motor applications. Further analysis of additional patent documents or literature may be necessary to gain a more comprehensive understanding of this topic.",
+    " To achieve good high-frequency magnetic properties in a high-strength non-oriented magnetic steel sheet, the composition and control of certain elements play crucial roles, as detailed in [Source 1], [Source 2], and [Source 3].\n\nAccording to [Source 1] and [Source 2], the steel should contain specific amounts of Si (2.5% to 10%) and Cr (1.5% to 20%), with low levels of C, N, S, Ti, Nb, and Al. The electrical resistivity of the steel should be 60 \u00b5\u2126cm or more, and the number of nitrides containing chromium per mm\u00b2 in the interior of the steel sheet should be 2,500 or less.\n\n[Source 3] explains that intensive research has revealed that the high-frequency magnetic properties are influenced by both eddy current loss and hysteresis loss. While a high electrical resistance can decrease eddy current loss in the high-frequency range, it is the deterioration of hysteresis loss that significantly affects the overall performance. The present invention aims to improve hysteresis loss by controlling the frequency of nitrides containing chromium (nitrides including chromium) in the interior of the steel sheet.\n\nIn summary, a high-strength non-oriented magnetic steel sheet with the specified composition and controlled nitride content can provide excellent high-frequency magnetic properties due to improved hysteresis loss, as described in [Source 3]. However, it is important to note that additional information may be required to fully understand the production process for this steel sheet, as only the composition and its effects on magnetic properties are detailed in the provided patent excerpts.",
+    " The addition of bismuth (Bi) to a non-oriented electrical steel sheet significantly influences the suppression of Ti inclusions and the resulting magnetic properties. According to [Source 1], as the Ti content increases, so does the necessary Bi content for good magnetic properties, but when Bi exceeds 0.01 mass%, numerous Bi-containing inclusions form, leading to poor magnetic properties. However, an appropriate amount of Bi can reduce Ti inclusions after annealing and promote crystal grain growth, thereby improving the magnetic property [Source 2].\n\nThe specific compositional condition necessary to maximize these effects is a Bi content of 0.01 mass% or less in the non-oriented electrical steel sheet [Source 1]. The process conditions are not explicitly stated in the provided excerpts but may include annealing processes, as mentioned in [Source 2].\n\nFor high-speed motor rotor applications, such as electric vehicles and small-sized high-power motors, a high-strength steel sheet is required due to the narrow bridge portion in the outer periphery of the rotor [Source 4]. The excerpts do not provide specific information on how the Bi addition affects these high-speed motor applications. However, it can be inferred that the reduced Ti inclusions and improved magnetic properties brought about by Bi may contribute to better performance in high-speed motors, as suggested in [Source 2].\n\nMissing information includes details on the exact process conditions (temperature, time, etc.) for maximizing the effects of Bi addition, as well as direct evidence of improved motor performance with Bi-containing steel sheets.",
+    " Forming an Fe-Ni alloy film on a high-strength non-oriented magnetic steel sheet significantly improves its magnetic properties, particularly the relative permeability and core loss [Source 1]. The key compositional considerations for the Fe-Ni alloy film are that it contains 60% to 90% Ni by mass and has a thickness of 0.1 Pm or more [Source 5]. For the steel sheet, it is important that its chemical composition includes C: 0.003%, Si: 2.4%, and Al: 0.5%, with the remaining being primarily Fe and inevitable impurities, and a thickness of 0.35 mm [Source 2, Source 4].\n\nThe patent excerpts demonstrate that the present inventors conducted experiments to determine the optimal thickness of the Fe-Ni alloy film for improving magnetic properties. They found that when the Ni content is 78% and the thickness ranges from 0.05 Pm to 0.8 Pm, the relative permeability (Ps) increases [Source 2]. However, it's not explicitly stated in the provided excerpts what specific magnetic properties are improved other than the relative permeability and core loss.\n\nAdditionally, the patent mentions that forming Fe-Ni alloy films on both surfaces of the non-oriented electrical steel sheet also improves its magnetic properties [Source 2]. The results of these experiments are shown in Figure 4, but the figure is not included in the provided excerpts.\n\nIt's worth noting that the patent does not provide information about how the Fe-Ni alloy films are formed or any other factors that may influence their magnetic properties. Furthermore, it's unclear from the provided excerpts whether there are any limitations on the chemical composition of the steel sheet beyond C: 0.003%, Si: 2.4%, and Al: 0.5%.\n\nIn summary, forming an Fe-Ni alloy film with specific compositional requirements (60% to 90% Ni by mass and a thickness of 0.1 Pm or more) on a high-strength non-oriented magnetic steel sheet improves its relative permeability and core loss. The optimal thickness for the Fe-Ni alloy film is between 0.05 Pm and 0.8 Pm when the Ni content is 78%. However, additional information about the experimental methods, other factors influencing magnetic properties, and limitations on the steel sheet's chemical composition are not provided in the excerpts.",
+    " The steel slab components that give better magnetic properties, according to the provided patent excerpts, are not explicitly stated in Table 3. However, it is suggested that the addition of Sn or Cu can further improve the magnetic properties in the rolling direction [Source 4].\n\nRegarding the effect of rolling reduction on results, it is indicated that when the finish temperature in the hot-rolling is 900\u00b0C or less, and the rolling reduction in the second cold-rolling is not less than 40% nor more than 85%, it is possible to obtain extremely good magnetic properties in the rolling direction [Source 2]. This is further supported by the examples provided in Table 4 of Source 1, where a rolling reduction in the first cold-rolling was set to approximately 40% [Source 1].\n\nHowever, it's important to note that the specific numerical values for magnetic properties such as magnetic flux density B50 and iron loss W10/400 are only provided for certain conditions, and a comprehensive comparison across different components or rolling reductions is not presented in the excerpts. Therefore, a more detailed analysis might require additional information or experiments.",
+    " The relationship between the Si-Mg phase volume percentage and the Cr content ratio in the alloy layer can be observed by comparing the values from Table 5. According to [Source 5], the table presents data for various examples (Examples 1-8) and a comparison example (Comp. Ex. 1).\n\nThe Si-Mg phase volume percentage is represented as the first column in the table, while the Cr content ratio in the alloy layer can be derived from the thickness Cr content ratio and the alloy layer thickness (mm), which are provided in the fourth and fifth columns, respectively. To calculate the Cr content ratio, we can divide the thickness Cr content ratio by the alloy layer thickness.\n\nFor Examples 1-8, it is evident that as the Si-Mg phase volume percentage increases, the Cr content ratio in the alloy layer tends to decrease. For instance:\n\n- Example 67 has a Si-Mg phase volume percentage of 67%, and its Cr content ratio is 23.5 (1.60 / 6.8 mm).\n- Example 73, on the other hand, has a lower Si-Mg phase volume percentage of 2.53%, and its Cr content ratio is 62.5 (3.50 / 5.6 mm).\n\nCompared to Examples 1-8, Comp. Ex. 1 shows a higher Si-Mg phase volume percentage (74%) but an even lower Cr content ratio (19.4) in the alloy layer. This trend suggests that increasing the Si-Mg phase volume percentage may lead to a decrease in the Cr content ratio in the alloy layer, although Comp. Ex. 1 deviates from this trend with a higher Si-Mg phase volume percentage and lower Cr content ratio compared to Examples 1-8.\n\nIt is important to note that the patent excerpts do not provide an explanation for this deviation or any specific reasons for the observed trends between the Si-Mg phase volume percentage and the Cr content ratio in the alloy layer. Further analysis or experimentation may be required to fully understand these relationships and their implications on the properties of the steel substrate.",
+    " The components listed in Table 1 for the steel slab are C: 0.017 mass%, Si: 3.12 mass%, Al: 0.65 mass%, Ni: 2.54 mass%, P: 0.02 mass%, N: 0.003 mass%, and Ti: 0.18 mass%.\n\nAccording to [Source 1], these components were used to produce a non-oriented electrical steel sheet through hot-rolling, cold-rolling, and continuous finish annealing at 780\u00b0C for 20 seconds. The magnetic properties measured after processing include core loss W15/50, magnetic flux density B50, and core loss W10/1000. Tensile strength (TS), yield point (YP), and elongation (EL) were also measured as mechanical properties [Source 1, Source 3]. The values for these properties are shown in Table 1, but the excerpts do not provide a direct correlation between the components and the specific magnetic properties. However, it can be inferred that the composition of the steel slab may influence the magnetic properties of the resulting non-oriented electrical steel sheet.\n\nIt should be noted that [Source 2] describes a different process for producing a cold-rolled steel sheet, which includes two times of cold-rolling and intermediate annealing at 1000\u00b0C for 1 minute between the two cold-rollings. The magnetic properties measured in this case are magnetic flux density B50 and iron loss W15/50 [Source 2]. Although the components of the steel slab are not explicitly stated in [Source 2], they can be assumed to be similar to those in [Source 1] since both patents involve producing electrical steel sheets with a similar composition.\n\nWithout further information, it is not possible to determine how the specific components in the steel slab directly relate to the measured magnetic properties after processing.",
+    " The addition of REMs (Rare Earth Metals) to steel significantly influences the precipitation of TiN and TiC during annealing processes. According to [Source 1] and [Source 2], the REMs facilitate the coprecipitation of TiN in REM sulfides, which decreases the solid solution Ti in the steel and suppresses the precipitation of fine TiC at low-temperature parts. This coprecipitation leads to superior crystal grain growth and lower core loss in non-oriented electrical steel sheet ([Source 2]).\n\nFurthermore, it is discovered that if the steel contains REM oxysulfides with cracks or fractures, when the ratio of number of REM oxysulfides bonded with TiN among the REM oxysulfides of a size between 1 Pm to 5 Pm having cracks or fractures is 5% or more, a larger amount of Ti is fixed on the REM oxysulfides as TiN, and the effect of suppression of the formation of TiC is strengthened ([Source 3]).\n\nHowever, Ca and Mg, which are desulfurization elements, have little effect on causing coprecipitation of TiN compared to REMs ([Source 4]). Additionally, it's known that TiN adheres on REM-oxysulfides ([Source 5]), but the patent excerpts do not provide information about the specific amount or ratio of REMs and Ti required for optimal coprecipitation."
+  ],
+  "detailed_results": [
+    {
+      "id": "G1",
+      "category": "single_hop_specific_query_synthesizer",
+      "retrieval_type": "hybrid",
+      "question": "Who is OMURA, Takeshi in relation to the European Patent Application EP 1 577 413 A1?",
+      "ground_truth": "OMURA, Takeshi is listed as one of the inventors of the European Patent Application EP 1 577 413 A1, with an address at JFE STEEL CORPORATION I.P.D., Tokyo 100-0011 (JP).",
+      "contexts": [
+        "- OMURA, Takeshi, c/o JFE STEEL CORPORATION I.P.D. Tokyo 100-0011 (JP)",
+        "## EUROPEAN PATENT APPLICATION",
+        "## EUROPEAN PATENT APPLICATION",
+        "## EUROPEAN PATENT APPLICATION",
+        "## EUROPEAN PATENT APPLICATION"
+      ],
+      "answer": " OMURA, Takeshi is associated with JFE STEEL CORPORATION I.P.D. Tokyo 100-0011 (JP) according to [Source 1]. This information suggests that he may be an inventor or a representative of the corporation in relation to European Patent Application EP 1577413 A1. However, the provided patent excerpts do not contain additional details about his specific role or the nature of the patent application.",
+      "retriever_stats": {
+        "total_results": 5,
+        "bm25_hits": 5,
+        "semantic_hits": 5,
+        "graph_hits": 0,
+        "multi_retriever_hits": 5
+      },
+      "retrieved_chunks": [
+        {
+          "chunk_id": "EP1577413_0026",
+          "patent_id": "EP1577413",
+          "section": "",
+          "page": "",
+          "rrf_score": 0.03278688524590164,
+          "content_preview": "- OMURA, Takeshi, c/o JFE STEEL CORPORATION I.P.D. Tokyo 100-0011 (JP)"
+        },
+        {
+          "chunk_id": "EP2439302_0062",
+          "patent_id": "EP2439302",
+          "section": "",
+          "page": "",
+          "rrf_score": 0.03021353930031804,
+          "content_preview": "## EUROPEAN PATENT APPLICATION"
+        },
+        {
+          "chunk_id": "EP2679695_0005",
+          "patent_id": "EP2679695",
+          "section": "",
+          "page": "",
+          "rrf_score": 0.030117753623188408,
+          "content_preview": "## EUROPEAN PATENT APPLICATION"
+        },
+        {
+          "chunk_id": "EP2316980_0005",
+          "patent_id": "EP2316980",
+          "section": "",
+          "page": "",
+          "rrf_score": 0.029571646010002173,
+          "content_preview": "## EUROPEAN PATENT APPLICATION"
+        },
+        {
+          "chunk_id": "EP2602335_0005",
+          "patent_id": "EP2602335",
+          "section": "",
+          "page": "",
+          "rrf_score": 0.029211087420042643,
+          "content_preview": "## EUROPEAN PATENT APPLICATION"
+        }
+      ],
+      "metadata": {
+        "model": "ollama/mistral:7b",
+        "chunk_count": 5,
+        "total_retrieved": 5,
+        "temperature": 0.0
+      }
+    },
+    {
+      "id": "G2",
+      "category": "single_hop_specific_query_synthesizer",
+      "retrieval_type": "hybrid",
+      "question": "What Fe-Cr-Si steel do for high frequency, like in electric car motors and reactors, and what frequency is high frequency mean here?",
+      "ground_truth": "Fe-Cr-Si based non-oriented electrical steel sheets are used for high-frequency applications such as iron cores of electric car motors, power generators for gas microturbines, and high-frequency reactors. In this context, high-frequency range is defined as a frequency of several hundred hertz or more, particularly about 400 Hz or more, and the steel sheet is noted for having excellent magnetic properties in a high frequency range of 1 kHz or more.",
+      "contexts": [
+        "[0001] The present invention relates to Fe-Cr-Si based non-oriented electrical steel sheets for high-frequency use which are suitable for iron cores of electric car motors, power generators for gas microturbines, high-frequency reactors, etc. Herein, the term \"high-frequency range\" is defined as a frequency range of several hundred hertz or more, and in particular, of about 400 Hz or more. The present invention more particularly relates to a steel sheet having excellent magnetic properties in a high frequency range of 1 kHz or more.",
+        "[0002] Recently, devices used in the higher frequency ranges than conventionally used, for example, electric car motors, gas microturbines, and high-frequency reactors, have been increasingly used, and there has been a demand for electrical steel sheets having excellent magnetic properties in the high frequency range. These devices are used in a high frequency range of several hundred hertz to several tens of kilohertz.",
+        "[0009] Accordingly, it is an object of the present invention to advantageously solve the problem that the high electrical resistance obtained by the high Si content and the high Cr content is not sufficiently reflected to iron loss in a highfrequency range of less than 10 kHz and to provide an Fe-Cr-Si based non-oriented electrical steel sheet having excellent magnetic properties in the high-frequency range, in particular, in a frequency range of 1 kHz or more.",
+        "[0004] However, in the conventional Fe-Si based non-oriented electrical steel sheet for high-frequency use, the Si content in the steel is 3.5% by mass or less, and the electrical resistance of the steel is not so high. In particular, in a high frequency range of 1 kHz or more, the iron loss is high, which is disadvantageous. Therefore, in order to meet the recent needs in society, development of new electrical steel sheets suitable for use in the high frequency range is absolutely necessary.",
+        "Si is a principal element for increasing the electrical resistance of steel. Furthermore, due to the synergic effect with Cr, Si significantly increases electrical resistance, and in particular, Si is an effective element for improving iron loss in the high frequency range. If the Si content is less than about 2.5% by mass, even if Cr is used together, only an electrical resistance that is substantially the same as the electrical resistance of the conventional electrical steel sheet is obtained, and thus it is not possible to obtain satisfactory iron loss in the high frequency range. On the other hand, if the Si content exceeds about 10% by mass, even if Cr is added, toughness that normally allows the steel to be rolled is not ensured. Therefore, the Si content is set at about 2.5% to about 10% by mass. The upper limit may be set at 10.0% by mass."
+      ],
+      "answer": " The Fe-Cr-Si steel addressed in the patent [Source 1] is designed for high-frequency use, particularly suitable for iron cores of electric car motors, power generators for gas microturbines, high-frequency reactors, etc. The high frequency range referred to here is defined as several hundred hertz or more, and specifically, about 400 Hz or more [Source 1]. According to [Source 2], these devices are used in a high frequency range of several hundred hertz to several tens of kilohertz.\n\nThe steel's objective, as stated in [Source 3], is to address the issue of insufficient reflection of high electrical resistance obtained by the high Si content and high Cr content on iron loss in a high-frequency range less than 10 kHz. The patent aims to provide an Fe-Cr-Si based non-oriented electrical steel sheet having excellent magnetic properties in the high-frequency range, specifically in a frequency range of 1 kHz or more [Source 3].\n\nThe Si content in the steel is set between about 2.5% and about 10% by mass according to [Source 5], with the upper limit possibly being 10.0% by mass. The patent suggests that this range allows for satisfactory iron loss in the high-frequency range while ensuring toughness that normally allows the steel to be rolled [Source 5]. If the Si content is less than about 2.5% by mass, even with Cr addition, only an electrical resistance substantially the same as conventional electrical steel sheet can be obtained, and thus it is not possible to obtain satisfactory iron loss in the high-frequency range [Source 5]. On the other hand, if the Si content exceeds about 10% by mass, toughness is not ensured even with Cr addition [Source 5].",
+      "retriever_stats": {
+        "total_results": 5,
+        "bm25_hits": 5,
+        "semantic_hits": 5,
+        "graph_hits": 0,
+        "multi_retriever_hits": 5
+      },
+      "retrieved_chunks": [
+        {
+          "chunk_id": "EP1577413_0038",
+          "patent_id": "EP1577413",
+          "section": "",
+          "page": "",
+          "rrf_score": 0.03252247488101534,
+          "content_preview": "[0001] The present invention relates to Fe-Cr-Si based non-oriented electrical steel sheets for high-frequency use which are suitable for iron cores of electric car motors, power generators for gas mi"
+        },
+        {
+          "chunk_id": "EP1577413_0039",
+          "patent_id": "EP1577413",
+          "section": "",
+          "page": "",
+          "rrf_score": 0.03177805800756621,
+          "content_preview": "[0002] Recently, devices used in the higher frequency ranges than conventionally used, for example, electric car motors, gas microturbines, and high-frequency reactors, have been increasingly used, an"
+        },
+        {
+          "chunk_id": "EP1577413_0053",
+          "patent_id": "EP1577413",
+          "section": "",
+          "page": "",
+          "rrf_score": 0.0304147465437788,
+          "content_preview": "[0009] Accordingly, it is an object of the present invention to advantageously solve the problem that the high electrical resistance obtained by the high Si content and the high Cr content is not suff"
+        },
+        {
+          "chunk_id": "EP1577413_0041",
+          "patent_id": "EP1577413",
+          "section": "",
+          "page": "",
+          "rrf_score": 0.029631255487269532,
+          "content_preview": "[0004] However, in the conventional Fe-Si based non-oriented electrical steel sheet for high-frequency use, the Si content in the steel is 3.5% by mass or less, and the electrical resistance of the st"
+        },
+        {
+          "chunk_id": "EP1577413_0174",
+          "patent_id": "EP1577413",
+          "section": "",
+          "page": "",
+          "rrf_score": 0.029571646010002173,
+          "content_preview": "Si is a principal element for increasing the electrical resistance of steel. Furthermore, due to the synergic effect with Cr, Si significantly increases electrical resistance, and in particular, Si is"
+        }
+      ],
+      "metadata": {
+        "model": "ollama/mistral:7b",
+        "chunk_count": 5,
+        "total_retrieved": 5,
+        "temperature": 0.0
+      }
+    },
+    {
+      "id": "G3",
+      "category": "single_hop_specific_query_synthesizer",
+      "retrieval_type": "hybrid",
+      "question": "What is the main limitation of Patent Document 1 regarding high-frequency magnetic properties in electrical steel sheets?",
+      "ground_truth": "Patent Document 1 assumes a frequency range of less than 1 kHz for use and does not provide sufficient high-frequency magnetic properties in a frequency range of 1 kHz or more, making it unsatisfactory for non-oriented electrical steel sheets required in the range of about 400 Hz to about 50 kHz.",
+      "contexts": [
+        "[0006] A technique for increasing the electrical resistance of steel by adding Cr, Al, etc., to steel without increasing the Si content is disclosed in Patent Document 1. However, in the technique disclosed in Patent Document 1, a frequency range of less than 1 kHz is assumed for use as in the conventional electrical steel sheet for high-frequency use, and it is not possible to obtain sufficient high-frequency magnetic properties in a frequency range of 1 kHz or more. Thus, the steel sheet disclosed in Patent Document 1 does not have a satisfactory effect as a non-oriented electrical steel sheet for high-frequency use suitable in the range of about 400 Hz to about 50 kHz required in recent years. Additionally, the Si content in Patent Document 1 does not exceed that of a typical silicon steel sheet, and rather, Patent Document 1 mainly targets a low-silicon steel sheet with a Si content of about 1.5%.",
+        "[0093] As described above, non-oriented electrical steel sheets of the present invention have excellent high-frequency magnetic properties. The steel sheets of the present invention are most suitable for devices used in the high-frequency range, for example, electric car motors, power generators for gas microturbines, and high-frequency reactors, and the industrial values thereof are great.",
+        "[0001] The present invention relates to Fe-Cr-Si based non-oriented electrical steel sheets for high-frequency use which are suitable for iron cores of electric car motors, power generators for gas microturbines, high-frequency reactors, etc. Herein, the term \"high-frequency range\" is defined as a frequency range of several hundred hertz or more, and in particular, of about 400 Hz or more. The present invention more particularly relates to a steel sheet having excellent magnetic properties in a high frequency range of 1 kHz or more.",
+        "[0008] In the steel sheets described in Patent Documents 2, 3, etc., superior iron loss is shown in response to high electrical resistance in a frequency range of 10 kHz or more. On the other hand, it has been newly found that, although these steel sheets have better iron loss compared with the conventional electrical steel sheet in a high-frequency range",
+        "[0002] Recently, devices used in the higher frequency ranges than conventionally used, for example, electric car motors, gas microturbines, and high-frequency reactors, have been increasingly used, and there has been a demand for electrical steel sheets having excellent magnetic properties in the high frequency range. These devices are used in a high frequency range of several hundred hertz to several tens of kilohertz."
+      ],
+      "answer": " The main limitation of Patent Document 1 regarding high-frequency magnetic properties in electrical steel sheets is that it does not provide sufficient properties in the frequency range of 1 kHz or more [Source 1, Source 3]. This is due to the technique disclosed in Patent Document 1 assuming a frequency range of less than 1 kHz for use as in conventional electrical steel sheets for high-frequency applications [Source 1]. As a result, the steel sheet disclosed in Patent Document 1 does not have satisfactory effects as a non-oriented electrical steel sheet for high-frequency use suitable in the range of about 400 Hz to about 50 kHz required in recent years [Source 1]. Additionally, it should be noted that the Si content in Patent Document 1 does not exceed that of a typical silicon steel sheet, and rather, Patent Document 1 mainly targets a low-silicon steel sheet with a Si content of about 1.5% [Source 1].",
+      "retriever_stats": {
+        "total_results": 5,
+        "bm25_hits": 5,
+        "semantic_hits": 5,
+        "graph_hits": 0,
+        "multi_retriever_hits": 5
+      },
+      "retrieved_chunks": [
+        {
+          "chunk_id": "EP1577413_0043",
+          "patent_id": "EP1577413",
+          "section": "",
+          "page": "",
+          "rrf_score": 0.03278688524590164,
+          "content_preview": "[0006] A technique for increasing the electrical resistance of steel by adding Cr, Al, etc., to steel without increasing the Si content is disclosed in Patent Document 1. However, in the technique dis"
+        },
+        {
+          "chunk_id": "EP1577413_0405",
+          "patent_id": "EP1577413",
+          "section": "",
+          "page": "",
+          "rrf_score": 0.03225806451612903,
+          "content_preview": "[0093] As described above, non-oriented electrical steel sheets of the present invention have excellent high-frequency magnetic properties. The steel sheets of the present invention are most suitable "
+        },
+        {
+          "chunk_id": "EP1577413_0038",
+          "patent_id": "EP1577413",
+          "section": "",
+          "page": "",
+          "rrf_score": 0.030776515151515152,
+          "content_preview": "[0001] The present invention relates to Fe-Cr-Si based non-oriented electrical steel sheets for high-frequency use which are suitable for iron cores of electric car motors, power generators for gas mi"
+        },
+        {
+          "chunk_id": "EP1577413_0051",
+          "patent_id": "EP1577413",
+          "section": "",
+          "page": "",
+          "rrf_score": 0.030536130536130537,
+          "content_preview": "[0008] In the steel sheets described in Patent Documents 2, 3, etc., superior iron loss is shown in response to high electrical resistance in a frequency range of 10 kHz or more. On the other hand, it"
+        },
+        {
+          "chunk_id": "EP1577413_0039",
+          "patent_id": "EP1577413",
+          "section": "",
+          "page": "",
+          "rrf_score": 0.030158730158730156,
+          "content_preview": "[0002] Recently, devices used in the higher frequency ranges than conventionally used, for example, electric car motors, gas microturbines, and high-frequency reactors, have been increasingly used, an"
+        }
+      ],
+      "metadata": {
+        "model": "ollama/mistral:7b",
+        "chunk_count": 5,
+        "total_retrieved": 5,
+        "temperature": 0.0
+      }
+    },
+    {
+      "id": "G4",
+      "category": "single_hop_specific_query_synthesizer",
+      "retrieval_type": "hybrid",
+      "question": "Patent Documents 2 steel sheet, what problem it got?",
+      "ground_truth": "In Patent Documents 2, the steel sheets show superior iron loss at frequencies of 10 kHz or more due to high electrical resistance, but in the high-frequency range of less than 10 kHz, the high electrical resistance from high Si and Cr content does not give satisfactory iron loss, so further improvement is needed.",
+      "contexts": [
+        "[0006] A technique for increasing the electrical resistance of steel by adding Cr, Al, etc., to steel without increasing the Si content is disclosed in Patent Document 1. However, in the technique disclosed in Patent Document 1, a frequency range of less than 1 kHz is assumed for use as in the conventional electrical steel sheet for high-frequency use, and it is not possible to obtain sufficient high-frequency magnetic properties in a frequency range of 1 kHz or more. Thus, the steel sheet disclosed in Patent Document 1 does not have a satisfactory effect as a non-oriented electrical steel sheet for high-frequency use suitable in the range of about 400 Hz to about 50 kHz required in recent years. Additionally, the Si content in Patent Document 1 does not exceed that of a typical silicon steel sheet, and rather, Patent Document 1 mainly targets a low-silicon steel sheet with a Si content of about 1.5%.",
+        "Patent Document 2: Japanese Laid-open Patent Publication No. 08-165520",
+        "[0005] In Patent Documents 2 and 3, there are disclosed non-oriented electrical steel sheets in which carbonitrides are dispersed in steel to achieve strengthening. However, it is not possible to obtain sufficient strength even by these non-oriented electrical steel sheets.",
+        "steel sheet steel sheet",
+        "[0008] In the steel sheets described in Patent Documents 2, 3, etc., superior iron loss is shown in response to high electrical resistance in a frequency range of 10 kHz or more. On the other hand, it has been newly found that, although these steel sheets have better iron loss compared with the conventional electrical steel sheet in a high-frequency range"
+      ],
+      "answer": " The Patent Document 2 steel sheet, according to [Source 3], does not provide sufficient strength. Additionally, as stated in [Source 5], while this steel sheet exhibits superior iron loss compared to conventional electrical steel sheets in a high-frequency range, it still faces the problem of insufficient strength, particularly in the frequency range of 10 kHz or more [Source 5]. However, the patent excerpts do not provide specific numerical values for the strength or iron loss of the steel sheet from Patent Document 2.",
+      "retriever_stats": {
+        "total_results": 5,
+        "bm25_hits": 4,
+        "semantic_hits": 3,
+        "graph_hits": 0,
+        "multi_retriever_hits": 2
+      },
+      "retrieved_chunks": [
+        {
+          "chunk_id": "EP1577413_0043",
+          "patent_id": "EP1577413",
+          "section": "",
+          "page": "",
+          "rrf_score": 0.030798389007344232,
+          "content_preview": "[0006] A technique for increasing the electrical resistance of steel by adding Cr, Al, etc., to steel without increasing the Si content is disclosed in Patent Document 1. However, in the technique dis"
+        },
+        {
+          "chunk_id": "EP2316980_0133",
+          "patent_id": "EP2316980",
+          "section": "",
+          "page": "",
+          "rrf_score": 0.02761904761904762,
+          "content_preview": "Patent Document 2: Japanese Laid-open Patent Publication No. 08-165520"
+        },
+        {
+          "chunk_id": "EP2278034_0224",
+          "patent_id": "EP2278034",
+          "section": "",
+          "page": "",
+          "rrf_score": 0.01639344262295082,
+          "content_preview": "[0005] In Patent Documents 2 and 3, there are disclosed non-oriented electrical steel sheets in which carbonitrides are dispersed in steel to achieve strengthening. However, it is not possible to obta"
+        },
+        {
+          "chunk_id": "EP1577413_0312",
+          "patent_id": "EP1577413",
+          "section": "",
+          "page": "",
+          "rrf_score": 0.01639344262295082,
+          "content_preview": "steel sheet steel sheet"
+        },
+        {
+          "chunk_id": "EP1577413_0051",
+          "patent_id": "EP1577413",
+          "section": "",
+          "page": "",
+          "rrf_score": 0.016129032258064516,
+          "content_preview": "[0008] In the steel sheets described in Patent Documents 2, 3, etc., superior iron loss is shown in response to high electrical resistance in a frequency range of 10 kHz or more. On the other hand, it"
+        }
+      ],
+      "metadata": {
+        "model": "ollama/mistral:7b",
+        "chunk_count": 5,
+        "total_retrieved": 5,
+        "temperature": 0.0
+      }
+    },
+    {
+      "id": "G5",
+      "category": "multi_hop_abstract_query_synthesizer",
+      "retrieval_type": "hybrid",
+      "question": "Why high-strength non-oriented magnetic steel sheet is needed for high-speed motors like in electric vehicles, and what problems happen with other high-strength materials used before?",
+      "ground_truth": "High-strength non-oriented magnetic steel sheet is needed for high-speed motors, such as those used in electric vehicles, because these motors are designed for high-speed rotation to achieve high torque, and the rotor structure includes very narrow bridge portions (1 to 2 mm wide) between magnets and the steel sheet. This narrow width requires the steel sheet to have high strength to prevent failure during operation. Other high-strength materials used before, like non-oriented electrical steel sheets strengthened by adding Mn and Ni, could not provide enough strength and also reduced toughness, leading to poor productivity and yield, and the cost was high due to expensive alloying elements like Ni. Methods using carbonitride dispersion or Cu precipitates also failed to achieve sufficient strength or caused problems like coarsening of crystal grains, reduced fracture elongation, or magnetic aging due to carbide precipitation at motor operating temperatures. Therefore, a high-strength non-oriented magnetic steel sheet with a specific composition and controlled microstructure is required to meet the demands of high-speed motors in electric vehicles.",
+      "contexts": [
+        "[0001] The present invention relates to a non-oriented electrical steel sheet, and in particular, to a non-oriented electrical steel sheet having high strength and excellent fatigue properties, and furthermore, excellent magnetic properties that is suitably used for components that are subject to high stress, typically, drive motors for turbine generators, electric vehicles and hybrid vehicles, or rotors for high-speed rotating machinery, such as servo motors for robots, machine tools or the like, and a method for manufacturing the same. Additionally, the present invention provides the above-described nonoriented electrical steel sheet at low cost as compared to the conventional art.",
+        "[0012] As described above, some proposals have been made on high-strength non-oriented electrical steel sheets. In the proposals made to date, however, it has not been possible until now to manufacture, with the use of an ordinary facility for manufacturing electrical steel sheets, such a high-strength non-oriented electrical steel sheet in an industrially stable manner with good yield and at low cost that has good magnetic properties in addition to high tensile strength and high fatigue strength, and furthermore, satisfy the quality requirements of steel sheet, such as those relating to surface defects, internal defects, sheet shape or the like. Particularly, the high-strength electrical steel sheets that have so far been provided for rotors of high speed motors are in a situation where the resulting rotors will be subject to unavoidable heat generation due to their magnetic property, i.e., high iron loss at high frequency, which necessarily poses limitations on the design specification of the motors.",
+        "[0022] According to the present invention, a non-oriented electrical steel sheet may be provided that is excellent in both mechanical properties and magnetic properties required for a rotor material of motors rotating at high speed, and that has excellent quality of steel sheet in terms of scab, sheet shape, and so on. The present invention also allows stable production of such non-oriented electrical steel sheets with high yield, without incurring a significant increase in cost or imposing severe constraints on manufacture or requiring extra steps, as compared to the normal production of non-oriented electrical steel sheets. Therefore, the present invention is applicable in the field of motors, such as drive motors of electric vehicles and hybrid vehicles or servo motors of robots and machine tools, where demand for higher rotational speed is expected to grow in the future. Thus, the present invention has a high industrial value and makes a significant contribution to the industry.",
+        "[0093] As described above, non-oriented electrical steel sheets of the present invention have excellent high-frequency magnetic properties. The steel sheets of the present invention are most suitable for devices used in the high-frequency range, for example, electric car motors, power generators for gas microturbines, and high-frequency reactors, and the industrial values thereof are great.",
+        "[0002] In recent years, higher performance properties are required for a non-oriented electrical steel sheet to be used as an iron core material of a rotary machine due to a worldwide increase in achievement of energy saving of an electrical apparatus. Recently in particular, as a motor to be used for an electric vehicle or the like, a demand for a small-sized high-power motor is high. Such an electric vehicle motor is designed to make high-speed rotation possible to thereby obtain high torque."
+      ],
+      "answer": " High-strength non-oriented magnetic steel sheets are needed for high-speed motors in electric vehicles due to their ability to provide excellent mechanical and magnetic properties required for a rotor material of motors rotating at high speed [Source 3]. The specific advantages of these steel sheets include high tensile strength, high fatigue strength, and good magnetic properties that minimize heat generation due to iron loss at high frequency [Sources 1, 4].\n\nBefore the development of these high-strength non-oriented electrical steel sheets, other high-strength materials were used for rotors in high-speed motors. However, according to the provided patent excerpts, these materials often resulted in unavoidable heat generation due to their magnetic properties, which posed limitations on the design specifications of the motors [Source 2]. This issue is particularly relevant for electric vehicles and other applications where demand for higher rotational speed is expected to grow in the future [Source 3]. The high-strength non-oriented magnetic steel sheets addressed in the patents help mitigate this problem by providing improved properties that allow for more efficient motor operation.\n\nIt's worth noting that, while the patent excerpts do not provide specific numerical values or formulas related to the mechanical and magnetic properties of these high-strength non-oriented electrical steel sheets, they do mention that the invention allows for stable production with good yield without incurring a significant increase in cost or imposing severe constraints on manufacture [Source 3]. Additionally, the patents suggest that these steel sheets are suitable for various applications beyond electric vehicles, such as drive motors for turbine generators and servo motors for robots and machine tools [Source 1].\n\nHowever, it's important to note that the provided patent excerpts do not contain enough information to fully understand the specific differences between these high-strength non-oriented magnetic steel sheets and other materials previously used in high-speed motor applications. Further analysis of additional patent documents or literature may be necessary to gain a more comprehensive understanding of this topic.",
+      "retriever_stats": {
+        "total_results": 5,
+        "bm25_hits": 5,
+        "semantic_hits": 5,
+        "graph_hits": 0,
+        "multi_retriever_hits": 5
+      },
+      "retrieved_chunks": [
+        {
+          "chunk_id": "EP2679695_0042",
+          "patent_id": "EP2679695",
+          "section": "",
+          "page": "",
+          "rrf_score": 0.032018442622950824,
+          "content_preview": "[0001] The present invention relates to a non-oriented electrical steel sheet, and in particular, to a non-oriented electrical steel sheet having high strength and excellent fatigue properties, and fu"
+        },
+        {
+          "chunk_id": "EP2679695_0044",
+          "patent_id": "EP2679695",
+          "section": "",
+          "page": "",
+          "rrf_score": 0.03177805800756621,
+          "content_preview": "[0012] As described above, some proposals have been made on high-strength non-oriented electrical steel sheets. In the proposals made to date, however, it has not been possible until now to manufactur"
+        },
+        {
+          "chunk_id": "EP2679695_0098",
+          "patent_id": "EP2679695",
+          "section": "",
+          "page": "",
+          "rrf_score": 0.030536130536130537,
+          "content_preview": "[0022] According to the present invention, a non-oriented electrical steel sheet may be provided that is excellent in both mechanical properties and magnetic properties required for a rotor material o"
+        },
+        {
+          "chunk_id": "EP1577413_0405",
+          "patent_id": "EP1577413",
+          "section": "",
+          "page": "",
+          "rrf_score": 0.030158730158730156,
+          "content_preview": "[0093] As described above, non-oriented electrical steel sheets of the present invention have excellent high-frequency magnetic properties. The steel sheets of the present invention are most suitable "
+        },
+        {
+          "chunk_id": "EP2278034_0221",
+          "patent_id": "EP2278034",
+          "section": "",
+          "page": "",
+          "rrf_score": 0.029857397504456328,
+          "content_preview": "[0002] In recent years, higher performance properties are required for a non-oriented electrical steel sheet to be used as an iron core material of a rotary machine due to a worldwide increase in achi"
+        }
+      ],
+      "metadata": {
+        "model": "ollama/mistral:7b",
+        "chunk_count": 5,
+        "total_retrieved": 5,
+        "temperature": 0.0
+      }
+    },
+    {
+      "id": "G6",
+      "category": "multi_hop_abstract_query_synthesizer",
+      "retrieval_type": "hybrid",
+      "question": "How high-strength non-oriented magnetic steel sheet get good high-frequency magnetic properties, and what role controlling nitrides containing chromium play?",
+      "ground_truth": "High-strength non-oriented magnetic steel sheet get good high-frequency magnetic properties by controlling the number of nitrides containing chromium inside the steel sheet. If too many nitrides with chromium form during annealing, iron loss gets worse, especially at high frequency. By adjusting the annealing atmosphere, like using less nitrogen gas or adding elements like Al, Sn, or Sb, the amount of nitrides with chromium can be kept low (2,500 or less per mm2), so the steel shows better high-frequency magnetic properties and lower iron loss.",
+      "contexts": [
+        "is 60 \u00b5\u2126cm or more, and the number of nitrides containing chromium per mm 2 in the interior of the steel sheet is 2,500 or less. Consequently, the problem that high electrical resistance resulting from the high Si content and high Cr content is not satisfactorily utilized is advantageously solved, and it is possible to provide a nonoriented electrical steel sheet having excellent magnetic properties in the high-frequency range, in particular; in a frequency range of 1 kHz or more.",
+        "(1) An Fe-Cr-Si based non-oriented electrical steel sheet having excellent high-frequency magnetic properties contains 2.5% to 10% by mass of Si, 1.5% to 20% by mass of Cr, 0.006% by mass or less of C, 0.002% by mass or less of N, 0.005% by mass or less of S, 0.005% by mass or less of Ti, 0.005% by mass or less of Nb, and the balance being Fe and incidental impurities, wherein the electrical resistivity of the steel is 60 \u00b5\u2126cm or more, and the number of nitrides containing chromium per mm 2 in the interior of the steel sheet is 2,500 or less.",
+        "[0010] As a result of intensive research into the problems described above, the present inventors have found that, although the percentage of eddy current loss in the iron loss is generally high in the high-frequency range, the influence of hysteresis loss is relatively large with respect to the Fe-Cr-Si based electrical steel sheet. It has been found that because of a deterioration of hysteresis loss, the decrease in eddy current loss due to high electrical resistance does not sufficiently contribute to high-frequency magnetic properties. It has been discovered that in order to obtain improved hysteresis loss, it is necessary to control the frequency of nitrides containing chromium (nitrides including chromium) in the interior of the steel sheet. The present invention has been achieved based on the findings described above.",
+        "(3) An Fe-Cr-Si based non-oriented electrical steel sheet having excellent high-frequency magnetic properties contains 2.5% to 10% by mass of Si, 1.5% to 20% by mass of Cr, 0.1% to 2% by mass of Al, 0.006% by mass or less of C, 0.004% by mass or less of N, 0.005% by mass or less of S, 0.005% by mass or less of Ti, 0.005% by mass or less of Nb, and the balance being Fe and incidental impurities, wherein the electrical resistivity of the steel is 60 \u00b5\u2126cm or more, and the number of nitrides containing chromium per mm 2 in the interior of the steel sheet is 2,500 or less.",
+        "## (54) HIGH-STRENGTH NON-ORIENTED MAGNETIC STEEL SHEET AND PROCESS FOR PRODUCING THE HIGH-STRENGTH NON-ORIENTED MAGNETIC STEEL SHEET"
+      ],
+      "answer": " To achieve good high-frequency magnetic properties in a high-strength non-oriented magnetic steel sheet, the composition and control of certain elements play crucial roles, as detailed in [Source 1], [Source 2], and [Source 3].\n\nAccording to [Source 1] and [Source 2], the steel should contain specific amounts of Si (2.5% to 10%) and Cr (1.5% to 20%), with low levels of C, N, S, Ti, Nb, and Al. The electrical resistivity of the steel should be 60 \u00b5\u2126cm or more, and the number of nitrides containing chromium per mm\u00b2 in the interior of the steel sheet should be 2,500 or less.\n\n[Source 3] explains that intensive research has revealed that the high-frequency magnetic properties are influenced by both eddy current loss and hysteresis loss. While a high electrical resistance can decrease eddy current loss in the high-frequency range, it is the deterioration of hysteresis loss that significantly affects the overall performance. The present invention aims to improve hysteresis loss by controlling the frequency of nitrides containing chromium (nitrides including chromium) in the interior of the steel sheet.\n\nIn summary, a high-strength non-oriented magnetic steel sheet with the specified composition and controlled nitride content can provide excellent high-frequency magnetic properties due to improved hysteresis loss, as described in [Source 3]. However, it is important to note that additional information may be required to fully understand the production process for this steel sheet, as only the composition and its effects on magnetic properties are detailed in the provided patent excerpts.",
+      "retriever_stats": {
+        "total_results": 5,
+        "bm25_hits": 5,
+        "semantic_hits": 5,
+        "graph_hits": 0,
+        "multi_retriever_hits": 5
+      },
+      "retrieved_chunks": [
+        {
+          "chunk_id": "EP1577413_0035",
+          "patent_id": "EP1577413",
+          "section": "",
+          "page": "",
+          "rrf_score": 0.03252247488101534,
+          "content_preview": "is 60 \u00b5\u2126cm or more, and the number of nitrides containing chromium per mm 2 in the interior of the steel sheet is 2,500 or less. Consequently, the problem that high electrical resistance resulting fro"
+        },
+        {
+          "chunk_id": "EP1577413_0057",
+          "patent_id": "EP1577413",
+          "section": "",
+          "page": "",
+          "rrf_score": 0.03128054740957967,
+          "content_preview": "(1) An Fe-Cr-Si based non-oriented electrical steel sheet having excellent high-frequency magnetic properties contains 2.5% to 10% by mass of Si, 1.5% to 20% by mass of Cr, 0.006% by mass or less of C"
+        },
+        {
+          "chunk_id": "EP1577413_0055",
+          "patent_id": "EP1577413",
+          "section": "",
+          "page": "",
+          "rrf_score": 0.030776515151515152,
+          "content_preview": "[0010] As a result of intensive research into the problems described above, the present inventors have found that, although the percentage of eddy current loss in the iron loss is generally high in th"
+        },
+        {
+          "chunk_id": "EP1577413_0059",
+          "patent_id": "EP1577413",
+          "section": "",
+          "page": "",
+          "rrf_score": 0.030158730158730156,
+          "content_preview": "(3) An Fe-Cr-Si based non-oriented electrical steel sheet having excellent high-frequency magnetic properties contains 2.5% to 10% by mass of Si, 1.5% to 20% by mass of Cr, 0.1% to 2% by mass of Al, 0"
+        },
+        {
+          "chunk_id": "EP2278034_0038",
+          "patent_id": "EP2278034",
+          "section": "",
+          "page": "",
+          "rrf_score": 0.029957522915269395,
+          "content_preview": "## (54) HIGH-STRENGTH NON-ORIENTED MAGNETIC STEEL SHEET AND PROCESS FOR PRODUCING THE HIGH-STRENGTH NON-ORIENTED MAGNETIC STEEL SHEET"
+        }
+      ],
+      "metadata": {
+        "model": "ollama/mistral:7b",
+        "chunk_count": 5,
+        "total_retrieved": 5,
+        "temperature": 0.0
+      }
+    },
+    {
+      "id": "G7",
+      "category": "multi_hop_abstract_query_synthesizer",
+      "retrieval_type": "hybrid",
+      "question": "How does the addition of bismuth (Bi) to a non-oriented electrical steel sheet influence the suppression of Ti inclusions and the resulting magnetic properties, and what compositional and process conditions are necessary to maximize these effects for high-speed motor rotor applications?",
+      "ground_truth": "The addition of bismuth (Bi) to a non-oriented electrical steel sheet plays a critical role in suppressing the formation of Ti inclusions, such as TiN, TiS, and TiC, which can otherwise degrade the magnetic properties of the steel. According to the context, when an appropriate amount of Bi is present (typically between 0.001 mass% and 0.01 mass%), the production of Ti inclusions after annealing is reduced, leading to enhanced crystal grain growth and improved magnetic properties (see <9-hop>). This effect is particularly important for high-speed motor rotors, where low core loss and high efficiency are required (<2-hop>, <3-hop>, <4-hop>).\n\nTo maximize the beneficial effects of Bi addition, several compositional and process conditions must be met:\n- The steel composition should include Si (1.0\u20133.5 mass%), Al (0.1\u20133.0 mass%), Mn (0.1\u20132.0 mass%), Ti (0.001\u20130.01 mass%), and Bi (0.001\u20130.01 mass%), with low levels of C (\u22640.01 mass%), P (\u22640.1 mass%), S (\u22640.005 mass%), and N (\u22640.005 mass%) (<8-hop>, <11-hop>).\n- The Bi must be added to the molten steel shortly before solidification, ideally within three minutes, to ensure sufficient Bi remains in solution and is not lost due to volatilization (<11-hop>).\n- The presence of sulfur (S) must be controlled. If S exceeds 0.005 mass%, desulfurizing elements such as rare earth metals (REM) or Ca should be added to reduce free S, preventing Bi from being trapped in MnS and ensuring it remains available to suppress Ti inclusions (<10-hop>).\n\nWhen these conditions are satisfied, Bi effectively suppresses the precipitation of TiN and TiS during annealing and TiC during stress relief annealing, resulting in fewer inclusions, larger grain size, and improved magnetic properties, such as lower core loss (W10/800 or W10/1000) (<9-hop>, <11-hop>). This directly supports the requirements for high-speed motor rotors, where both high tensile strength and low high-frequency core loss are essential for efficiency and miniaturization (<2-hop>, <3-hop>, <4-hop>).",
+      "contexts": [
+        "[0026] Further, it is also found out that as the Ti content of the non-oriented electrical steel sheet becomes higher, the Bi content necessary for obtaining the good magnetic property also becomes higher. However, when the Bi content exceeds 0.01 mass%, a large number of inclusions containing Bi exist, and thereby the magnetic property becomes poor. Consequently, the Bi content of the non-oriented electrical steel sheet is required to be 0.01 mass% or less.",
+        "[0029] According to these expressions, it is obvious that, for example, in the case of the Ti content being 0.006 mass%, when the Bi content is less than 0.005 mass%, the result of 3 mark is obtained, and when the Bi content exceeds 0.005 mass%, the result of s mark is obtained, and when the Bi content exceeds 0.007 mass%, the result of &amp; mark is obtained. That is, it is obvious that with the increase in Bi content, Ti inclusions are reduced, and as the Bi content becomes much higher, an effect of reducing Ti inclusions is further enhanced. Such a phenomenon was clarified by the inventors of the present invention through the above examinations for the first time. That is, as a result of these examinations, it became obvious that in the case when an appropriate amount of Bi is contained in the non-oriented electrical steel sheet, Ti inclusions after the annealing is performed are reduced and crystal grains are likely to grow, and thereby the magnetic property is improved.",
+        "[0002] In recent years, higher performance properties are required for a non-oriented electrical steel sheet to be used as an iron core material of a rotary machine due to a worldwide increase in achievement of energy saving of an electrical apparatus. Recently in particular, as a motor to be used for an electric vehicle or the like, a demand for a small-sized high-power motor is high. Such an electric vehicle motor is designed to make high-speed rotation possible to thereby obtain high torque.",
+        "[0003] A high-speed rotation motor is also used for a machine tool and an electrical apparatus such as a vacuum cleaner. An outer size of a high-speed rotation motor for an electric vehicle is larger than that of a high-speed rotation motor for an electrical apparatus. Further, as the high-speed rotation motor for an electric vehicle, a DC brushless motor is mainly used. In the DC brushless motor, magnets are embedded in the vicinity of an outer periphery of a rotor. In the above structure, a width of a bridge portion in an outer periphery portion of the rotor (a width between magnets from the most outer periphery of the rotor to a steel sheet) is extremely narrow, which is 1 to 2 mm, depending on a position. Thus, a high-strength steel sheet has been required for the high-speed rotation motor for an electric vehicle rather than a conventional non-oriented electrical steel sheet.",
+        "[0044] Such a functional effect of Bi is to bring about the reduction in Ti inclusions in the non-oriented electrical steel sheet. That is, Bi suppresses precipitations of TiN and TiS in the annealing of the hot-rolled sheet and the finish annealing of the cold-rolled sheet, and further suppresses precipitation of TiC in the stress relief annealing."
+      ],
+      "answer": " The addition of bismuth (Bi) to a non-oriented electrical steel sheet significantly influences the suppression of Ti inclusions and the resulting magnetic properties. According to [Source 1], as the Ti content increases, so does the necessary Bi content for good magnetic properties, but when Bi exceeds 0.01 mass%, numerous Bi-containing inclusions form, leading to poor magnetic properties. However, an appropriate amount of Bi can reduce Ti inclusions after annealing and promote crystal grain growth, thereby improving the magnetic property [Source 2].\n\nThe specific compositional condition necessary to maximize these effects is a Bi content of 0.01 mass% or less in the non-oriented electrical steel sheet [Source 1]. The process conditions are not explicitly stated in the provided excerpts but may include annealing processes, as mentioned in [Source 2].\n\nFor high-speed motor rotor applications, such as electric vehicles and small-sized high-power motors, a high-strength steel sheet is required due to the narrow bridge portion in the outer periphery of the rotor [Source 4]. The excerpts do not provide specific information on how the Bi addition affects these high-speed motor applications. However, it can be inferred that the reduced Ti inclusions and improved magnetic properties brought about by Bi may contribute to better performance in high-speed motors, as suggested in [Source 2].\n\nMissing information includes details on the exact process conditions (temperature, time, etc.) for maximizing the effects of Bi addition, as well as direct evidence of improved motor performance with Bi-containing steel sheets.",
+      "retriever_stats": {
+        "total_results": 5,
+        "bm25_hits": 4,
+        "semantic_hits": 4,
+        "graph_hits": 0,
+        "multi_retriever_hits": 3
+      },
+      "retrieved_chunks": [
+        {
+          "chunk_id": "EP2439302_0100",
+          "patent_id": "EP2439302",
+          "section": "",
+          "page": "",
+          "rrf_score": 0.03125763125763126,
+          "content_preview": "[0026] Further, it is also found out that as the Ti content of the non-oriented electrical steel sheet becomes higher, the Bi content necessary for obtaining the good magnetic property also becomes hi"
+        },
+        {
+          "chunk_id": "EP2439302_0103",
+          "patent_id": "EP2439302",
+          "section": "",
+          "page": "",
+          "rrf_score": 0.029437229437229435,
+          "content_preview": "[0029] According to these expressions, it is obvious that, for example, in the case of the Ti content being 0.006 mass%, when the Bi content is less than 0.005 mass%, the result of 3 mark is obtained,"
+        },
+        {
+          "chunk_id": "EP2278034_0221",
+          "patent_id": "EP2278034",
+          "section": "",
+          "page": "",
+          "rrf_score": 0.027598020555767037,
+          "content_preview": "[0002] In recent years, higher performance properties are required for a non-oriented electrical steel sheet to be used as an iron core material of a rotary machine due to a worldwide increase in achi"
+        },
+        {
+          "chunk_id": "EP2278034_0222",
+          "patent_id": "EP2278034",
+          "section": "",
+          "page": "",
+          "rrf_score": 0.01639344262295082,
+          "content_preview": "[0003] A high-speed rotation motor is also used for a machine tool and an electrical apparatus such as a vacuum cleaner. An outer size of a high-speed rotation motor for an electric vehicle is larger "
+        },
+        {
+          "chunk_id": "EP2439302_0120",
+          "patent_id": "EP2439302",
+          "section": "",
+          "page": "",
+          "rrf_score": 0.01639344262295082,
+          "content_preview": "[0044] Such a functional effect of Bi is to bring about the reduction in Ti inclusions in the non-oriented electrical steel sheet. That is, Bi suppresses precipitations of TiN and TiS in the annealing"
+        }
+      ],
+      "metadata": {
+        "model": "ollama/mistral:7b",
+        "chunk_count": 5,
+        "total_retrieved": 5,
+        "temperature": 0.0
+      }
+    },
+    {
+      "id": "G8",
+      "category": "multi_hop_abstract_query_synthesizer",
+      "retrieval_type": "hybrid",
+      "question": "How does forming an Fe-Ni alloy film on a high-strength non-oriented magnetic steel sheet affect its magnetic properties, and what compositional considerations are important for both the steel sheet and the Fe-Ni alloy film?",
+      "ground_truth": "Forming an Fe-Ni alloy film on a high-strength non-oriented magnetic steel sheet significantly improves the relative permeability and reduces the core loss of the material. The optimal improvement is achieved when the Fe-Ni alloy film contains 60% to 90% Ni and has a thickness of at least 0.1 \u03bcm, with the effect saturating above 0.6 \u03bcm. For the steel sheet itself, key compositional considerations include maintaining C content at 0.05% or less to avoid increased core loss, Si content between 0.1% and 7% for sufficient resistivity without compromising cold-rolling performance, and Al content between 0.01% and 7% for electrical resistance and deoxidation. Additionally, Mn, Ti, N, S, Sn, Cu, and Ni should be controlled within specified ranges to optimize magnetic properties and inhibit surface nitridation and oxidation during annealing.",
+      "contexts": [
+        "[0027] The present inventors learned from these results of experiments that by forming the Fe-Ni alloy film on a surface of the non-oriented electrical steel sheet, the relative permeability and the core loss are dramatically improved. Further, the present inventors also learned that it is necessary that the Ni content of the Fe-Ni alloy film is 60% to 90% aid the thickness of the Fe-Ni alloy film is 0.1 Pm or more for improving the relative permeability and the core loss. Further, the",
+        "[0022] The present inventors formed Fe-Ni alloy films having various thicknesses (0.05 Pm to 0.8Pm) on one surface of a non-oriented electrical steel sheet by an immersion plating method in order to find the thickness of the Fe-Ni alloy film suitable for improving a magnetic property. That is, one surface of a non-oriented electrical steel sheet was coated with Fe-Ni alloy films having different thicknesses. As the non-oriented electrical steel sheet, one containing C: 0.003%, Si: 2.4%, and Al: 0.5%, a balance of which being composed of Fe and inevitable impurities, and having a thickness of 0.35 mm was used. Further, the Ni contents of the Fe-Ni alloy films were set to 78% in any of the thicknesses. Then, a DC magnetizing property was measured. When measuring the DC magnetizing property, the maximum magnetic flux density Bm was set to 0.8 T, and a relationship between the thickness (a coating thickness) of the Fe-Ni alloy film and the relative permeability Ps was obtained. Further, similar measurement was also conducted in one having the Fe-Ni alloy films formed on both surfaces of the non-oriented electrical steel sheet. Results thereof are shown in Fig. 4.",
+        "[0043] Next, there will be explained a magnetic property of the non-oriented electrical steel sheet having the Fe-Ni alloy film formed on at least one surface thereof.",
+        "[0050] Each of Fe-Ni alloy films having compositions shown in Table 1 was formed on one surface or both surfaces of a non-oriented electrical steel sheet (base materials), which was after finish annealing and before an insulating film was formed thereof, by an electroplating method. That is, one surface or both surfaces of a non-oriented electrical steel sheet was/were coated with Fe-Ni alloy film(s). As the non-oriented electrical steel sheet, one containing C: 0.002%, Si: 3.2%, and Al: 1.0%, a balance of which being composed of Fe and inevitable impurities, and having a thickness of 0.35 mm was used. Further, thickness of the Fe-Ni alloy film was set to 0.5 Pm per one surface. Next, an insulating film was formed on an entire surface of the non-oriented electrical steel sheet. Then, the relative permeability Ps in the rolling direction at the maximum magnetic flux density Bm of 0.8 T was measured. A result thereof is shown in Table 1.",
+        "(57) A non-oriented electrical steel sheet is provided with a base material and an Fe-Ni alloy film formed on at least one surface of the base material. The Fe-Ni alloy film contains, by mass%, Fe: 10% to 40% and Ni: 60% to 90%, and has a thickness of 0.1 Pm or more are provided."
+      ],
+      "answer": " Forming an Fe-Ni alloy film on a high-strength non-oriented magnetic steel sheet significantly improves its magnetic properties, particularly the relative permeability and core loss [Source 1]. The key compositional considerations for the Fe-Ni alloy film are that it contains 60% to 90% Ni by mass and has a thickness of 0.1 Pm or more [Source 5]. For the steel sheet, it is important that its chemical composition includes C: 0.003%, Si: 2.4%, and Al: 0.5%, with the remaining being primarily Fe and inevitable impurities, and a thickness of 0.35 mm [Source 2, Source 4].\n\nThe patent excerpts demonstrate that the present inventors conducted experiments to determine the optimal thickness of the Fe-Ni alloy film for improving magnetic properties. They found that when the Ni content is 78% and the thickness ranges from 0.05 Pm to 0.8 Pm, the relative permeability (Ps) increases [Source 2]. However, it's not explicitly stated in the provided excerpts what specific magnetic properties are improved other than the relative permeability and core loss.\n\nAdditionally, the patent mentions that forming Fe-Ni alloy films on both surfaces of the non-oriented electrical steel sheet also improves its magnetic properties [Source 2]. The results of these experiments are shown in Figure 4, but the figure is not included in the provided excerpts.\n\nIt's worth noting that the patent does not provide information about how the Fe-Ni alloy films are formed or any other factors that may influence their magnetic properties. Furthermore, it's unclear from the provided excerpts whether there are any limitations on the chemical composition of the steel sheet beyond C: 0.003%, Si: 2.4%, and Al: 0.5%.\n\nIn summary, forming an Fe-Ni alloy film with specific compositional requirements (60% to 90% Ni by mass and a thickness of 0.1 Pm or more) on a high-strength non-oriented magnetic steel sheet improves its relative permeability and core loss. The optimal thickness for the Fe-Ni alloy film is between 0.05 Pm and 0.8 Pm when the Ni content is 78%. However, additional information about the experimental methods, other factors influencing magnetic properties, and limitations on the steel sheet's chemical composition are not provided in the excerpts.",
+      "retriever_stats": {
+        "total_results": 5,
+        "bm25_hits": 5,
+        "semantic_hits": 5,
+        "graph_hits": 0,
+        "multi_retriever_hits": 5
+      },
+      "retrieved_chunks": [
+        {
+          "chunk_id": "EP2316980_0079",
+          "patent_id": "EP2316980",
+          "section": "",
+          "page": "",
+          "rrf_score": 0.030536130536130537,
+          "content_preview": "[0027] The present inventors learned from these results of experiments that by forming the Fe-Ni alloy film on a surface of the non-oriented electrical steel sheet, the relative permeability and the c"
+        },
+        {
+          "chunk_id": "EP2316980_0074",
+          "patent_id": "EP2316980",
+          "section": "",
+          "page": "",
+          "rrf_score": 0.030536130536130537,
+          "content_preview": "[0022] The present inventors formed Fe-Ni alloy films having various thicknesses (0.05 Pm to 0.8Pm) on one surface of a non-oriented electrical steel sheet by an immersion plating method in order to f"
+        },
+        {
+          "chunk_id": "EP2316980_0096",
+          "patent_id": "EP2316980",
+          "section": "",
+          "page": "",
+          "rrf_score": 0.029906956136464335,
+          "content_preview": "[0043] Next, there will be explained a magnetic property of the non-oriented electrical steel sheet having the Fe-Ni alloy film formed on at least one surface thereof."
+        },
+        {
+          "chunk_id": "EP2316980_0104",
+          "patent_id": "EP2316980",
+          "section": "",
+          "page": "",
+          "rrf_score": 0.029411764705882353,
+          "content_preview": "[0050] Each of Fe-Ni alloy films having compositions shown in Table 1 was formed on one surface or both surfaces of a non-oriented electrical steel sheet (base materials), which was after finish annea"
+        },
+        {
+          "chunk_id": "EP2316980_0041",
+          "patent_id": "EP2316980",
+          "section": "",
+          "page": "",
+          "rrf_score": 0.02782608695652174,
+          "content_preview": "(57) A non-oriented electrical steel sheet is provided with a base material and an Fe-Ni alloy film formed on at least one surface of the base material. The Fe-Ni alloy film contains, by mass%, Fe: 10"
+        }
+      ],
+      "metadata": {
+        "model": "ollama/mistral:7b",
+        "chunk_count": 5,
+        "total_retrieved": 5,
+        "temperature": 0.0
+      }
+    },
+    {
+      "id": "G9",
+      "category": "multi_hop_specific_query_synthesizer",
+      "retrieval_type": "hybrid",
+      "question": "What steel slab components in Table 3 give better magnetic properties, and how does rolling reduction affect results?",
+      "ground_truth": "Steel slabs in Table 3 with Sn (condition 13) or Cu (condition 14) have better magnetic properties than those without Sn and Cu (condition 11). Also, rolling reduction in the second cold-rolling affects results: when it is less than 40% (condition 12) or over 85% (condition 15), magnetic properties are worse than when it is around 68% (conditions 11, 13, 14).",
+      "contexts": [
+        "[0041] First, steel slabs each containing components presented in Table 3 and a balance composed of Fe and inevitable impurities were produced. Then, hot-rolling of each steel slab was conducted to produce a steel strip (hot-rolled sheet), and cold-rolling was performed twice. At this time, the first cold-rolling was started without performing hot-rolled sheet annealing after the hot-rolling, and intermediate annealing was conducted at 950\u00b0C for 2 minutes between the two times of the cold-rolling. A thickness of each steel strip after the cold-rolling was set to 0.35 mm. Finish temperatures in the hot-rolling, thicknesses of the hot-rolled sheets, thicknesses of the steel strips after performing the first cold-rolling, and rolling reductions in the second cold-rolling are presented in Table 4. After performing the second cold-rolling, finish annealing was performed at 970\u00b0C for 40 seconds. As is apparent from table 4, a rolling reduction in the first cold-rolling was set to approximately 40%. Further, a sample was taken from each steel strip after the finish annealing, and as magnetic properties thereof, a magnetic flux density B50 and an iron loss W10/400 were measured. The iron loss W10/400 is an iron loss under a condition where a frequency is 400 Hz, and the maximum magnetic flux density is 1.0T. Results of these are also presented in Table 4.",
+        "[0032] It can be understood that in the condition where the hot-rolled sheet annealing is not performed, the magnetic properties in the rolling direction of the non-oriented electrical steel sheet can be significantly improved by appropriately combining the finish temperature in the hot-rolling and the rolling reduction in the second cold-rolling, as seen from Table 2. In other words, it can be said that when the finish temperature in the hot-rolling is 900\u00b0C or less, and the rolling reduction in the second cold-rolling is not less than 40% nor more than 85%, it is possible to obtain extremely good magnetic properties in the rolling direction.",
+        "[0010] The present inventors repeatedly conducted earnest studies from a point of view in which magnetic properties in a rolling direction in a non-oriented electrical steel sheet are improved by changing conditions of contents of respective components, treatment before cold-rolling, the number of times of the cold-rolling, a rolling reduction in the cold-rolling and the like.",
+        "[0045] Further, in the condition No. 13, in which Sn was contained, and the condition No. 14, in which Cu was contained, the magnetic properties in the rolling direction were better than those in the condition No. 11, in which Sn and Cu were not contained. As seen from the results, it can be understood that when Sn or Cu is contained, the magnetic properties in the rolling direction are further improved. Moreover, as is apparent from Table 4, it can be understood that, according to the examples of the present invention, it is possible to manufacture the non-oriented electrical steel sheets excellent in magnetic properties in the rolling direction.",
+        "[0029] The present inventors first produced steel slabs each containing components presented in Table 1 and a balance composed of Fe and inevitable impurities. Then, hot-rolling of each steel slab was conducted so as to produce a steel strip (hot-rolled sheet), and cold-rolling was performed twice. At this time, the first cold-rolling was started without performing hot-rolled sheet annealing after the hot-rolling, and intermediate annealing was conducted at 1000\u00b0C for 1 minute between the two times of cold-rolling. A thickness of each steel strip after the cold-rolling (cold-rolled sheet) was set to 0.35 mm. Finish temperatures in the hot-rolling, thicknesses of the hot-rolled sheets, thicknesses of the steel strips after the first cold-rolling, and rolling reductions in the second cold-rolling are presented in Table 2. After performing the second cold-rolling, finish annealing was performed at 950\u00b0C for 30 seconds. As is apparent from table 2, a rolling reduction in the first cold-rolling was set to 31.4% to 36.4%. Then, a sample was taken from each steel strip after the finish annealing, and as magnetic properties thereof, a magnetic flux density B50 and an iron loss W15/50 were measured. Here, the iron loss W15/50 is an iron loss under a condition where a frequency is 50 Hz, and the maximum magnetic flux density is 1.5T. Results of these are also presented in Table 2."
+      ],
+      "answer": " The steel slab components that give better magnetic properties, according to the provided patent excerpts, are not explicitly stated in Table 3. However, it is suggested that the addition of Sn or Cu can further improve the magnetic properties in the rolling direction [Source 4].\n\nRegarding the effect of rolling reduction on results, it is indicated that when the finish temperature in the hot-rolling is 900\u00b0C or less, and the rolling reduction in the second cold-rolling is not less than 40% nor more than 85%, it is possible to obtain extremely good magnetic properties in the rolling direction [Source 2]. This is further supported by the examples provided in Table 4 of Source 1, where a rolling reduction in the first cold-rolling was set to approximately 40% [Source 1].\n\nHowever, it's important to note that the specific numerical values for magnetic properties such as magnetic flux density B50 and iron loss W10/400 are only provided for certain conditions, and a comprehensive comparison across different components or rolling reductions is not presented in the excerpts. Therefore, a more detailed analysis might require additional information or experiments.",
+      "retriever_stats": {
+        "total_results": 5,
+        "bm25_hits": 5,
+        "semantic_hits": 5,
+        "graph_hits": 1,
+        "multi_retriever_hits": 5
+      },
+      "retrieved_chunks": [
+        {
+          "chunk_id": "EP2602335_0109",
+          "patent_id": "EP2602335",
+          "section": "",
+          "page": "",
+          "rrf_score": 0.03873489694385217,
+          "content_preview": "[0041] First, steel slabs each containing components presented in Table 3 and a balance composed of Fe and inevitable impurities were produced. Then, hot-rolling of each steel slab was conducted to pr"
+        },
+        {
+          "chunk_id": "EP2602335_0081",
+          "patent_id": "EP2602335",
+          "section": "",
+          "page": "",
+          "rrf_score": 0.0315136476426799,
+          "content_preview": "[0032] It can be understood that in the condition where the hot-rolled sheet annealing is not performed, the magnetic properties in the rolling direction of the non-oriented electrical steel sheet can"
+        },
+        {
+          "chunk_id": "EP2602335_0043",
+          "patent_id": "EP2602335",
+          "section": "",
+          "page": "",
+          "rrf_score": 0.03125,
+          "content_preview": "[0010] The present inventors repeatedly conducted earnest studies from a point of view in which magnetic properties in a rolling direction in a non-oriented electrical steel sheet are improved by chan"
+        },
+        {
+          "chunk_id": "EP2602335_0117",
+          "patent_id": "EP2602335",
+          "section": "",
+          "page": "",
+          "rrf_score": 0.0304147465437788,
+          "content_preview": "[0045] Further, in the condition No. 13, in which Sn was contained, and the condition No. 14, in which Cu was contained, the magnetic properties in the rolling direction were better than those in the "
+        },
+        {
+          "chunk_id": "EP2602335_0074",
+          "patent_id": "EP2602335",
+          "section": "",
+          "page": "",
+          "rrf_score": 0.029857397504456328,
+          "content_preview": "[0029] The present inventors first produced steel slabs each containing components presented in Table 1 and a balance composed of Fe and inevitable impurities. Then, hot-rolling of each steel slab was"
+        }
+      ],
+      "metadata": {
+        "model": "ollama/mistral:7b",
+        "chunk_count": 5,
+        "total_retrieved": 5,
+        "temperature": 0.0
+      }
+    },
+    {
+      "id": "G10",
+      "category": "multi_hop_specific_query_synthesizer",
+      "retrieval_type": "hybrid",
+      "question": "How does Table 5 show the relationship between the Si-Mg phase volume percentage and the Cr content ratio in the alloy layer for the different examples, and what trends can be seen when comparing Examples 1-8 with Comp. Ex. 1?",
+      "ground_truth": "Table 5 presents data for several examples, listing the Si-Mg phase volume percentage and the Cr content ratio in the alloy layer among other properties. For Examples 1-8, as the Si-Mg phase volume percentage decreases from 4.54 (Example 1) to 1.35 (Example 8), the Cr content ratio increases from 0.5 to 49.2. This indicates an inverse relationship: lower Si-Mg phase volume percentages correspond to higher Cr content ratios in the alloy layer. In contrast, Comp. Ex. 1 shows a much lower Si-Mg phase volume percentage (0.18) and a significantly higher Cr content ratio (76.3), further supporting this trend. Therefore, Table 5 demonstrates that as the Si-Mg phase volume percentage decreases, the Cr content ratio in the alloy layer tends to increase across the examples provided.",
+      "contexts": [
+        "[0058] An alloy layer containing Al and Cr is preferably interposed between the plating layer and the steel substrate. In the present invention, the alloy layer is considered to be a layer that differs from the plating layer. The alloy layer may also contain various metal elements such as Mn, Fe, Co, Ni, Cu, Zn or Sn other than Al and Cr as constituent elements thereof. When such an alloy layer is present, growth of the Si-Mg phase in the plating layer is promoted by the Cr in the alloy layer, the volume percentage of the Si-Mg phase in the plating layer increases, and the ratio of Mg in the Si-Mg phase to the total weight of Mg in the plating layer increases. As a result, wrinkling and running of the plating layer are further inhibited. In particular, the ratio of the content ratio of Cr in the alloy layer to the content ratio of Cr in the plating layer is preferably 2 to 50. In this case, the area ratio of the Si-Mg phase on the surface of the plating layer becomes lower as a result of growth of the Si-Mg phase being promoted near the alloy layer in the plating layer, thereby further inhibiting running and maintaining corrosion resistance of the plating layer over a longer period of time. The ratio of the content ratio of Cr in the alloy layer to the content ratio of Cr in the plating layer is more preferably 3 to 40 and even more preferably 4 to 25. The amount of Cr in the alloy layer can be derived by measuring a cross-section of the plating layer using an energy-dispersive X-ray spectrometer (EDS).",
+        "[0164] The volume percentage of the Si-Mg phase was evaluated by considering the percent area (%) obtained in this manner to coincide with the volume percentage of the Si-Mg phase. The results are shown in Tables 5 to 8.",
+        "[0036] The volume percentage of the Si-Mg phase in the plating layer is equal to the percent area of the Si-Mg phase in a cross-section in the case of cutting the plating layer in the direction of thickness thereof. The Si-Mg phase in a crosssection of the plating layer can be clearly confirmed by observing with an electron microscope. Consequently, the volume percentage of the Si-Mg phase in the plating layer can be measured indirectly by measuring the percent area of the SiMg phase in a cross-section.",
+        "[0040] The weight ratio of Mg in the Si-Mg phase based on the total weight of Mg in the plating layer can be calculated by considering the Si-Mg phase to have the stoichiometric composition of Mg2Si. Furthermore, although the composite ratios of Si and Mg in the Si-Mg phase may actually vary slightly from the stoichiometric composition since there is the possibility of the Si-Mg phase containing small amounts of elements other than Si and Mg such as Al, Zn, Cr or Fe, it is extremely difficult to precisely determine the amount of Mg in the Si-Mg phase when these are taken into consideration. Consequently, in the present invention, when determining the weight ratio of Mg in the Si-Mg phase based on the total weight of Mg in the plating layer, the Si-Mg phase is considered to have the stoichiometric composition of Mg2Si as previously described.",
+        "| Si-Mg phase  volume  percentage Mg  weight   | Surface  layer Mg  Surface  layer Cr  content   | Si-Mg phase  area ratio on  plating layer  surface   | Alloy layer                  |\n|----------------------------------------------|-------------------------------------------------|------------------------------------------------------|------------------------------|\n| ratio                                        | content                                         |                                                      | Thickness Cr  content  ratio |\n|                                              | vol% % wt% ppm by  weight                       | area%                                                | mm --                        |\n| 67 3.15 38.9 28.9 324                        |                                                 | 3.1                                                  | 1.60 23.5                    |\n| 68 2.87 38.4 28.9 314                        |                                                 | 2.7                                                  | 1.50 22.8                    |\n| 69 2.75 35.2 28.6 306                        |                                                 | 2.1                                                  | 1.45 22.7                    |\n| 70 2.61 38.3 27.7 346                        |                                                 | 2.3                                                  | 1.40 19.4                    |\n| 71 3.17 38.7 28.9 305                        |                                                 | 1.7                                                  | 1.50 23.4                    |\n| 72 2.95 38.0 30.8 249                        |                                                 | 5.0                                                  | 1.10 21.2                    |\n| 73 2.53 37.5 31.2 245                        |                                                 | 6.1                                                  | 3.50 62.5                    |"
+      ],
+      "answer": " The relationship between the Si-Mg phase volume percentage and the Cr content ratio in the alloy layer can be observed by comparing the values from Table 5. According to [Source 5], the table presents data for various examples (Examples 1-8) and a comparison example (Comp. Ex. 1).\n\nThe Si-Mg phase volume percentage is represented as the first column in the table, while the Cr content ratio in the alloy layer can be derived from the thickness Cr content ratio and the alloy layer thickness (mm), which are provided in the fourth and fifth columns, respectively. To calculate the Cr content ratio, we can divide the thickness Cr content ratio by the alloy layer thickness.\n\nFor Examples 1-8, it is evident that as the Si-Mg phase volume percentage increases, the Cr content ratio in the alloy layer tends to decrease. For instance:\n\n- Example 67 has a Si-Mg phase volume percentage of 67%, and its Cr content ratio is 23.5 (1.60 / 6.8 mm).\n- Example 73, on the other hand, has a lower Si-Mg phase volume percentage of 2.53%, and its Cr content ratio is 62.5 (3.50 / 5.6 mm).\n\nCompared to Examples 1-8, Comp. Ex. 1 shows a higher Si-Mg phase volume percentage (74%) but an even lower Cr content ratio (19.4) in the alloy layer. This trend suggests that increasing the Si-Mg phase volume percentage may lead to a decrease in the Cr content ratio in the alloy layer, although Comp. Ex. 1 deviates from this trend with a higher Si-Mg phase volume percentage and lower Cr content ratio compared to Examples 1-8.\n\nIt is important to note that the patent excerpts do not provide an explanation for this deviation or any specific reasons for the observed trends between the Si-Mg phase volume percentage and the Cr content ratio in the alloy layer. Further analysis or experimentation may be required to fully understand these relationships and their implications on the properties of the steel substrate.",
+      "retriever_stats": {
+        "total_results": 5,
+        "bm25_hits": 4,
+        "semantic_hits": 5,
+        "graph_hits": 0,
+        "multi_retriever_hits": 4
+      },
+      "retrieved_chunks": [
+        {
+          "chunk_id": "EP2537954_0106",
+          "patent_id": "EP2537954",
+          "section": "",
+          "page": "",
+          "rrf_score": 0.03177805800756621,
+          "content_preview": "[0058] An alloy layer containing Al and Cr is preferably interposed between the plating layer and the steel substrate. In the present invention, the alloy layer is considered to be a layer that differ"
+        },
+        {
+          "chunk_id": "EP2537954_0264",
+          "patent_id": "EP2537954",
+          "section": "",
+          "page": "",
+          "rrf_score": 0.030776515151515152,
+          "content_preview": "[0164] The volume percentage of the Si-Mg phase was evaluated by considering the percent area (%) obtained in this manner to coincide with the volume percentage of the Si-Mg phase. The results are sho"
+        },
+        {
+          "chunk_id": "EP2537954_0075",
+          "patent_id": "EP2537954",
+          "section": "",
+          "page": "",
+          "rrf_score": 0.029206349206349208,
+          "content_preview": "[0036] The volume percentage of the Si-Mg phase in the plating layer is equal to the percent area of the Si-Mg phase in a cross-section in the case of cutting the plating layer in the direction of thi"
+        },
+        {
+          "chunk_id": "EP2537954_0079",
+          "patent_id": "EP2537954",
+          "section": "",
+          "page": "",
+          "rrf_score": 0.02817460317460317,
+          "content_preview": "[0040] The weight ratio of Mg in the Si-Mg phase based on the total weight of Mg in the plating layer can be calculated by considering the Si-Mg phase to have the stoichiometric composition of Mg2Si. "
+        },
+        {
+          "chunk_id": "EP2537954_0289",
+          "patent_id": "EP2537954",
+          "section": "",
+          "page": "",
+          "rrf_score": 0.01639344262295082,
+          "content_preview": "| Si-Mg phase  volume  percentage Mg  weight   | Surface  layer Mg  Surface  layer Cr  content   | Si-Mg phase  area ratio on  plating layer  surface   | Alloy layer                  |\n|--------------"
+        }
+      ],
+      "metadata": {
+        "model": "ollama/mistral:7b",
+        "chunk_count": 5,
+        "total_retrieved": 5,
+        "temperature": 0.0
+      }
+    },
+    {
+      "id": "G11",
+      "category": "multi_hop_specific_query_synthesizer",
+      "retrieval_type": "hybrid",
+      "question": "What components are listed in Table 1 for the steel slab, and how do these components relate to the magnetic properties measured after processing as described in the experiments?",
+      "ground_truth": "Table 1 lists the components of the steel slab as C (0.0019%), Si (2.91%), Al (0.48%), Mn (0.27%), and P (0.022%), with the balance being Fe and inevitable impurities. These components were used to produce steel slabs that underwent hot-rolling and two stages of cold-rolling, with specific processing conditions detailed in the experiments. After processing, magnetic properties such as magnetic flux density B50 and iron loss W15/50 were measured. The results, as shown in Table 2, indicate that by using the components from Table 1 and optimizing the rolling and annealing conditions, the steel achieved improved magnetic properties in the rolling direction, demonstrating the importance of both composition and processing in achieving desirable electrical steel characteristics.",
+      "contexts": [
+        "[0027] The present inventors confirmed these effects by the following experiments. First, a slab containing C: 0.017 mass%, Si: 3.12 mass%, Al: 0.65 mass%, Ni: 2.54 mass%, P: 0.02 mass%, N: 0.003 mass%, and Ti: 0.18 mass% was hot-rolled, and a hot-rolled steel sheet was obtained. The value R Ti of the above hot-rolled steel sheet is 2.3. Next, the hot-rolled steel sheet was cold-rolled to have four types of thicknesses shown in Table 1, and a cold-rolled steel sheet was obtained. Thereafter, continuous finish annealing at 780\u00b0C for 20 seconds was applied to the cold-rolled steel sheet, and a non-oriented electrical steel sheet was obtained. Then, Epstein samples and tensile test pieces were cut out from the non-oriented electrical steel sheet, and magnetic properties and mechanical properties were measured by using them. Results thereof are also shown in Table 1. In Tables as below, \"W 15/50 \" represents a core loss W15/50, \"B50\" represents a magnetic flux density B50, and \"W10/1000\" represents the core loss W10/1000. Further, \"YP\" represents a yield point, \"TS\" represents the tensile strength, and \"EL\" represents elongation.",
+        "[0029] The present inventors first produced steel slabs each containing components presented in Table 1 and a balance composed of Fe and inevitable impurities. Then, hot-rolling of each steel slab was conducted so as to produce a steel strip (hot-rolled sheet), and cold-rolling was performed twice. At this time, the first cold-rolling was started without performing hot-rolled sheet annealing after the hot-rolling, and intermediate annealing was conducted at 1000\u00b0C for 1 minute between the two times of cold-rolling. A thickness of each steel strip after the cold-rolling (cold-rolled sheet) was set to 0.35 mm. Finish temperatures in the hot-rolling, thicknesses of the hot-rolled sheets, thicknesses of the steel strips after the first cold-rolling, and rolling reductions in the second cold-rolling are presented in Table 2. After performing the second cold-rolling, finish annealing was performed at 950\u00b0C for 30 seconds. As is apparent from table 2, a rolling reduction in the first cold-rolling was set to 31.4% to 36.4%. Then, a sample was taken from each steel strip after the finish annealing, and as magnetic properties thereof, a magnetic flux density B50 and an iron loss W15/50 were measured. Here, the iron loss W15/50 is an iron loss under a condition where a frequency is 50 Hz, and the maximum magnetic flux density is 1.5T. Results of these are also presented in Table 2.",
+        "[0034] Then, Epstein samples and tensile test pieces were cut out from the non-oriented electrical steel sheets. Next, magnetic properties were measured by using the Epstein samples, and mechanical properties were measured by using the tensile test pieces. Results thereof are shown in Table 3.",
+        "[0046] First, steel slabs each containing components presented in Table 5 and a balance composed of Fe and inevitable impurities were produced. Then, hot-rolling of each steel slab was conducted to produce a steel strip (hot-rolled sheet) having a thickness of 2.3 nm, and cold-rolling was performed twice. At this time, although the first cold-rolling was started without performing hot-rolled sheet annealing after the hot-rolling in conditions No. 21, No. 23 and No. 24, the first coldrolling was conducted after performing the hot-rolled sheet annealing at 950\u00b0C for 2 minutes in a condition No. 22. Further, intermediate annealing was conducted at 980\u00b0C for 1 minute between the two times of cold-rolling. Finish temperatures in the hot-rolling are presented in Table 6. A thickness of each steel strip after the first cold-rolling was set to 0.8 mm, and a rolling reduction in the second cold-rolling was set to 62.5%, to thereby set a thickness of each steel strip after the second cold-rolling to 0.30 mm. After performing the second cold-rolling, finish annealing was performed at 950\u00b0C for 20 seconds. Further, a sample was taken from each steel strip after the finish annealing, and as magnetic properties thereof, the magnetic flux density B50 and the iron loss W10/400 were measured. Results of these are presented in Table 6.",
+        "[0039] Then, Epstein samples and tensile test pieces were cut out from the non-oriented electrical steel sheets. Next, magnetic properties were measured by using the Epstein samples, and mechanical properties were measured by using the tensile test pieces. Results thereof are shown in Table 5."
+      ],
+      "answer": " The components listed in Table 1 for the steel slab are C: 0.017 mass%, Si: 3.12 mass%, Al: 0.65 mass%, Ni: 2.54 mass%, P: 0.02 mass%, N: 0.003 mass%, and Ti: 0.18 mass%.\n\nAccording to [Source 1], these components were used to produce a non-oriented electrical steel sheet through hot-rolling, cold-rolling, and continuous finish annealing at 780\u00b0C for 20 seconds. The magnetic properties measured after processing include core loss W15/50, magnetic flux density B50, and core loss W10/1000. Tensile strength (TS), yield point (YP), and elongation (EL) were also measured as mechanical properties [Source 1, Source 3]. The values for these properties are shown in Table 1, but the excerpts do not provide a direct correlation between the components and the specific magnetic properties. However, it can be inferred that the composition of the steel slab may influence the magnetic properties of the resulting non-oriented electrical steel sheet.\n\nIt should be noted that [Source 2] describes a different process for producing a cold-rolled steel sheet, which includes two times of cold-rolling and intermediate annealing at 1000\u00b0C for 1 minute between the two cold-rollings. The magnetic properties measured in this case are magnetic flux density B50 and iron loss W15/50 [Source 2]. Although the components of the steel slab are not explicitly stated in [Source 2], they can be assumed to be similar to those in [Source 1] since both patents involve producing electrical steel sheets with a similar composition.\n\nWithout further information, it is not possible to determine how the specific components in the steel slab directly relate to the measured magnetic properties after processing.",
+      "retriever_stats": {
+        "total_results": 5,
+        "bm25_hits": 3,
+        "semantic_hits": 3,
+        "graph_hits": 1,
+        "multi_retriever_hits": 2
+      },
+      "retrieved_chunks": [
+        {
+          "chunk_id": "EP2390376_0059",
+          "patent_id": "EP2390376",
+          "section": "",
+          "page": "",
+          "rrf_score": 0.029877369007803793,
+          "content_preview": "[0027] The present inventors confirmed these effects by the following experiments. First, a slab containing C: 0.017 mass%, Si: 3.12 mass%, Al: 0.65 mass%, Ni: 2.54 mass%, P: 0.02 mass%, N: 0.003 mass"
+        },
+        {
+          "chunk_id": "EP2602335_0074",
+          "patent_id": "EP2602335",
+          "section": "",
+          "page": "",
+          "rrf_score": 0.02420594262295082,
+          "content_preview": "[0029] The present inventors first produced steel slabs each containing components presented in Table 1 and a balance composed of Fe and inevitable impurities. Then, hot-rolling of each steel slab was"
+        },
+        {
+          "chunk_id": "EP2390376_0085",
+          "patent_id": "EP2390376",
+          "section": "",
+          "page": "",
+          "rrf_score": 0.01639344262295082,
+          "content_preview": "[0034] Then, Epstein samples and tensile test pieces were cut out from the non-oriented electrical steel sheets. Next, magnetic properties were measured by using the Epstein samples, and mechanical pr"
+        },
+        {
+          "chunk_id": "EP2602335_0119",
+          "patent_id": "EP2602335",
+          "section": "",
+          "page": "",
+          "rrf_score": 0.016129032258064516,
+          "content_preview": "[0046] First, steel slabs each containing components presented in Table 5 and a balance composed of Fe and inevitable impurities were produced. Then, hot-rolling of each steel slab was conducted to pr"
+        },
+        {
+          "chunk_id": "EP2390376_0095",
+          "patent_id": "EP2390376",
+          "section": "",
+          "page": "",
+          "rrf_score": 0.016129032258064516,
+          "content_preview": "[0039] Then, Epstein samples and tensile test pieces were cut out from the non-oriented electrical steel sheets. Next, magnetic properties were measured by using the Epstein samples, and mechanical pr"
+        }
+      ],
+      "metadata": {
+        "model": "ollama/mistral:7b",
+        "chunk_count": 5,
+        "total_retrieved": 5,
+        "temperature": 0.0
+      }
+    },
+    {
+      "id": "G12",
+      "category": "multi_hop_specific_query_synthesizer",
+      "retrieval_type": "hybrid",
+      "question": "How does the addition of REMs to steel influence the precipitation of TiN and TiC, and what is the resulting effect on the properties of electrical steel?",
+      "ground_truth": "The addition of REMs (rare earth metals) to steel leads to the formation of REM oxysulfides, which have a crystalline structure closely resembling that of TiN. This similarity promotes the coprecipitation of TiN on REM oxysulfides when the amounts of REM, O, S, Ti, and N are within suitable ranges. TiN precipitates at high temperatures (1200 to 1300\u00b0C) during processes like casting or slab reheating and becomes fixed in the steel. Once Ti is fixed as TiN, it does not redissolve during lower temperature processes such as finish annealing or stress relief annealing, preventing the precipitation of TiC, which typically forms at lower temperatures (700 to 800\u00b0C). As a result, the formation of fine TiC is suppressed, leading to low core loss non-oriented electrical steel sheet with good growth of crystal grains.",
+      "contexts": [
+        "5) In the above way, by fixing a large amount of Ti in the steel by coprecipitation on the REM oxysulfides in the form of TiN, it is possible to suppress the precipitation of fine TiC conventionally somewhat inevitably occurring at the low temperature parts during finish annealing or stress relief annealing and obtain low core loss non-oriented electrical steel sheet with good growth of crystal grains.",
+        "[0002] More specifically, the present invention makes TiN sufficiently coprecipitate in REM sulfides in non-oriented electrical steel sheet and thereby provides non-oriented electrical steel sheet which decreases the solid solution Ti in the steel, suppresses the precipitation of fine TiC easily occurring at low temperature parts when annealing the steel sheet, and as a result is superior in crystal grain growth and low in core loss.",
+        "[0067] Further, they discovered that if the steel contains REM oxysulfides having cracks or fractures, when the ratio of number of REM oxysulfides bonded with TiN among the REM oxysulfides of a size of 1 Pm to 5 Pm having cracks or fractures is 5% or more, a larger amount of Ti is fixed on the REM oxysulfides as TiN and the effect of suppression of the formation of TiC is strengthened more.",
+        "[0126] [Ca] and [Mg]: Ca and Mg are desulfurization elements. They react with the S in the steel to form sulfides and thereby fix the S. However, unlike REMs, they have little effect of causing coprecipitation of TiN.",
+        "[0016] Further, US-B1-6290783 discloses the addition of Ti and Zr in controlled amounts together with REMs for effective precipitation of nitrides on REM oxide or REM sulfide. Nevertheless, TiN is known to adhere on REM-oxysulfides as EP-A1-1632582 reveals."
+      ],
+      "answer": " The addition of REMs (Rare Earth Metals) to steel significantly influences the precipitation of TiN and TiC during annealing processes. According to [Source 1] and [Source 2], the REMs facilitate the coprecipitation of TiN in REM sulfides, which decreases the solid solution Ti in the steel and suppresses the precipitation of fine TiC at low-temperature parts. This coprecipitation leads to superior crystal grain growth and lower core loss in non-oriented electrical steel sheet ([Source 2]).\n\nFurthermore, it is discovered that if the steel contains REM oxysulfides with cracks or fractures, when the ratio of number of REM oxysulfides bonded with TiN among the REM oxysulfides of a size between 1 Pm to 5 Pm having cracks or fractures is 5% or more, a larger amount of Ti is fixed on the REM oxysulfides as TiN, and the effect of suppression of the formation of TiC is strengthened ([Source 3]).\n\nHowever, Ca and Mg, which are desulfurization elements, have little effect on causing coprecipitation of TiN compared to REMs ([Source 4]). Additionally, it's known that TiN adheres on REM-oxysulfides ([Source 5]), but the patent excerpts do not provide information about the specific amount or ratio of REMs and Ti required for optimal coprecipitation.",
+      "retriever_stats": {
+        "total_results": 5,
+        "bm25_hits": 5,
+        "semantic_hits": 4,
+        "graph_hits": 0,
+        "multi_retriever_hits": 4
+      },
+      "retrieved_chunks": [
+        {
+          "chunk_id": "EP1816226_0100",
+          "patent_id": "EP1816226",
+          "section": "",
+          "page": "",
+          "rrf_score": 0.03128054740957967,
+          "content_preview": "5) In the above way, by fixing a large amount of Ti in the steel by coprecipitation on the REM oxysulfides in the form of TiN, it is possible to suppress the precipitation of fine TiC conventionally s"
+        },
+        {
+          "chunk_id": "EP1816226_0049",
+          "patent_id": "EP1816226",
+          "section": "",
+          "page": "",
+          "rrf_score": 0.030158730158730156,
+          "content_preview": "[0002] More specifically, the present invention makes TiN sufficiently coprecipitate in REM sulfides in non-oriented electrical steel sheet and thereby provides non-oriented electrical steel sheet whi"
+        },
+        {
+          "chunk_id": "EP1816226_0135",
+          "patent_id": "EP1816226",
+          "section": "",
+          "page": "",
+          "rrf_score": 0.02821939586645469,
+          "content_preview": "[0067] Further, they discovered that if the steel contains REM oxysulfides having cracks or fractures, when the ratio of number of REM oxysulfides bonded with TiN among the REM oxysulfides of a size o"
+        },
+        {
+          "chunk_id": "EP1816226_0224",
+          "patent_id": "EP1816226",
+          "section": "",
+          "page": "",
+          "rrf_score": 0.02819138376017471,
+          "content_preview": "[0126] [Ca] and [Mg]: Ca and Mg are desulfurization elements. They react with the S in the steel to form sulfides and thereby fix the S. However, unlike REMs, they have little effect of causing coprec"
+        },
+        {
+          "chunk_id": "EP1816226_0063",
+          "patent_id": "EP1816226",
+          "section": "",
+          "page": "",
+          "rrf_score": 0.01639344262295082,
+          "content_preview": "[0016] Further, US-B1-6290783 discloses the addition of Ti and Zr in controlled amounts together with REMs for effective precipitation of nitrides on REM oxide or REM sulfide. Nevertheless, TiN is kno"
+        }
+      ],
+      "metadata": {
+        "model": "ollama/mistral:7b",
+        "chunk_count": 5,
+        "total_retrieved": 5,
+        "temperature": 0.0
+      }
+    }
+  ],
+  "ragas_metrics": {
+    "faithfulness": 0.7607994817360142,
+    "answer_relevancy": 0.29096321071496,
+    "context_precision": 0.8930555555157523,
+    "context_recall": 0.545138888888889
+  },
+  "evaluation_timestamp": "2026-02-13T23:45:35.124090",
+  "category_statistics": {
+    "single_hop_specific_query_synthesizer": {
+      "count": 4,
+      "avg_contexts": 5.0,
+      "avg_bm25_hits": 4.75,
+      "avg_semantic_hits": 4.5,
+      "avg_graph_hits": 0.0
+    },
+    "multi_hop_abstract_query_synthesizer": {
+      "count": 4,
+      "avg_contexts": 5.0,
+      "avg_bm25_hits": 4.75,
+      "avg_semantic_hits": 4.75,
+      "avg_graph_hits": 0.0
+    },
+    "multi_hop_specific_query_synthesizer": {
+      "count": 4,
+      "avg_contexts": 5.0,
+      "avg_bm25_hits": 4.25,
+      "avg_semantic_hits": 4.25,
+      "avg_graph_hits": 0.5
+    }
+  }
+}
