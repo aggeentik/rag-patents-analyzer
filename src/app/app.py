@@ -562,19 +562,11 @@ def main():
         st.header("Search")
         top_k = st.slider(
             "Search results to retrieve",
-            3,
-            20,
+            5,
+            15,
             10,
             key="top_k",
-            help="Higher values include more results based on related topics and connections",
-        )
-        max_context = st.slider(
-            "Search results used per answer",
-            1,
-            10,
-            5,
-            key="max_ctx",
-            help="How much information is used to generate the answer (Context chunks)",
+            help="Number of chunks retrieved and used as context for the answer",
         )
         with st.expander("Settings"):
             st.slider(
@@ -673,7 +665,7 @@ def main():
             stream, answer_meta = build_answer_stream(
                 query=query.strip(),
                 results=results,
-                max_context_chunks=max_context,
+                max_context_chunks=top_k,
             )
             _pending_stream = stream
             _pending_answer_meta = answer_meta
@@ -749,6 +741,7 @@ def main():
             stat_cols[3].metric("Multi-retriever", stats.get("multi_retriever_hits", 0))
 
             meta = answer["metadata"]
+            reranker_status = "on" if init_reranker() is not None else "off"
             st.caption(
                 "Model: " + meta.get("model", "?") + "  |  "
                 "Context: "
@@ -756,6 +749,7 @@ def main():
                 + "/"
                 + str(meta.get("total_retrieved", 0))
                 + " chunks"
+                + "  |  Reranker: " + reranker_status
             )
 
         # PDF viewer panel
