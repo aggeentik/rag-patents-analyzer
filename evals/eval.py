@@ -18,16 +18,16 @@ from pathlib import Path
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-import argparse  # noqa: E402
-import json  # noqa: E402
-import logging  # noqa: E402
-from datetime import datetime  # noqa: E402
-from typing import Any  # noqa: E402
+import argparse
+import json
+import logging
+from datetime import datetime
+from typing import Any
 
-from src.knowledge_graph.store import KnowledgeGraphStore  # noqa: E402
-from src.llm import AnswerGenerator, LLMClient  # noqa: E402
-from src.logging_config import setup_logging  # noqa: E402
-from src.retrieval import (  # noqa: E402
+from src.knowledge_graph.store import KnowledgeGraphStore
+from src.llm import AnswerGenerator, LLMClient
+from src.logging_config import setup_logging
+from src.retrieval import (
     BM25Retriever,
     GraphRetriever,
     HybridRetriever,
@@ -38,9 +38,50 @@ logger = logging.getLogger(__name__)
 
 
 def load_dataset(dataset_path: str) -> dict[str, Any]:
-    """Load RAGAS dataset from JSON file."""
+    """Load dataset from JSON file, supporting both custom and RAGAS-native formats.
+
+    Custom format: {"metadata": {...}, "test_cases": [{"id", "question", "ground_truth", ...}]}
+    RAGAS-native format: [{"user_input", "reference", "reference_contexts", "synthesizer_name"}]
+
+    Both are normalized into the custom format structure for downstream processing.
+    """
     with open(dataset_path, "r") as f:
-        return json.load(f)
+        raw = json.load(f)
+
+    # Already in custom format
+    if isinstance(raw, dict) and "test_cases" in raw:
+        return raw
+
+    # RAGAS-native format (list of records from TestsetGenerator)
+    if isinstance(raw, list) and raw and "user_input" in raw[0]:
+        categories = sorted({r.get("synthesizer_name", "generated") for r in raw})
+        test_cases = []
+        for idx, record in enumerate(raw, 1):
+            test_cases.append(
+                {
+                    "id": f"G{idx}",
+                    "question": record["user_input"],
+                    "ground_truth": record.get("reference", ""),
+                    "category": record.get("synthesizer_name", "generated"),
+                    "retrieval_type": "hybrid",
+                    "reference_contexts": record.get("reference_contexts", []),
+                }
+            )
+        return {
+            "metadata": {
+                "description": "RAGAS-generated synthetic dataset",
+                "total_questions": len(test_cases),
+                "categories": categories,
+                "format": "ragas_native",
+            },
+            "test_cases": test_cases,
+        }
+
+    raise ValueError(
+        f"Unrecognized dataset format in {dataset_path}. "
+        "Expected either custom format (dict with 'test_cases') or "
+        "RAGAS-native format (list of records with 'user_input')."
+    )
 
 
 def load_chunks(chunks_path: str) -> list[dict[str, Any]]:
@@ -54,23 +95,15 @@ def initialize_retrievers(chunks: list[dict[str, Any]], data_dir: Path) -> Hybri
     """Initialize BM25, Semantic, and Graph retrievers and combine them."""
     logger.info("Loading retrievers...")
 
-    # Load BM25
     bm25 = BM25Retriever.load(str(data_dir / "bm25_index.pkl"), chunks)
-    logger.info(f"✓ BM25 retriever loaded with {len(chunks)} chunks")
-
-    # Load Semantic
     semantic = SemanticRetriever.load(
         str(data_dir / "faiss.index"), str(data_dir / "chunk_ids.json"), chunks
     )
-    logger.info(f"✓ Semantic retriever loaded with {len(chunks)} chunks")
 
-    # Load Graph
     kg_store = KnowledgeGraphStore(str(data_dir / "knowledge_graph.db"))
     kg_store.connect()
     graph = GraphRetriever.load("", chunks, kg_store, max_hops=2, score_decay=0.5)
-    logger.info("✓ Graph retriever loaded")
 
-    # Create hybrid retriever
     hybrid = HybridRetriever(
         bm25_retriever=bm25,
         semantic_retriever=semantic,
@@ -78,8 +111,7 @@ def initialize_retrievers(chunks: list[dict[str, Any]], data_dir: Path) -> Hybri
         weights={"bm25": 1.0, "semantic": 1.0, "graph": 0.5},
         rrf_k=60,
     )
-    logger.info("✓ Hybrid retriever initialized")
-
+    logger.info(f"Hybrid retriever initialized with {len(chunks)} chunks")
     return hybrid
 
 
@@ -115,38 +147,26 @@ def run_evaluation(
         ground_truth = test_case["ground_truth"]
         category = test_case["category"]
 
-        logger.info(f"\n{'=' * 80}")
-        logger.info(f"[{idx}/{total}] {question_id}: {category}")
-        logger.info(f"Question: {question}")
-        logger.info(f"{'=' * 80}")
+        logger.info(f"[{idx}/{total}] {question_id} ({category}): {question}")
 
         try:
-            # Retrieve contexts
-            logger.info(f"Retrieving top {top_k} chunks...")
             retrieved_chunks = hybrid_retriever.search(question, top_k=top_k)
-
-            # Extract context strings
             context_list = [chunk["content"] for chunk in retrieved_chunks]
-
-            # Get retriever statistics
             stats = hybrid_retriever.get_retriever_stats(retrieved_chunks)
-            logger.info(
+            logger.debug(
                 f"Retriever stats: BM25={stats['bm25_hits']}, "
                 f"Semantic={stats['semantic_hits']}, Graph={stats['graph_hits']}"
             )
 
-            # Generate answer
-            logger.info("Generating answer...")
             result = answer_generator.generate_answer(
                 question=question,
                 retrieved_chunks=retrieved_chunks,
                 temperature=0.0,
-                stream=False,  # Don't stream during evaluation
+                stream=False,
             )
 
             answer = result["answer"]
-
-            logger.info(f"\nGenerated Answer:\n{answer[:200]}...")
+            logger.debug(f"Answer: {answer[:200]}...")
 
             # Store results
             results["questions"].append(question)
@@ -158,7 +178,7 @@ def run_evaluation(
             detailed = {
                 "id": question_id,
                 "category": category,
-                "retrieval_type": test_case["retrieval_type"],
+                "retrieval_type": test_case.get("retrieval_type", "hybrid"),
                 "question": question,
                 "ground_truth": ground_truth,
                 "contexts": context_list,
@@ -193,6 +213,96 @@ def run_evaluation(
     return results
 
 
+def _extract_numeric_values(source: Any) -> dict[str, float]:
+    """Extract string->float pairs from a dict-like object, handling nested dicts.
+
+    Uses float() conversion instead of isinstance to handle numpy scalar types
+    (e.g. numpy.float64) that RAGAS may return.
+    """
+    result = {}
+    items = source.items() if hasattr(source, "items") else []
+    for key, value in items:
+        try:
+            result[key] = float(value)
+        except (TypeError, ValueError):
+            if isinstance(value, dict):
+                for nested_val in value.values():
+                    try:
+                        result[key] = float(nested_val)
+                        break
+                    except (TypeError, ValueError):
+                        continue
+    return result
+
+
+def _build_ragas_llm(
+    ragas_model: str | None, llm_client: LLMClient | None, ChatLiteLLM: type
+) -> Any:
+    """Build the LangChain LLM instance for RAGAS evaluation."""
+    if ragas_model:
+        logger.info(f"Using dedicated LLM for RAGAS evaluation: {ragas_model}")
+        if ragas_model.startswith("gpt-") and not ragas_model.startswith("gpt-4o"):
+            from langchain_openai import ChatOpenAI
+
+            return ChatOpenAI(model=ragas_model)
+        return ChatLiteLLM(model=ragas_model)
+
+    if llm_client:
+        logger.info(f"Using main LLM for RAGAS evaluation: {llm_client.model}")
+        return ChatLiteLLM(model=llm_client.model)
+
+    from langchain_openai import ChatOpenAI
+
+    logger.info("Using OpenAI GPT-3.5-turbo for RAGAS metrics")
+    return ChatOpenAI(model="gpt-3.5-turbo")
+
+
+def _parse_evaluation_results(evaluation_results: Any) -> dict[str, float]:
+    """
+    Parse RAGAS evaluation results into a flat {metric_name: score} dict.
+
+    Handles multiple RAGAS result formats:
+    1. dict-like objects (EvaluationResult with __iter__)
+    2. Objects with a .scores DataFrame or list attribute
+    3. Objects with named metric attributes
+    """
+    logger.debug(f"Parsing {type(evaluation_results).__name__}: {repr(evaluation_results)[:200]}")
+
+    # Strategy 1: _repr_dict (RAGAS 0.4.x stores aggregated means here)
+    if hasattr(evaluation_results, "_repr_dict"):
+        metrics = _extract_numeric_values(evaluation_results._repr_dict)
+        if metrics:
+            return metrics
+
+    # Strategy 2: dict() conversion (older RAGAS versions)
+    try:
+        metrics = _extract_numeric_values(dict(evaluation_results))
+        if metrics:
+            return metrics
+    except (TypeError, ValueError):
+        pass
+
+    # Strategy 3: .scores attribute (list of per-row dicts)
+    if hasattr(evaluation_results, "scores"):
+        scores = evaluation_results.scores
+        if isinstance(scores, (list, tuple)):
+            metric_values: dict[str, list[float]] = {}
+            for entry in scores:
+                if isinstance(entry, dict):
+                    for key, value in entry.items():
+                        try:
+                            metric_values.setdefault(key, []).append(float(value))
+                        except (TypeError, ValueError):
+                            continue
+            return {k: sum(v) / len(v) for k, v in metric_values.items() if v}
+        if hasattr(scores, "mean"):
+            mean_scores = scores.mean()
+            if hasattr(mean_scores, "to_dict"):
+                return {k: float(v) for k, v in mean_scores.to_dict().items()}
+
+    return {}
+
+
 def calculate_ragas_metrics(
     results: dict[str, Any], llm_client: LLMClient | None = None, ragas_model: str | None = None
 ) -> dict[str, float]:
@@ -202,84 +312,49 @@ def calculate_ragas_metrics(
     Requires: pip install ragas
     """
     try:
-        import warnings  # noqa: PLC0415
+        import warnings
 
-        # Suppress RAGAS deprecation warnings
-        # Note: Using legacy metrics API (deprecated but functional with LangChain LLMs)
-        # RAGAS v1.0+ API requires using llm_factory() which is incompatible with LangChain
+        # Suppress RAGAS deprecation warnings for legacy metrics API
         warnings.filterwarnings("ignore", category=DeprecationWarning, message=".*ragas.metrics.*")
 
-        from datasets import Dataset  # noqa: PLC0415  # type: ignore[attr-defined]
-        from ragas import evaluate  # noqa: PLC0415
-        from ragas.metrics import (  # noqa: PLC0415
+        from datasets import Dataset  # type: ignore[attr-defined]
+        from ragas import evaluate
+        from ragas.metrics import (
             answer_relevancy,
             context_precision,
             context_recall,
             faithfulness,
         )
 
-        # Try to import from new LangChain packages first, fall back to old ones
         try:
-            from langchain_litellm import ChatLiteLLM  # noqa: PLC0415
+            from langchain_litellm import ChatLiteLLM
         except ImportError:
-            from langchain_community.chat_models import ChatLiteLLM  # noqa: PLC0415
+            from langchain_community.chat_models import ChatLiteLLM
 
         try:
-            from langchain_huggingface import HuggingFaceEmbeddings  # noqa: PLC0415
+            from langchain_huggingface import HuggingFaceEmbeddings
         except ImportError:
-            from langchain_community.embeddings import HuggingFaceEmbeddings  # noqa: PLC0415
+            from langchain_community.embeddings import HuggingFaceEmbeddings
 
     except ImportError as e:
-        logger.warning(f"RAGAS library not installed or import error: {e}")
-        logger.info("To install: uv pip install ragas datasets langchain-community")
+        logger.warning(f"RAGAS not installed: {e}. Install with: uv sync --group evals")
         return {}
 
-    logger.info("\n" + "=" * 80)
     logger.info("Calculating RAGAS metrics...")
-    logger.info("=" * 80)
 
     try:
-        # Configure RAGAS LLM
-        if ragas_model:
-            # Use the specified RAGAS model (e.g., gpt-3.5-turbo, gpt-4, azure/gpt-4)
-            logger.info(f"Using dedicated LLM for RAGAS evaluation: {ragas_model}")
-            if ragas_model.startswith("gpt-") and not ragas_model.startswith("gpt-4o"):
-                # Standard OpenAI model
-                from langchain_openai import ChatOpenAI  # noqa: PLC0415
-
-                llm = ChatOpenAI(model=ragas_model)
-            elif ragas_model.startswith("azure/"):
-                # Azure OpenAI - use LiteLLM which handles Azure format
-                logger.info("Using Azure OpenAI endpoint")
-                llm = ChatLiteLLM(model=ragas_model)  # type: ignore[assignment]
-            else:
-                # LiteLLM for other providers (including gpt-4o, anthropic, etc.)
-                llm = ChatLiteLLM(model=ragas_model)  # type: ignore[assignment]
-        elif llm_client:
-            # Use the main LLM client
-            logger.info(f"Using main LLM for RAGAS evaluation: {llm_client.model}")
-            llm = ChatLiteLLM(model=llm_client.model)  # type: ignore[assignment]
-        else:
-            # Fallback to OpenAI
-            from langchain_openai import ChatOpenAI  # noqa: PLC0415
-
-            logger.info("Using OpenAI GPT-3.5-turbo for RAGAS metrics")
-            llm = ChatOpenAI(model="gpt-3.5-turbo")
-
-        # Use HuggingFace embeddings (same as retrieval system)
+        llm = _build_ragas_llm(ragas_model, llm_client, ChatLiteLLM)
         embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
 
-        # Create dataset for RAGAS
-        data = {
-            "question": results["questions"],
-            "answer": results["answers"],
-            "contexts": results["contexts"],
-            "ground_truth": results["ground_truths"],
-        }
+        dataset = Dataset.from_dict(
+            {
+                "question": results["questions"],
+                "answer": results["answers"],
+                "contexts": results["contexts"],
+                "ground_truth": results["ground_truths"],
+            }
+        )
 
-        dataset = Dataset.from_dict(data)
-
-        # Calculate metrics with custom LLM and embeddings
         logger.info(
             "Computing faithfulness, answer_relevancy, context_precision, context_recall..."
         )
@@ -290,222 +365,82 @@ def calculate_ragas_metrics(
             embeddings=embeddings,
         )
 
-        # Convert to dict (evaluation_results is an EvaluationResult object or DataFrame)
-        metrics_dict = {}
-
-        logger.info(f"Evaluation results type: {type(evaluation_results)}")
-        logger.debug(f"Evaluation results repr: {repr(evaluation_results)}")
-
-        try:
-            # RAGAS v1.0+ returns an EvaluationResult object with a 'scores' attribute
-            if hasattr(evaluation_results, "scores"):
-                logger.info("Extracting metrics from .scores attribute...")
-                scores = evaluation_results.scores
-
-                # scores could be a DataFrame or a list of dicts
-                if hasattr(scores, "to_dict"):
-                    # It's a DataFrame - get the mean of each column
-                    logger.info("Converting scores DataFrame to dict...")
-                    if hasattr(scores, "mean"):
-                        # Get mean values
-                        mean_scores = scores.mean()
-                        if hasattr(mean_scores, "to_dict"):
-                            metrics_dict = {k: float(v) for k, v in mean_scores.to_dict().items()}
-                        else:
-                            # mean_scores might be a Series, try direct iteration
-                            for key in scores.columns:
-                                metrics_dict[key] = float(scores[key].mean())
-                    else:
-                        # No mean method, try to_dict directly
-                        scores_dict = scores.to_dict()
-                        # Might be column-oriented like {'metric': {0: val1, 1: val2}}
-                        for key, values in scores_dict.items():
-                            if isinstance(values, dict):
-                                # Extract any numeric value
-                                for val in values.values():
-                                    if isinstance(val, (int, float)):
-                                        metrics_dict[key] = float(val)
-                                        break
-                            elif isinstance(values, (int, float)):
-                                metrics_dict[key] = float(values)
-
-                elif isinstance(scores, (list, tuple)) and len(scores) > 0:
-                    # It's a list of score dicts - aggregate them
-                    logger.info(f"Aggregating {len(scores)} score entries...")
-                    # Collect all values for each metric
-                    metric_values = {}
-                    for score_entry in scores:
-                        if isinstance(score_entry, dict):
-                            for key, value in score_entry.items():
-                                if isinstance(value, (int, float)):
-                                    if key not in metric_values:
-                                        metric_values[key] = []
-                                    metric_values[key].append(float(value))
-
-                    # Calculate means
-                    for key, values in metric_values.items():
-                        if values:
-                            metrics_dict[key] = sum(values) / len(values)
-
-            # Fallback: Try dict() conversion (for dict-like objects)
-            if not metrics_dict:
-                try:
-                    logger.info("Trying dict() conversion...")
-                    result_dict = dict(evaluation_results)
-                    logger.info(f"Converted to dict: {result_dict}")
-
-                    for key, value in result_dict.items():
-                        if isinstance(value, (int, float)):
-                            metrics_dict[key] = float(value)
-                        elif isinstance(value, dict) and len(value) > 0:
-                            # Handle nested dict
-                            for nested_val in value.values():
-                                if isinstance(nested_val, (int, float)):
-                                    metrics_dict[key] = float(nested_val)
-                                    break
-
-                except (TypeError, ValueError) as e:
-                    logger.debug(f"dict() conversion failed: {e}")
-
-                # Try direct dictionary access (for dict instances)
-                if isinstance(evaluation_results, dict):
-                    logger.info("Parsing as dict...")
-                    for key, value in evaluation_results.items():
-                        if isinstance(value, (int, float)):
-                            metrics_dict[key] = float(value)
-                        elif isinstance(value, dict) and len(value) > 0:
-                            for nested_val in value.values():
-                                if isinstance(nested_val, (int, float)):
-                                    metrics_dict[key] = float(nested_val)
-                                    break
-
-                # Try to_dict() method (for pandas DataFrame and some Result objects)
-                elif hasattr(evaluation_results, "to_dict"):
-                    logger.info("Parsing with to_dict()...")
-                    result_dict = evaluation_results.to_dict()
-                    logger.debug(f"Result dict: {result_dict}")
-
-                    for key, value in result_dict.items():
-                        if isinstance(value, (int, float)):
-                            metrics_dict[key] = float(value)
-                        elif isinstance(value, dict) and len(value) > 0:
-                            for nested_val in value.values():
-                                if isinstance(nested_val, (int, float)):
-                                    metrics_dict[key] = float(nested_val)
-                                    break
-
-                # Try as object attributes (for Result objects)
-                else:
-                    logger.info("Parsing as object attributes...")
-                    for attr in [
-                        "faithfulness",
-                        "answer_relevancy",
-                        "context_precision",
-                        "context_recall",
-                    ]:
-                        if hasattr(evaluation_results, attr):
-                            value = getattr(evaluation_results, attr)
-                            if isinstance(value, (int, float)):
-                                metrics_dict[attr] = float(value)
-
-            logger.info(f"Extracted metrics: {metrics_dict}")
-
-            if not metrics_dict:
-                logger.warning("No metrics extracted! Trying alternative approaches...")
-                # Last resort: check if it's a pandas DataFrame with mean values
-                if hasattr(evaluation_results, "mean"):
-                    logger.info("Trying DataFrame.mean()...")
-                    mean_values = evaluation_results.mean()
-                    if hasattr(mean_values, "to_dict"):
-                        metrics_dict = {k: float(v) for k, v in mean_values.to_dict().items()}
-
-        except Exception as e:
-            logger.error(f"Error parsing evaluation results: {e}")
-            logger.info(f"Evaluation results type: {type(evaluation_results)}")
-            logger.info(f"Evaluation results dir: {dir(evaluation_results)}")
-            # Try to show the actual structure
-            if hasattr(evaluation_results, "__dict__"):
-                logger.info(f"Evaluation results __dict__: {evaluation_results.__dict__}")
-
+        metrics_dict = _parse_evaluation_results(evaluation_results)
+        if metrics_dict:
+            logger.info(f"RAGAS metrics: {metrics_dict}")
+        else:
+            logger.warning(
+                f"Could not extract metrics from {type(evaluation_results).__name__}. "
+                f"Available attrs: {[a for a in dir(evaluation_results) if not a.startswith('_')]}"
+            )
         return metrics_dict
 
     except Exception as e:
-        error_msg = str(e)
-        logger.error(f"Error calculating RAGAS metrics: {error_msg}")
-        logger.warning("\n" + "!" * 80)
-        logger.warning("RAGAS metrics calculation failed.")
-        logger.warning("If using Ollama, make sure the model is running: ollama list")
-        logger.warning("If using Bedrock, check AWS credentials are configured.")
-        logger.warning("Evaluation results are still saved without RAGAS metrics.")
-        logger.warning("!" * 80 + "\n")
+        logger.error(f"RAGAS metrics calculation failed: {e}")
+        logger.warning(
+            "If using Ollama, ensure the model is running (ollama list). "
+            "If using Bedrock, check AWS credentials. "
+            "Results are saved without RAGAS metrics."
+        )
         return {}
 
 
 def generate_report(results: dict[str, Any], ragas_metrics: dict[str, float], output_path: str):
     """Generate comprehensive evaluation report."""
-
-    # Add RAGAS metrics to results
     results["ragas_metrics"] = ragas_metrics
     results["evaluation_timestamp"] = datetime.now().isoformat()
 
     # Calculate category-wise statistics
-    category_stats = {}
+    category_stats: dict[str, dict[str, Any]] = {}
+    avg_fields = ["avg_contexts", "avg_bm25_hits", "avg_semantic_hits", "avg_graph_hits"]
+    retriever_field_map = {
+        "avg_bm25_hits": "bm25_hits",
+        "avg_semantic_hits": "semantic_hits",
+        "avg_graph_hits": "graph_hits",
+    }
+
     for detail in results["detailed_results"]:
         category = detail.get("category", "Unknown")
         if category not in category_stats:
-            category_stats[category] = {
-                "count": 0,
-                "avg_contexts": 0,
-                "avg_bm25_hits": 0,
-                "avg_semantic_hits": 0,
-                "avg_graph_hits": 0,
-            }
+            category_stats[category] = {"count": 0, **dict.fromkeys(avg_fields, 0)}
 
         stats = category_stats[category]
         stats["count"] += 1
         stats["avg_contexts"] += len(detail.get("contexts", []))
 
         retriever_stats = detail.get("retriever_stats", {})
-        stats["avg_bm25_hits"] += retriever_stats.get("bm25_hits", 0)
-        stats["avg_semantic_hits"] += retriever_stats.get("semantic_hits", 0)
-        stats["avg_graph_hits"] += retriever_stats.get("graph_hits", 0)
+        for avg_field, retriever_field in retriever_field_map.items():
+            stats[avg_field] += retriever_stats.get(retriever_field, 0)
 
-    # Average out
-    for _category, stats in category_stats.items():
+    for stats in category_stats.values():
         count = stats["count"]
         if count > 0:
-            stats["avg_contexts"] = stats["avg_contexts"] / count  # type: ignore[assignment]
-            stats["avg_bm25_hits"] = stats["avg_bm25_hits"] / count  # type: ignore[assignment]
-            stats["avg_semantic_hits"] = stats["avg_semantic_hits"] / count  # type: ignore[assignment]
-            stats["avg_graph_hits"] = stats["avg_graph_hits"] / count  # type: ignore[assignment]
+            for field in avg_fields:
+                stats[field] = stats[field] / count
 
     results["category_statistics"] = category_stats
 
-    # Save to JSON (ensure output directory exists)
     Path(output_path).parent.mkdir(parents=True, exist_ok=True)
     with open(output_path, "w") as f:
         json.dump(results, f, indent=2)
 
-    logger.info(f"\n{'=' * 80}")
-    logger.info("EVALUATION COMPLETE")
-    logger.info(f"{'=' * 80}")
-    logger.info(f"Total questions evaluated: {len(results['questions'])}")
+    # Log summary
+    logger.info(f"Evaluation complete: {len(results['questions'])} questions evaluated")
 
     if ragas_metrics:
-        logger.info("\nRAGAS Metrics:")
-        for metric, value in ragas_metrics.items():
-            logger.info(f"  {metric}: {value:.4f}")
+        metrics_str = ", ".join(f"{m}: {v:.4f}" for m, v in ragas_metrics.items())
+        logger.info(f"RAGAS Metrics: {metrics_str}")
 
-    logger.info("\nCategory Statistics:")
     for category, stats in category_stats.items():
-        logger.info(f"\n  {category}:")
-        logger.info(f"    Questions: {stats['count']}")
-        logger.info(f"    Avg contexts retrieved: {stats['avg_contexts']:.1f}")
-        logger.info(f"    Avg BM25 hits: {stats['avg_bm25_hits']:.1f}")
-        logger.info(f"    Avg Semantic hits: {stats['avg_semantic_hits']:.1f}")
-        logger.info(f"    Avg Graph hits: {stats['avg_graph_hits']:.1f}")
+        logger.info(
+            f"  {category}: {stats['count']} questions, "
+            f"avg contexts={stats['avg_contexts']:.1f}, "
+            f"BM25={stats['avg_bm25_hits']:.1f}, "
+            f"Semantic={stats['avg_semantic_hits']:.1f}, "
+            f"Graph={stats['avg_graph_hits']:.1f}"
+        )
 
-    logger.info(f"\nDetailed results saved to: {output_path}")
+    logger.info(f"Results saved to: {output_path}")
 
 
 def main():
@@ -538,39 +473,28 @@ def main():
 
     args = parser.parse_args()
 
-    # Setup logging
-    log_level = logging.DEBUG if args.verbose else logging.INFO
-    setup_logging(level=log_level)
-
-    logger.info("=" * 80)
+    setup_logging(level=logging.DEBUG if args.verbose else logging.INFO)
     logger.info("Patents Analyzer - RAGAS Evaluation")
-    logger.info("=" * 80)
 
-    # Load dataset
-    logger.info(f"Loading dataset from {args.dataset}...")
+    # Load dataset and chunks
     dataset = load_dataset(args.dataset)
     logger.info(
         f"Loaded {len(dataset['test_cases'])} test cases across "
         f"{len(dataset['metadata']['categories'])} categories"
     )
 
-    # Load chunks
     data_dir = Path(args.data_dir)
-    chunks_path = data_dir / "patents.json"
-    logger.info(f"Loading chunks from {chunks_path}...")
-    chunks = load_chunks(str(chunks_path))
+    chunks = load_chunks(str(data_dir / "patents.json"))
     logger.info(f"Loaded {len(chunks)} chunks")
 
-    # Initialize retrievers
+    # Initialize retrieval and generation
     hybrid_retriever = initialize_retrievers(chunks, data_dir)
 
-    # Initialize LLM and answer generator
-    logger.info("Initializing LLM...")
     llm_client = LLMClient.from_env()
     answer_generator = AnswerGenerator(
         llm_client=llm_client, max_context_chunks=args.top_k, include_metadata=True
     )
-    logger.info(f"✓ Using LLM model: {llm_client.model}")
+    logger.info(f"Using LLM model: {llm_client.model}")
 
     # Run evaluation
     results = run_evaluation(
@@ -582,16 +506,13 @@ def main():
 
     # Calculate RAGAS metrics
     if args.skip_ragas:
-        logger.info("\n" + "=" * 80)
-        logger.info("Skipping RAGAS metrics calculation (--skip-ragas flag set)")
-        logger.info("=" * 80)
+        logger.info("Skipping RAGAS metrics (--skip-ragas)")
         ragas_metrics = {}
     else:
         ragas_metrics = calculate_ragas_metrics(
             results, llm_client=llm_client, ragas_model=args.ragas_model
         )
 
-    # Generate report
     generate_report(results, ragas_metrics, args.output)
 
 

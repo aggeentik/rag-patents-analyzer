@@ -32,7 +32,6 @@ evals = [
     # Core evaluation framework
     "ragas==0.4.3",
     "datasets==4.5.0",
-
     # LangChain integrations for RAGAS
     "langchain==1.2.10",
     "langchain-core==1.2.11",
@@ -41,44 +40,37 @@ evals = [
     "langchain-litellm==0.5.1",
     "langchain-openai==1.1.9",
     "langchain-text-splitters==1.1.0",
-
     # LangGraph (used by RAGAS internally)
     "langgraph==1.0.8",
     "langgraph-checkpoint==4.0.0",
     "langgraph-prebuilt==1.0.7",
     "langgraph-sdk==0.3.5",
     "langsmith==0.7.1",
-
     # Data serialization and processing
     "dataclasses-json==0.6.7",
     "marshmallow==3.26.2",
     "orjson==3.11.7",
     "ormsgpack==1.12.2",
-
     # Utilities
     "appdirs==1.4.4",
     "nest-asyncio==1.6.0",
     "requests-toolbelt==1.0.0",
     "sqlalchemy==2.0.46",
     "uuid-utils==0.14.0",
-
     # Performance and algorithms
     "scikit-network==0.33.5",
     "xxhash==3.6.0",
     "zstandard==0.25.0",
-
     # JSON utilities
     "jsonpatch==1.33",
     "jsonpointer==3.0.0",
-
     # Type checking utilities
     "typing-inspect==0.9.0",
-
     # HTTP/SSE support
     "httpx-sse==0.4.3",
-
     # Legacy LangChain (compatibility)
     "langchain-classic==1.0.1",
+    "rapidfuzz>=3.14.3",
 ]
 
 # Ruff configuration
@@ -118,6 +110,7 @@ ignore = [
 [tool.ruff.lint.per-file-ignores]
 # Scripts need sys.path manipulation before imports
 "scripts/*" = ["E402", "ARG001", "PLC0415"]
+"evals/*" = ["E402", "PLC0415"]
 # App has lazy imports for optional dependencies
 "src/app/app.py" = ["PLC0415"]
 # GraphRetriever has unused path args for interface compatibility with other retrievers
@@ -211,5 +204,6 @@ DEP002 = [
     "jsonpointer",
     "typing_inspect",
     "httpx_sse",
+    "rapidfuzz",
 ]
 DEP003 = ["numpy"] # numpy is a transitive dependency (via sentence-transformers, faiss)

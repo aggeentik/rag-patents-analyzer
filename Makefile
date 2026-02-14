@@ -1,4 +1,4 @@
-.PHONY: help install lint format typecheck security deps check all clean evaluate evaluate-quick report
+.PHONY: help install lint format typecheck security deps check all clean evaluate evaluate-quick report generate-dataset generate-dataset-large
 
 # Default target
 help:
@@ -16,6 +16,8 @@ help:
 	@echo "  evaluate          - Run full evaluation with RAGAS metrics (20 questions)"
 	@echo "  evaluate-quick    - Run quick evaluation test (3 questions)"
 	@echo "  report            - Generate evaluation report from latest results"
+	@echo "  generate-dataset  - Generate synthetic QA dataset (10 questions)"
+	@echo "  generate-dataset-large - Generate large synthetic QA dataset (50 questions)"
 	@echo "  clean             - Clean cache files"
 
 # Install development dependencies
@@ -124,3 +126,16 @@ report:
 		uv run python evals/eval_vis.py $(FILE) --markdown evals/experiments/$${BASENAME}_report.md; \
 		echo "Report saved: evals/experiments/$${BASENAME}_report.md"; \
 	fi
+
+# Generate synthetic QA dataset (10 questions)
+generate-dataset:
+	@echo "Generating synthetic QA dataset (10 questions)..."
+	uv run python evals/generate_dataset.py --testset-size 10
+	@echo "Dataset generated: evals/datasets/generated_testset.json"
+
+# Generate large synthetic QA dataset (50 questions)
+generate-dataset-large:
+	@echo "Generating large synthetic QA dataset (50 questions)..."
+	uv run python evals/generate_dataset.py --testset-size 50 \
+		--output evals/datasets/generated_testset_large.json
+	@echo "Dataset generated: evals/datasets/generated_testset_large.json"
