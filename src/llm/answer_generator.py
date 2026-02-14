@@ -201,32 +201,26 @@ class AnswerGenerator:
         return ""
 
     def _build_prompt(self, question: str, context: str) -> str:
-        """Build prompt with Chain-of-Note evaluation logic."""
+        """Build prompt with few-shot example for faithfulness."""
         prompt = f"""PATENT EXCERPTS:
 {context}
 
 QUESTION:
 {question}
 
-INSTRUCTIONS — follow these two steps in order:
+EXAMPLE of a good answer:
+Q: What is the Si content range?
+A: The Si content is 2.5% to 10% by mass [Source 1], which increases electrical resistance [Source 3].
 
-STEP 1 — EVALUATE (do this mentally, do NOT write it out):
-For each Source above, decide:
-  • "Technical Signal" — contains specific numbers, compositions, process parameters, or quantitative results relevant to the question.
-  • "General Background" — contains definitions, broad context, or information unrelated to the question.
-Only use "Technical Signal" sources to build your answer. Ignore "General Background" sources entirely.
+EXAMPLE of a bad answer (DO NOT do this):
+Q: What is the Si content range?
+A: Silicon is commonly used in electrical steel to improve properties. The Si content is typically around 2-10%.
+(Problems: no citations, "typically" is an estimate, first sentence is background noise)
 
-STEP 2 — ANSWER:
-Write your answer following this structure:
-  1. **Direct conclusion first** — state the key technical finding in 1–2 sentences with citations.
-  2. **Supporting data** — present the specific values, compositions, or parameters that support the conclusion. Cite every claim with [Source X].
-  3. **Gaps** — if the excerpts lack data to fully answer, state what is missing.
-
-RULES:
-- Use ONLY information explicitly stated in the excerpts. Do not infer or add outside knowledge.
-- Cite with [Source 1], [Source 2], etc. NEVER mention section names, page numbers, or patent IDs.
-- Prefer sources marked [HIGH-SIGNAL GRAPH CONNECTION] — they contain entity-linked technical data.
-- If no source contains relevant technical data for the question, say so directly.
+Now answer the QUESTION above. Structure your answer as:
+1. Direct conclusion (1-2 sentences with citations)
+2. Supporting data with exact values and citations
+3. Gaps — what data is missing from the sources
 
 ANSWER:"""
 
@@ -234,30 +228,14 @@ ANSWER:"""
 
     def _get_system_message(self) -> str:
         """Get system message for LLM."""
-        return """You are a Senior Patent Metallurgist with deep expertise in steel manufacturing, alloy design, and thermomechanical processing. You think like an engineer, not a summariser.
+        return """You are a Senior Patent Metallurgist. Follow these rules strictly:
 
-PRIORITY HIERARCHY — follow this strictly:
-1. HIGH-SIGNAL DATA (use as primary evidence):
-   - Numerical values: chemical compositions (e.g. Si 0.05–0.10 wt%), temperatures (e.g. 1150 °C), mechanical properties (e.g. yield stress ≥ 350 MPa)
-   - Specific process parameters: rolling speeds, annealing times, cooling rates
-   - Quantitative results from tables, formulas, and examples
-   - Sources marked [HIGH-SIGNAL GRAPH CONNECTION] — these contain precise entity-linked data
-
-2. BACKGROUND NOISE (ignore unless directly asked):
-   - Generic definitions ("Steel is an alloy of iron and carbon…")
-   - Broad industry context or prior-art summaries
-   - Vague statements without specific values or conditions
-
-CITATION RULES (mandatory):
-- For every sentence you write, you must first identify the [Source X] you are using. If you cannot find a specific [Source X] for a claim, do not include that claim in your answer.
-- Use ONLY [Source 1], [Source 2], etc. NEVER write section names, page numbers, or patent IDs in your text
-- If a claim draws from multiple sources, list them: [Source 1, Source 3]
-
-FAITHFULNESS:
-- State ONLY what is explicitly written in the provided excerpts
-- Do NOT infer, extrapolate, or add knowledge from outside the excerpts
-- If a specific value (e.g., an exact percentage or temperature) is not found in the provided sources, you must explicitly say "data not available in sources" rather than providing a general range or estimate
-- If the excerpts lack sufficient data, say so clearly"""
+1. Use ONLY information explicitly written in the provided sources. Never add outside knowledge.
+2. Every sentence must cite [Source X]. If no source supports a claim, do not write it.
+3. Use exact values from sources (e.g., "Si: 2.5%"). If a specific value is not found, write "data not available in sources" — never estimate or generalize.
+4. Prioritize sources marked [HIGH-SIGNAL GRAPH CONNECTION] — they contain precise entity-linked data.
+5. Ignore generic background (definitions of steel, broad industry context) unless directly asked.
+6. Use ONLY [Source 1], [Source 2] etc. for citations. Never write section names, page numbers, or patent IDs."""
 
     def generate_summary(self, chunks: list[dict]) -> str:
         """
