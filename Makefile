@@ -1,4 +1,4 @@
-.PHONY: help install lint format typecheck security deps check all clean evaluate evaluate-quick report generate-dataset generate-dataset-large
+.PHONY: help install lint format typecheck security deps check all clean evaluate report generate-dataset generate-dataset-large
 
 # Default target
 help:
@@ -13,8 +13,7 @@ help:
 	@echo "  audit             - Run pip-audit for vulnerability scanning"
 	@echo "  check             - Run all checks (lint + format + typecheck + security + deps)"
 	@echo "  all               - Run all checks including audit"
-	@echo "  evaluate          - Run full evaluation with RAGAS metrics (20 questions)"
-	@echo "  evaluate-quick    - Run quick evaluation test (3 questions)"
+	@echo "  evaluate          - Run full evaluation with RAGAS metrics"
 	@echo "  report            - Generate evaluation report from latest results"
 	@echo "  generate-dataset  - Generate synthetic QA dataset (10 questions)"
 	@echo "  generate-dataset-large - Generate large synthetic QA dataset (50 questions)"

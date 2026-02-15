@@ -6,11 +6,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Patents Analyzer** - An agentic RAG system for extracting insights from patent PDFs using hybrid retrieval (BM25 + Semantic Search + Knowledge Graph). Designed for steel manufacturing patents with complex multi-column layouts, fragmented data (tables, formulas, cross-references), and technical specifications.
 
-**Current Status:** Complete RAG system with web UI operational. Successfully implemented:
+**Current Status:** Complete RAG system with web UI and evaluation framework operational. Successfully implemented:
 - Data ingestion: PDF → chunks → entities → knowledge graph
 - Hybrid retrieval: BM25 + FAISS + Graph with RRF fusion ✓
-- LLM integration: Ollama/Bedrock support via LiteLLM ✓
+- Cross-encoder reranking: Optional post-fusion reranking ✓
+- LLM integration: Ollama/Bedrock/Azure AI/OpenAI support via LiteLLM ✓
 - Streamlit UI: Interactive search with PDF viewer, citation linking, and streaming answers ✓
+- Evaluation: RAGAS-based evaluation with synthetic dataset generation ✓
 
 ## Technology Stack
 
@@ -18,7 +20,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **PDF Processing:** Docling, PyMuPDF
 - **Knowledge Graph:** NetworkX, SQLite
 - **Retrieval:** BM25 (`rank-bm25`), FAISS (`faiss-cpu`), sentence-transformers
-- **LLM Integration:** LiteLLM (Ollama, AWS Bedrock, OpenAI)
+- **Reranking:** Cross-encoder (`sentence-transformers` CrossEncoder, default: `BAAI/bge-reranker-v2-m3`)
+- **LLM Integration:** LiteLLM (Ollama, AWS Bedrock, Azure AI, OpenAI)
 - **UI:** Streamlit
 - **NLP:** `nltk`, `tiktoken`
 - **Evaluation:** RAGAS, LangChain (optional, see Evaluation Setup)
@@ -53,10 +56,7 @@ uv sync --group evals
 # Verify installation
 uv run python -c "import ragas; print(f'RAGAS {ragas.__version__} installed')"
 
-# Run quick evaluation test
-make evaluate-quick
-
-# Run full evaluation (20 questions)
+# Run full evaluation (uses generated_testset.json)
 make evaluate
 ```
 
@@ -137,10 +137,12 @@ User Query
     ↓
 [RRF Fusion] ← Combine results with weighted scores
     ↓
+[Reranker] ← Optional cross-encoder reranking (BAAI/bge-reranker-v2-m3)
+    ↓
 [Answer Generator]
     ├── Context Building (top K chunks)
     ├── Prompt Construction
-    └── LLM Generation (Ollama/Bedrock)
+    └── LLM Generation (Ollama/Bedrock/Azure AI/OpenAI)
     ↓
 Answer + Sources
 ```
@@ -149,13 +151,13 @@ Answer + Sources
 
 **`src/extraction/`** - PDF parsing and entity extraction
 - `pdf_parser.py` - Layout-aware extraction using Docling (handles multi-column PDFs, tables, formulas)
-- `entity_extractor.py` - Rule-based entity extraction (no LLM needed)
+- `entity_extractor.py` - Hybrid entity extraction (regex default, optional LLM via Instructor)
 
 **`src/chunking/`** - Text chunking
 - `chunker.py` - Token-based semantic chunking with cross-reference detection (500 tokens, 50 overlap)
 
 **`src/knowledge_graph/`** - Knowledge graph construction
-- `schema.py` - 9 entity types (chemical_element, property, process, etc.), 11 relationship types
+- `schema.py` - 16 entity types (chemical_element, property, process, material, application, etc.), 17 relationship types
 - `builder.py` - Constructs entities and infers relationships from co-occurrence
 - `store.py` - SQLite persistence with indexed queries
 - `traversal.py` - NetworkX-based graph traversal (BFS with configurable hops)
@@ -165,6 +167,7 @@ Answer + Sources
 - `semantic_retriever.py` - Dense vector search using FAISS + sentence-transformers
 - `graph_retriever.py` - Knowledge graph traversal with entity-based retrieval ✓
 - `hybrid_retriever.py` - RRF (Reciprocal Rank Fusion) combining all three retrievers ✓
+- `reranker.py` - Cross-encoder reranking using HuggingFace models (optional, post-fusion)
 
 **`src/llm/`** - LLM integration and answer generation ✓
 - `llm_client.py` - Unified LLM interface using LiteLLM (Ollama/Bedrock/OpenAI)
@@ -174,14 +177,12 @@ Answer + Sources
 - `app.py` - Interactive UI for patent search with hybrid retrieval, LLM-generated answers, PDF viewer with highlighting, and clickable source citations
 - `static/` - Static assets for UI
 
-**`scripts/`** - Pipeline execution and demo scripts
-- `data_ingestion_pipeline.py` - **Main pipeline:** PDF → chunks → entities → KG → indices (all phases)
-- `retrieval.py` - Quick demo of BM25 + Semantic retrieval
-- `retrieval_generation.py` - **Full RAG demo:** Hybrid retrieval + LLM answer generation
-
-**`tests/`** - Integration and unit tests
-- Currently empty (tests removed during refactoring)
-- TODO: Add comprehensive integration tests
+**`evals/`** - Evaluation framework (RAGAS)
+- `eval.py` - Main RAGAS evaluation script with hybrid retrieval + LLM answer generation
+- `eval_vis.py` - Results visualization and markdown report generation
+- `generate_dataset.py` - Synthetic QA dataset generator using RAGAS TestsetGenerator
+- `datasets/` - Test datasets (generated and curated)
+- `experiments/` - Timestamped evaluation results and reports
 
 ### Logging Configuration
 
@@ -223,9 +224,11 @@ def main():
 - Each chunk tracks entities and cross-references for graph enrichment
 
 ### Knowledge Graph Schema
-**Entity Types (9):** chemical_element (Si, Cr, Mn), property (yield_stress, core_loss), process (annealing, hot_rolling), parameter, composition_range, table, formula, sample, figure
+**Entity Types (16):** chemical_element, property, process, parameter, composition_range, table, formula, sample, figure, inventor, assignee, patent_reference, application, material, problem, solution, patent_doc_reference
 
-**Relationships (11):** DESCRIBED_IN (entity↔chunk), AFFECTS (element→property), REQUIRES (process→parameter), REFERENCES (chunk→table/formula), MEASURED_IN (property→table), plus CONTAINS, HAS_VALUE, ACHIEVED_IN, SHOWN_IN, SATISFIES, NEXT_STEP
+**Predefined Vocabularies:** 27 chemical elements, 7 properties, 6 processes, 8 applications, 8 materials
+
+**Relationships (17):** DESCRIBED_IN (entity↔chunk), AFFECTS (element→property), REQUIRES (process→parameter), REFERENCES (chunk→table/formula), MEASURED_IN (property→table), CONTAINS, HAS_VALUE, ACHIEVED_IN, SHOWN_IN, SATISFIES, NEXT_STEP, MENTIONS, CITES, ADDRESSES_PROBLEM, USED_FOR, INVENTED_BY, ASSIGNEE_OF
 
 **Graph Storage:** SQLite with 3 tables (entities, relationships, chunk_entities) + 6 indices for fast queries. NetworkX used for traversal algorithms (BFS, path finding).
 
@@ -235,13 +238,16 @@ def main():
 3. **Graph** - Entity-aware retrieval via knowledge graph traversal (2-hop BFS, configurable decay)
 4. **Fusion** - RRF (Reciprocal Rank Fusion) combines all three with configurable weights
    - Formula: `RRF_score = Σ weight_i / (k + rank_i)` where k=60
-   - Default weights: BM25=1.0, Semantic=1.0, Graph=0.5
+   - Default weights: BM25=1.0, Semantic=1.0, Graph=1.2
+5. **Reranker** (optional) - Cross-encoder post-fusion reranking using `BAAI/bge-reranker-v2-m3`
+   - Enabled via `RERANKER_ENABLED=true` in `.env`
 
 ### LLM Integration ✓ IMPLEMENTED
 - **LiteLLM** - Unified interface for multiple LLM providers
 - **Supported providers:**
-  - Ollama (local models: llama2, mistral, etc.)
+  - Ollama (local models: llama3.1, mistral, etc.)
   - AWS Bedrock (Claude, Titan, Llama)
+  - Azure AI (GPT-4.1, etc.)
   - OpenAI (GPT-4, GPT-3.5)
 - **Answer Generation** - RAG pipeline with context building and prompt engineering
 - **Configuration** - Environment-based (.env file) or programmatic
@@ -271,11 +277,11 @@ data/
 ```
 
 ### Documentation
-- `docs/DATA_INGESTION_PIPELINE.md` - **Comprehensive Phase 1-3a guide** (1030 lines)
-- `docs/HYBRID_RETRIEVAL_AND_LLM.md` - **Phase 3b-4 guide:** Hybrid retrieval + LLM integration ✓
-- `docs/patent-demo-full-plan.md` - **Original implementation plan** (all phases)
-- `docs/solution.md` - **Problem analysis and architecture** (diagrams, roadmap)
-- `.env.example` - LLM and retriever configuration template
+- `docs/1. DATA_INGESTION_PIPELINE.md` - **Comprehensive Phase 1-3a guide** (PDF parsing, chunking, KG, index building)
+- `docs/2. RETRIEVAL_GENERATION.md` - **Phase 3b-4 guide:** Hybrid retrieval + LLM integration
+- `docs/3. E2E_PIPELINE.md` - **Complete pipeline explanation** (plain-English walkthrough of all phases)
+- `docs/4. EVALS.md` - **Evaluation system guide** (RAGAS metrics, running evals, interpreting results)
+- `.env.example` - LLM, retriever, and reranker configuration template
 
 ## Development Patterns
 
@@ -402,7 +408,7 @@ comparison = generator.generate_comparison(
 **Configuration (.env file):**
 ```env
 # Ollama (local)
-LLM_MODEL=ollama/llama2
+LLM_MODEL=ollama/llama3.1:8b
 OLLAMA_API_BASE=http://localhost:11434
 
 # AWS Bedrock
@@ -413,6 +419,16 @@ OLLAMA_API_BASE=http://localhost:11434
 
 LLM_TEMPERATURE=0.0
 LLM_MAX_TOKENS=2048
+
+# Hybrid Retriever Weights
+RETRIEVER_BM25_WEIGHT=1.0
+RETRIEVER_SEMANTIC_WEIGHT=1.0
+RETRIEVER_GRAPH_WEIGHT=1.2
+RETRIEVER_RRF_K=60
+
+# Reranker (optional)
+RERANKER_ENABLED=false
+RERANKER_MODEL=BAAI/bge-reranker-v2-m3
 ```
 
 ### Testing New Features
@@ -462,15 +478,14 @@ The PDF parser uses Docling's DocumentConverter with pypdfium2 backend:
 
 ### Git Workflow
 - Main branch: `main`
-- Current branch: `doc/fix`
-- Previous work: RAG pipeline, UI, and logging improvements merged to main
 - Data files (`data/`) excluded via `.gitignore`
 
 ### Implementation Status
 - **Phase 1-3a:** ✅ Data ingestion, entity extraction, KG, BM25/FAISS indices
-- **Phase 3b:** ✅ Graph retriever + hybrid fusion with RRF
-- **Phase 4:** ✅ LLM integration (Bedrock/Ollama) for answer generation
+- **Phase 3b:** ✅ Graph retriever + hybrid fusion with RRF + optional cross-encoder reranking
+- **Phase 4:** ✅ LLM integration (Bedrock/Ollama/Azure AI/OpenAI) for answer generation
 - **Phase 5:** ✅ Streamlit UI with PDF viewer, citation linking, and streaming answers
+- **Evaluation:** ✅ RAGAS evaluation framework with synthetic dataset generation
 
 ## Troubleshooting
 
@@ -481,7 +496,7 @@ The PDF parser uses Docling's DocumentConverter with pypdfium2 backend:
 → Run extraction pipeline first: `uv run python src/data_ingestion.py`
 
 **Empty results from retrieval**
-→ Check indices exist in `data/processed/`. If missing, rebuild with `build_indices.py`
+→ Check indices exist in `data/processed/`. If missing, rebuild with `uv run python src/data_ingestion.py`
 
 **Slow PDF extraction (>2 min per patent)**
 → Docling typically processes in 30-60 seconds. If slower, check PDF complexity or system resources
@@ -506,9 +521,8 @@ sys.path.insert(0, str(project_root))
 
 ## References
 
-- **Full architecture:** See `docs/solution.md` for diagrams and phase breakdown
-- **Data ingestion (Phase 1-3a):** See `docs/DATA_INGESTION_PIPELINE.md` for detailed component usage
-- **Hybrid retrieval + LLM (Phase 3b-4):** See `docs/HYBRID_RETRIEVAL_AND_LLM.md` for RRF fusion and LLM integration
-- **Evaluation system:** See `docs/EVALS.md` for comprehensive evaluation guide (RAGAS metrics, running evals, interpreting results)
-- **Implementation plan:** See `docs/patent-demo-full-plan.md` for complete code examples
-- **Configuration:** See `.env.example` for LLM and retriever settings
+- **Data ingestion (Phase 1-3a):** See `docs/1. DATA_INGESTION_PIPELINE.md` for detailed component usage
+- **Hybrid retrieval + LLM (Phase 3b-4):** See `docs/2. RETRIEVAL_GENERATION.md` for RRF fusion and LLM integration
+- **Full pipeline walkthrough:** See `docs/3. E2E_PIPELINE.md` for plain-English explanation of all phases
+- **Evaluation system:** See `docs/4. EVALS.md` for comprehensive evaluation guide (RAGAS metrics, running evals, interpreting results)
+- **Configuration:** See `.env.example` for LLM, retriever, and reranker settings

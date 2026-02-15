@@ -7,8 +7,9 @@ Extract insights from patent PDFs using hybrid retrieval combining BM25, semanti
 - **Python 3.13** with [uv](https://docs.astral.sh/uv/) package manager
 - **PDF Processing**: Docling (parsing), PyMuPDF (rendering)
 - **Retrieval**: BM25 (rank-bm25), FAISS (vector search), sentence-transformers
+- **Reranking**: Cross-encoder (BAAI/bge-reranker-v2-m3, optional)
 - **Knowledge Graph**: NetworkX, SQLite
-- **LLM**: LiteLLM (supports Ollama and 100+ models across providers)
+- **LLM**: LiteLLM (supports Ollama, AWS Bedrock, Azure AI, OpenAI, and 100+ models)
 - **UI**: Streamlit
 
 ## Quickstart
@@ -53,6 +54,10 @@ Update your `.env` file with:
 LLM_MODEL=ollama/mistral:7b
 OLLAMA_API_BASE=http://localhost:11434
 LOG_LEVEL=INFO  # Options: DEBUG, INFO, WARNING, ERROR, CRITICAL
+
+# Optional: Enable cross-encoder reranking for better relevance
+RERANKER_ENABLED=false
+RERANKER_MODEL=BAAI/bge-reranker-v2-m3
 ```
 
 **Logging:** Set `LOG_LEVEL=DEBUG` in `.env` to see detailed logs from retrievers and LLM during searches. Defaults to `INFO` if not specified.
