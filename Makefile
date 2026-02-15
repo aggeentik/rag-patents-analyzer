@@ -91,23 +91,6 @@ evaluate:
 	@echo "  JSON: evals/experiments/ragas_results_$(TIMESTAMP).json"
 	@echo "  Report: evals/experiments/evaluation_report_$(TIMESTAMP).md"
 
-# Run quick evaluation test (3 questions)
-evaluate-quick:
-	@echo "Running quick RAGAS evaluation (3 questions)..."
-	@echo "Note: RAGAS will use your LLM from .env (Ollama/Bedrock)."
-	$(eval TIMESTAMP := $(shell date +%Y%m%d_%H%M%S))
-	uv run python evals/eval.py \
-		--dataset evals/datasets/ragas_dataset_3.json \
-		--ragas-model azure_ai/gpt-4.1 \
-		--output evals/experiments/ragas_results_quick_$(TIMESTAMP).json
-	@echo "Generating report..."
-	uv run python evals/eval_vis.py \
-		evals/experiments/ragas_results_quick_$(TIMESTAMP).json \
-		--markdown evals/experiments/evaluation_report_quick_$(TIMESTAMP).md
-	@echo "Quick evaluation complete! Results saved:"
-	@echo "  JSON: evals/experiments/ragas_results_quick_$(TIMESTAMP).json"
-	@echo "  Report: evals/experiments/evaluation_report_quick_$(TIMESTAMP).md"
-
 # Generate report from latest or specific results file
 report:
 	@if [ -z "$(FILE)" ]; then \
