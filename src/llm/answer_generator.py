@@ -217,10 +217,7 @@ Q: What is the Si content range?
 A: Silicon is commonly used in electrical steel to improve properties. The Si content is typically around 2-10%.
 (Problems: no citations, "typically" is an estimate, first sentence is background noise)
 
-Now answer the QUESTION above. Structure your answer as:
-1. Direct conclusion (1-2 sentences with citations)
-2. Supporting data with exact values and citations
-3. Gaps — what data is missing from the sources
+Now answer the QUESTION above. Provide 3-4 sentences with citations
 
 ANSWER:"""
 
