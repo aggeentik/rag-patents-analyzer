@@ -79,8 +79,9 @@ evaluate:
 	@echo "Note: RAGAS will use your LLM from .env (Ollama/Bedrock)."
 	$(eval TIMESTAMP := $(shell date +%Y%m%d_%H%M%S))
 	uv run python evals/eval.py \
-		--dataset evals/datasets/ragas_dataset_20.json \
+		--dataset evals/datasets/generated_testset.json \
 		--ragas-model azure_ai/gpt-4.1 \
+		--top-k 10 \
 		--output evals/experiments/ragas_results_$(TIMESTAMP).json
 	@echo "Generating report..."
 	uv run python evals/eval_vis.py \
