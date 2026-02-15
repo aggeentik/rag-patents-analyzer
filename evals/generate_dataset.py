@@ -93,7 +93,7 @@ def main():
     )
     parser.add_argument("--testset-size", type=int, default=10)
     parser.add_argument("--output", default="evals/datasets/generated_testset.json")
-    parser.add_argument("--model", default="gpt-4o")
+    parser.add_argument("--model", default="azure_ai/gpt-4.1")
     args = parser.parse_args()
 
     chunks_path = Path(args.chunks_path)
