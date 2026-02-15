@@ -1,4 +1,4 @@
-.PHONY: help install lint format typecheck security deps check all clean evaluate report generate-dataset generate-dataset-large
+.PHONY: help install lint format typecheck security deps check all clean evaluate evaluate-large report generate-dataset generate-dataset-large
 
 # Default target
 help:
@@ -13,7 +13,8 @@ help:
 	@echo "  audit             - Run pip-audit for vulnerability scanning"
 	@echo "  check             - Run all checks (lint + format + typecheck + security + deps)"
 	@echo "  all               - Run all checks including audit"
-	@echo "  evaluate          - Run full evaluation with RAGAS metrics"
+	@echo "  evaluate          - Run full evaluation with RAGAS metrics (20 questions)"
+	@echo "  evaluate-large    - Run full evaluation with RAGAS metrics (large dataset)"
 	@echo "  report            - Generate evaluation report from latest results"
 	@echo "  generate-dataset  - Generate synthetic QA dataset (10 questions)"
 	@echo "  generate-dataset-large - Generate large synthetic QA dataset (50 questions)"
@@ -79,6 +80,24 @@ evaluate:
 	$(eval TIMESTAMP := $(shell date +%Y%m%d_%H%M%S))
 	uv run python evals/eval.py \
 		--dataset evals/datasets/generated_testset.json \
+		--ragas-model azure_ai/gpt-4.1 \
+		--top-k 10 \
+		--output evals/experiments/ragas_results_$(TIMESTAMP).json
+	@echo "Generating report..."
+	uv run python evals/eval_vis.py \
+		evals/experiments/ragas_results_$(TIMESTAMP).json \
+		--markdown evals/experiments/evaluation_report_$(TIMESTAMP).md
+	@echo "Evaluation complete! Results saved:"
+	@echo "  JSON: evals/experiments/ragas_results_$(TIMESTAMP).json"
+	@echo "  Report: evals/experiments/evaluation_report_$(TIMESTAMP).md"
+
+# Run full evaluation with large dataset
+evaluate-large:
+	@echo "Running full RAGAS evaluation (large dataset)..."
+	@echo "Note: RAGAS will use your LLM from .env (Ollama/Bedrock)."
+	$(eval TIMESTAMP := $(shell date +%Y%m%d_%H%M%S))
+	uv run python evals/eval.py \
+		--dataset evals/datasets/generated_testset_large.json \
 		--ragas-model azure_ai/gpt-4.1 \
 		--top-k 10 \
 		--output evals/experiments/ragas_results_$(TIMESTAMP).json
