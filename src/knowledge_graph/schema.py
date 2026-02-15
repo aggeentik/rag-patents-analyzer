@@ -113,7 +113,8 @@ class PatentMeta(BaseModel):
         default_factory=list, description="Use-case / application domains, e.g. 'electric vehicles'"
     )
     materials: list[str] = Field(
-        default_factory=list, description="Named materials / alloy types, e.g. 'grain-oriented electrical steel'"
+        default_factory=list,
+        description="Named materials / alloy types, e.g. 'grain-oriented electrical steel'",
     )
     problems: list[str] = Field(
         default_factory=list, description="Problems or limitations of prior art"
@@ -314,8 +315,14 @@ MATERIALS = {
     "stainless_steel": ["stainless steel", "austenitic stainless", "ferritic stainless"],
     "carbon_steel": ["carbon steel", "low carbon steel", "ultra-low carbon steel"],
     "rare_earth_metal": [
-        "rare earth metal", "rare earth metals", "REM", "REMs",
-        "rare earth element", "rare earth elements", "REE",
-        "REM oxysulfide", "REM oxysulfides",
+        "rare earth metal",
+        "rare earth metals",
+        "REM",
+        "REMs",
+        "rare earth element",
+        "rare earth elements",
+        "REE",
+        "REM oxysulfide",
+        "REM oxysulfides",
     ],
 }

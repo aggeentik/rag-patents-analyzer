@@ -9,8 +9,8 @@ from src.retrieval.semantic_retriever import SemanticRetriever
 __all__ = [
     "BM25Retriever",
     "CrossEncoderReranker",
-    "reranker_from_env",
     "GraphRetriever",
     "HybridRetriever",
     "SemanticRetriever",
+    "reranker_from_env",
 ]

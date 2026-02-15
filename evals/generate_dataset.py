@@ -1,12 +1,11 @@
+import argparse
 import json
+import logging
 import warnings
 from pathlib import Path
-import argparse
-import logging
+
 import pandas as pd
-
 from langchain_core.documents import Document
-
 from ragas.testset import TestsetGenerator
 from ragas.testset.synthesizers import default_query_distribution
 
@@ -52,10 +51,10 @@ def load_chunks_as_documents(chunks_path: str) -> dict[str, list[Document]]:
 
 def build_llm_and_embeddings(model: str):
     """Build RAGAS-wrapped LLM and embeddings."""
+    from langchain_huggingface import HuggingFaceEmbeddings
+    from langchain_openai import ChatOpenAI
     from ragas.embeddings import LangchainEmbeddingsWrapper
     from ragas.llms import LangchainLLMWrapper
-    from langchain_openai import ChatOpenAI
-    from langchain_huggingface import HuggingFaceEmbeddings
 
     logger.info(f"Initializing LLM: {model}")
     if model.startswith("gpt-"):
@@ -87,8 +86,11 @@ def build_llm_and_embeddings(model: str):
 
 def main():
     parser = argparse.ArgumentParser(description="Generate synthetic QA dataset from patent chunks")
-    parser.add_argument("--chunks-path", default="data/processed/patents.json",
-                        help="Path to Docling-processed patents.json")
+    parser.add_argument(
+        "--chunks-path",
+        default="data/processed/patents.json",
+        help="Path to Docling-processed patents.json",
+    )
     parser.add_argument("--testset-size", type=int, default=10)
     parser.add_argument("--output", default="evals/datasets/generated_testset.json")
     parser.add_argument("--model", default="gpt-4o")
@@ -96,7 +98,9 @@ def main():
 
     chunks_path = Path(args.chunks_path)
     if not chunks_path.exists():
-        raise FileNotFoundError(f"Chunks file not found: {chunks_path}. Run the data ingestion pipeline first.")
+        raise FileNotFoundError(
+            f"Chunks file not found: {chunks_path}. Run the data ingestion pipeline first."
+        )
 
     # Load pre-processed chunks grouped by patent
     docs_by_patent = load_chunks_as_documents(str(chunks_path))

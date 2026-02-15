@@ -10,6 +10,7 @@ Table / Formula / Figure / Sample references are always extracted via regex.
 
 import logging
 import re
+from typing import ClassVar
 
 from src.knowledge_graph.schema import (
     APPLICATIONS,
@@ -53,25 +54,30 @@ class EntityExtractor:
         r"(?:US|EP|WO|JP|CN|KR|DE|GB|FR)\s*[\d,./\-]{4,}(?:\s*[AB]\d)?\b",
         re.IGNORECASE,
     )
-    INVENTOR_RE = re.compile(
-        r"[Ii]nventor(?:s)?\s*[:;]\s*(.+?)(?:\n|$)"
-    )
-    ASSIGNEE_RE = re.compile(
-        r"(?:[Aa]ssignee|[Aa]pplicant)(?:s)?\s*[:;]\s*(.+?)(?:\n|$)"
-    )
+    INVENTOR_RE = re.compile(r"[Ii]nventor(?:s)?\s*[:;]\s*(.+?)(?:\n|$)")
+    ASSIGNEE_RE = re.compile(r"(?:[Aa]ssignee|[Aa]pplicant)(?:s)?\s*[:;]\s*(.+?)(?:\n|$)")
     PATENT_DOC_RE = re.compile(
         r"Patent\s+(?:Document|Literature|Lit\.?)\s+(\d+)",
         re.IGNORECASE,
     )
 
-    PROBLEM_PHRASES = [
-        "problem", "drawback", "disadvantage", "limitation",
-        "difficulty", "deficiency", "shortcoming", "insufficient",
+    PROBLEM_PHRASES: ClassVar[list[str]] = [
+        "problem",
+        "drawback",
+        "disadvantage",
+        "limitation",
+        "difficulty",
+        "deficiency",
+        "shortcoming",
+        "insufficient",
     ]
-    SOLUTION_PHRASES = [
-        "the present invention provides", "advantage of the invention",
-        "object of the invention", "the invention overcomes",
-        "the invention solves", "according to the present invention",
+    SOLUTION_PHRASES: ClassVar[list[str]] = [
+        "the present invention provides",
+        "advantage of the invention",
+        "object of the invention",
+        "the invention overcomes",
+        "the invention solves",
+        "according to the present invention",
         "an object of the present invention",
     ]
 
@@ -219,74 +225,88 @@ class EntityExtractor:
         meta = result.patent_meta
         for name in meta.inventors:
             norm = name.strip()
-            entities.append(Entity(
-                id=f"{chunk.patent_id}_inventor_{norm.lower().replace(' ', '_')}",
-                type=EntityType.INVENTOR,
-                name=norm,
-                properties={"source": "llm"},
-                patent_id=chunk.patent_id,
-                chunk_ids=[chunk.chunk_id],
-            ))
+            entities.append(
+                Entity(
+                    id=f"{chunk.patent_id}_inventor_{norm.lower().replace(' ', '_')}",
+                    type=EntityType.INVENTOR,
+                    name=norm,
+                    properties={"source": "llm"},
+                    patent_id=chunk.patent_id,
+                    chunk_ids=[chunk.chunk_id],
+                )
+            )
         for name in meta.assignees:
             norm = name.strip()
-            entities.append(Entity(
-                id=f"{chunk.patent_id}_assignee_{norm.lower().replace(' ', '_')}",
-                type=EntityType.ASSIGNEE,
-                name=norm,
-                properties={"source": "llm"},
-                patent_id=chunk.patent_id,
-                chunk_ids=[chunk.chunk_id],
-            ))
+            entities.append(
+                Entity(
+                    id=f"{chunk.patent_id}_assignee_{norm.lower().replace(' ', '_')}",
+                    type=EntityType.ASSIGNEE,
+                    name=norm,
+                    properties={"source": "llm"},
+                    patent_id=chunk.patent_id,
+                    chunk_ids=[chunk.chunk_id],
+                )
+            )
         for ref in meta.cited_patents:
             norm = ref.strip()
-            entities.append(Entity(
-                id=f"{chunk.patent_id}_cited_{norm.replace(' ', '')}",
-                type=EntityType.PATENT_REFERENCE,
-                name=norm,
-                properties={"source": "llm"},
-                patent_id=chunk.patent_id,
-                chunk_ids=[chunk.chunk_id],
-            ))
+            entities.append(
+                Entity(
+                    id=f"{chunk.patent_id}_cited_{norm.replace(' ', '')}",
+                    type=EntityType.PATENT_REFERENCE,
+                    name=norm,
+                    properties={"source": "llm"},
+                    patent_id=chunk.patent_id,
+                    chunk_ids=[chunk.chunk_id],
+                )
+            )
         for app in meta.applications:
             norm = app.strip().lower()
-            entities.append(Entity(
-                id=f"{chunk.patent_id}_app_{norm.replace(' ', '_')}",
-                type=EntityType.APPLICATION,
-                name=norm,
-                properties={"source": "llm"},
-                patent_id=chunk.patent_id,
-                chunk_ids=[chunk.chunk_id],
-            ))
+            entities.append(
+                Entity(
+                    id=f"{chunk.patent_id}_app_{norm.replace(' ', '_')}",
+                    type=EntityType.APPLICATION,
+                    name=norm,
+                    properties={"source": "llm"},
+                    patent_id=chunk.patent_id,
+                    chunk_ids=[chunk.chunk_id],
+                )
+            )
         for mat in meta.materials:
             norm = mat.strip().lower()
-            entities.append(Entity(
-                id=f"{chunk.patent_id}_material_{norm.replace(' ', '_')}",
-                type=EntityType.MATERIAL,
-                name=norm,
-                properties={"source": "llm"},
-                patent_id=chunk.patent_id,
-                chunk_ids=[chunk.chunk_id],
-            ))
+            entities.append(
+                Entity(
+                    id=f"{chunk.patent_id}_material_{norm.replace(' ', '_')}",
+                    type=EntityType.MATERIAL,
+                    name=norm,
+                    properties={"source": "llm"},
+                    patent_id=chunk.patent_id,
+                    chunk_ids=[chunk.chunk_id],
+                )
+            )
         for prob in meta.problems:
             norm = prob.strip()
-            entities.append(Entity(
-                id=f"{chunk.patent_id}_problem_{len(entities)}",
-                type=EntityType.PROBLEM,
-                name=norm,
-                properties={"source": "llm"},
-                patent_id=chunk.patent_id,
-                chunk_ids=[chunk.chunk_id],
-            ))
+            entities.append(
+                Entity(
+                    id=f"{chunk.patent_id}_problem_{len(entities)}",
+                    type=EntityType.PROBLEM,
+                    name=norm,
+                    properties={"source": "llm"},
+                    patent_id=chunk.patent_id,
+                    chunk_ids=[chunk.chunk_id],
+                )
+            )
         for sol in meta.solutions:
             norm = sol.strip()
-            entities.append(Entity(
-                id=f"{chunk.patent_id}_solution_{len(entities)}",
-                type=EntityType.SOLUTION,
-                name=norm,
-                properties={"source": "llm"},
-                patent_id=chunk.patent_id,
-                chunk_ids=[chunk.chunk_id],
-            ))
+            entities.append(
+                Entity(
+                    id=f"{chunk.patent_id}_solution_{len(entities)}",
+                    type=EntityType.SOLUTION,
+                    name=norm,
+                    properties={"source": "llm"},
+                    patent_id=chunk.patent_id,
+                    chunk_ids=[chunk.chunk_id],
+                )
+            )
 
         return entities
 
@@ -565,15 +585,15 @@ class EntityExtractor:
         for match in self.INVENTOR_RE.finditer(text):
             names_str = match.group(1)
             for name in re.split(r"[;,]", names_str):
-                name = name.strip()
-                if len(name) < 3:
+                stripped_name = name.strip()
+                if len(stripped_name) < 3:
                     continue
-                norm = name.lower().replace(" ", "_")
+                norm = stripped_name.lower().replace(" ", "_")
                 entities.append(
                     Entity(
                         id=f"{chunk.patent_id}_inventor_{norm}",
                         type=EntityType.INVENTOR,
-                        name=name,
+                        name=stripped_name,
                         properties={},
                         patent_id=chunk.patent_id,
                         chunk_ids=[chunk.chunk_id],
@@ -587,15 +607,15 @@ class EntityExtractor:
         for match in self.ASSIGNEE_RE.finditer(text):
             names_str = match.group(1)
             for name in re.split(r"[;,]", names_str):
-                name = name.strip()
-                if len(name) < 3:
+                stripped_name = name.strip()
+                if len(stripped_name) < 3:
                     continue
-                norm = name.lower().replace(" ", "_")
+                norm = stripped_name.lower().replace(" ", "_")
                 entities.append(
                     Entity(
                         id=f"{chunk.patent_id}_assignee_{norm}",
                         type=EntityType.ASSIGNEE,
-                        name=name,
+                        name=stripped_name,
                         properties={},
                         patent_id=chunk.patent_id,
                         chunk_ids=[chunk.chunk_id],

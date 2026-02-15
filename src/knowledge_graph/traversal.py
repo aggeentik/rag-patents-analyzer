@@ -6,11 +6,12 @@ import logging
 from typing import TYPE_CHECKING
 
 import networkx as nx
-
-from src.knowledge_graph.store import KnowledgeGraphStore
+import numpy as np
 
 if TYPE_CHECKING:
     from sentence_transformers import SentenceTransformer
+
+    from src.knowledge_graph.store import KnowledgeGraphStore
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +19,9 @@ logger = logging.getLogger(__name__)
 class KnowledgeGraphTraversal:
     """Graph traversal and query operations."""
 
-    def __init__(self, store: KnowledgeGraphStore, embedding_model: SentenceTransformer | None = None):
+    def __init__(
+        self, store: KnowledgeGraphStore, embedding_model: SentenceTransformer | None = None
+    ):
         self.store = store
         self.graph = None
         self.embedding_model = embedding_model
@@ -59,7 +62,7 @@ class KnowledgeGraphTraversal:
         seen: dict[str, tuple[dict, float]] = {}  # entity_id -> (entity, score)
 
         for entity_name in query_entities:
-            query_embedding = self.embedding_model.encode(entity_name)
+            query_embedding = np.asarray(self.embedding_model.encode(entity_name))
             matches = self.store.find_entities_semantic(
                 query_embedding, top_k=top_k, threshold=threshold
             )

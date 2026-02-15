@@ -67,7 +67,7 @@ class CrossEncoderReranker:
         scores = self.model.predict(pairs, batch_size=self.batch_size).tolist()
 
         logger.debug(
-            "Reranked %d chunks (score range: %.4f – %.4f)",
+            "Reranked %d chunks (score range: %.4f - %.4f)",
             len(scores),
             min(scores),
             max(scores),

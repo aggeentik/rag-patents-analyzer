@@ -7,9 +7,16 @@ logger = logging.getLogger(__name__)
 
 # Fields managed by the fusion logic (not retriever-specific metadata)
 _FUSION_FIELDS = {
-    "bm25_rank", "bm25_score", "semantic_rank", "semantic_score",
-    "graph_rank", "graph_score", "rrf_score", "score_breakdown",
-    "final_rank", "rerank_score",
+    "bm25_rank",
+    "bm25_score",
+    "semantic_rank",
+    "semantic_score",
+    "graph_rank",
+    "graph_score",
+    "rrf_score",
+    "score_breakdown",
+    "final_rank",
+    "rerank_score",
 }
 
 
@@ -182,9 +189,7 @@ class HybridRetriever:
             chunk["score_breakdown"] = " + ".join(score_breakdown)
 
         # Sort by RRF score
-        ranked_results = sorted(
-            all_results.values(), key=lambda x: x["rrf_score"], reverse=True
-        )
+        ranked_results = sorted(all_results.values(), key=lambda x: x["rrf_score"], reverse=True)
 
         logger.info(
             "RRF fusion: %d unique chunks from pool",

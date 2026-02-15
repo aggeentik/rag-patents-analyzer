@@ -13,9 +13,9 @@ from pathlib import Path
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-import argparse  # noqa: E402
-import json  # noqa: E402
-from typing import Any  # noqa: E402
+import argparse
+import json
+from typing import Any
 
 
 def load_results(results_path: str) -> dict[str, Any]:

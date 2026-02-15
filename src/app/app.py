@@ -749,7 +749,8 @@ def main():
                 + "/"
                 + str(meta.get("total_retrieved", 0))
                 + " chunks"
-                + "  |  Reranker: " + reranker_status
+                + "  |  Reranker: "
+                + reranker_status
             )
 
         # PDF viewer panel
