@@ -569,7 +569,7 @@ def main():
         )
         with st.expander("Settings"):
             st.slider(
-                "Keyword matching",
+                "Keyword search weight",
                 0.0,
                 2.0,
                 1.0,
@@ -578,7 +578,7 @@ def main():
                 help="Higher values favor results with exact matching terms (BM25 weight)",
             )
             st.slider(
-                "Conceptual matching",
+                "Semantic search weight",
                 0.0,
                 2.0,
                 1.0,
@@ -587,7 +587,7 @@ def main():
                 help="Higher values find results with similar meanings (Semantic weight)",
             )
             st.slider(
-                "Related concepts",
+                "Knowledge graph weight",
                 0.0,
                 2.0,
                 1.2,
