@@ -163,6 +163,14 @@ def init_retrievers():
 
 
 @st.cache_resource(show_spinner=False)
+def init_reranker():
+    """Initialize cross-encoder reranker if enabled via env (expensive, cached for session)."""
+    from src.retrieval import reranker_from_env
+
+    return reranker_from_env()
+
+
+@st.cache_resource(show_spinner=False)
 def init_llm():
     """Initialize LLM client."""
     from src.llm import LLMClient
@@ -190,6 +198,7 @@ def run_retrieval(query: str, selected_patents: list[str], top_k: int, weights: 
         graph_retriever=retrievers["graph"],
         weights=weights,
         rrf_k=60,
+        reranker=init_reranker(),
     )
 
     retrieval_top_k = top_k * 3 if selected_patents else top_k
@@ -249,7 +258,7 @@ SOURCE_REF_CSS = """
 def build_source_map(answer_meta: dict, patent_files: dict[str, str]) -> dict[int, str]:
     """Map 1-based source numbers to rich display labels.
 
-    Returns e.g. {1: "EP2390376B1 | Detailed Description | Page 4 — RRF 0.0292"}
+    Returns e.g. {1: "EP2390376B1 | Detailed Description | Page 4"}
     """
     source_map: dict[int, str] = {}
     for i, src in enumerate(answer_meta.get("sources", []), start=1):
@@ -257,13 +266,12 @@ def build_source_map(answer_meta: dict, patent_files: dict[str, str]) -> dict[in
         display_id = Path(patent_files.get(patent_id, "")).stem or patent_id
         section = src.get("section", "")
         page = src.get("page", "")
-        rrf = src.get("rrf_score", 0)
         parts = [display_id]
         if section:
             parts.append(section)
         if page:
             parts.append(f"Page {page}")
-        label = " | ".join(parts) + f" — RRF {rrf:.4f}"
+        label = " | ".join(parts)
         source_map[i] = label
     return source_map
 
@@ -383,7 +391,7 @@ def render_sources(results: list[dict], patent_files: dict[str, str]):
         display_id = Path(patent_files.get(patent_id, "")).stem or patent_id
         page_str = f" | Page {page}" if page else ""
         section_str = f" | {section}" if section else ""
-        header = f"**[{rank}]** {display_id}{section_str}{page_str} — RRF {rrf:.4f}"
+        header = f"**[{rank}]** {display_id}{section_str}{page_str}"
 
         with st.expander(header):
             st.text(content)
@@ -553,19 +561,11 @@ def main():
         st.header("Search")
         top_k = st.slider(
             "Search results to retrieve",
-            3,
-            20,
+            5,
+            15,
             10,
             key="top_k",
-            help="Higher values include more results based on related topics and connections",
-        )
-        max_context = st.slider(
-            "Search results used per answer",
-            1,
-            10,
-            5,
-            key="max_ctx",
-            help="How much information is used to generate the answer (Context chunks)",
+            help="Number of chunks retrieved and used as context for the answer",
         )
         with st.expander("Settings"):
             st.slider(
@@ -590,7 +590,7 @@ def main():
                 "Related concepts",
                 0.0,
                 2.0,
-                0.5,
+                1.2,
                 0.1,
                 key="w_graph",
                 help="Higher values include results based on related topics and connections (Knowledge graph weight)",
@@ -664,7 +664,7 @@ def main():
             stream, answer_meta = build_answer_stream(
                 query=query.strip(),
                 results=results,
-                max_context_chunks=max_context,
+                max_context_chunks=top_k,
             )
             _pending_stream = stream
             _pending_answer_meta = answer_meta
@@ -740,6 +740,7 @@ def main():
             stat_cols[3].metric("Multi-retriever", stats.get("multi_retriever_hits", 0))
 
             meta = answer["metadata"]
+            reranker_status = "on" if init_reranker() is not None else "off"
             st.caption(
                 "Model: " + meta.get("model", "?") + "  |  "
                 "Context: "
@@ -747,6 +748,8 @@ def main():
                 + "/"
                 + str(meta.get("total_retrieved", 0))
                 + " chunks"
+                + "  |  Reranker: "
+                + reranker_status
             )
 
         # PDF viewer panel

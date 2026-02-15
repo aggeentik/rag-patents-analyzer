@@ -2,12 +2,16 @@
 
 import logging
 
+from sentence_transformers import SentenceTransformer
+
 from src.extraction.entity_extractor import EntityExtractor
 from src.knowledge_graph.schema import PatentChunk
 from src.knowledge_graph.store import KnowledgeGraphStore
 from src.knowledge_graph.traversal import KnowledgeGraphTraversal
 
 logger = logging.getLogger(__name__)
+
+EMBEDDING_MODEL_NAME = "all-MiniLM-L6-v2"
 
 
 class GraphRetriever:
@@ -25,7 +29,8 @@ class GraphRetriever:
         self.kg_store = kg_store
         self.max_hops = max_hops
         self.score_decay = score_decay
-        self.traversal = KnowledgeGraphTraversal(kg_store)
+        self.embedding_model = SentenceTransformer(EMBEDDING_MODEL_NAME)
+        self.traversal = KnowledgeGraphTraversal(kg_store, embedding_model=self.embedding_model)
         self.entity_extractor = EntityExtractor()
         self.chunks_by_id: dict[str, dict] = {}
 

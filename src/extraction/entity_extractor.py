@@ -10,9 +10,12 @@ Table / Formula / Figure / Sample references are always extracted via regex.
 
 import logging
 import re
+from typing import ClassVar
 
 from src.knowledge_graph.schema import (
+    APPLICATIONS,
     CHEMICAL_ELEMENTS,
+    MATERIALS,
     PROCESSES,
     PROPERTIES,
     ChunkExtractionResult,
@@ -45,6 +48,38 @@ class EntityExtractor:
     FORMULA_RE = re.compile(r"Formula\s*\((\d+)\)", re.IGNORECASE)
     FIGURE_RE = re.compile(r"FIG\.?\s*(\d+)|Figure\s*(\d+)", re.IGNORECASE)
     SAMPLE_RE = re.compile(r"(?:Sample|Symbol|Material)\s+([a-zA-Z]\d+)")
+
+    # Patent-intelligence patterns
+    PATENT_REF_RE = re.compile(
+        r"(?:US|EP|WO|JP|CN|KR|DE|GB|FR)\s*[\d,./\-]{4,}(?:\s*[AB]\d)?\b",
+        re.IGNORECASE,
+    )
+    INVENTOR_RE = re.compile(r"[Ii]nventor(?:s)?\s*[:;]\s*(.+?)(?:\n|$)")
+    ASSIGNEE_RE = re.compile(r"(?:[Aa]ssignee|[Aa]pplicant)(?:s)?\s*[:;]\s*(.+?)(?:\n|$)")
+    PATENT_DOC_RE = re.compile(
+        r"Patent\s+(?:Document|Literature|Lit\.?)\s+(\d+)",
+        re.IGNORECASE,
+    )
+
+    PROBLEM_PHRASES: ClassVar[list[str]] = [
+        "problem",
+        "drawback",
+        "disadvantage",
+        "limitation",
+        "difficulty",
+        "deficiency",
+        "shortcoming",
+        "insufficient",
+    ]
+    SOLUTION_PHRASES: ClassVar[list[str]] = [
+        "the present invention provides",
+        "advantage of the invention",
+        "object of the invention",
+        "the invention overcomes",
+        "the invention solves",
+        "according to the present invention",
+        "an object of the present invention",
+    ]
 
     def __init__(self, llm_client=None, use_llm: bool = False):
         self._llm_client = llm_client
@@ -89,6 +124,14 @@ class EntityExtractor:
         entities.extend(self._extract_processes(text, chunk))
         entities.extend(self._extract_references(text, chunk))
         entities.extend(self._extract_samples(text, chunk))
+        entities.extend(self._extract_patent_references(text, chunk))
+        entities.extend(self._extract_inventors(text, chunk))
+        entities.extend(self._extract_assignees(text, chunk))
+        entities.extend(self._extract_applications(text, chunk))
+        entities.extend(self._extract_materials(text, chunk))
+        entities.extend(self._extract_patent_doc_references(text, chunk))
+        entities.extend(self._extract_problems(text, chunk))
+        entities.extend(self._extract_solutions(text, chunk))
 
         return entities
 
@@ -110,7 +153,11 @@ class EntityExtractor:
                         "role": "system",
                         "content": (
                             "Extract chemical compositions, material properties, "
-                            "and process steps from this patent text. "
+                            "process steps, and patent metadata from this patent text. "
+                            "Patent metadata includes: inventor names, assignee/applicant "
+                            "names, cited patent numbers, application domains (use cases), "
+                            "material/alloy names, problems or limitations of prior art, "
+                            "and advantages or solutions of the invention. "
                             "Return only what is explicitly stated."
                         ),
                     },
@@ -173,6 +220,93 @@ class EntityExtractor:
                 chunk_ids=[chunk.chunk_id],
             )
             entities.append(entity)
+
+        # Convert patent_meta -> Entities
+        meta = result.patent_meta
+        for name in meta.inventors:
+            norm = name.strip()
+            entities.append(
+                Entity(
+                    id=f"{chunk.patent_id}_inventor_{norm.lower().replace(' ', '_')}",
+                    type=EntityType.INVENTOR,
+                    name=norm,
+                    properties={"source": "llm"},
+                    patent_id=chunk.patent_id,
+                    chunk_ids=[chunk.chunk_id],
+                )
+            )
+        for name in meta.assignees:
+            norm = name.strip()
+            entities.append(
+                Entity(
+                    id=f"{chunk.patent_id}_assignee_{norm.lower().replace(' ', '_')}",
+                    type=EntityType.ASSIGNEE,
+                    name=norm,
+                    properties={"source": "llm"},
+                    patent_id=chunk.patent_id,
+                    chunk_ids=[chunk.chunk_id],
+                )
+            )
+        for ref in meta.cited_patents:
+            norm = ref.strip()
+            entities.append(
+                Entity(
+                    id=f"{chunk.patent_id}_cited_{norm.replace(' ', '')}",
+                    type=EntityType.PATENT_REFERENCE,
+                    name=norm,
+                    properties={"source": "llm"},
+                    patent_id=chunk.patent_id,
+                    chunk_ids=[chunk.chunk_id],
+                )
+            )
+        for app in meta.applications:
+            norm = app.strip().lower()
+            entities.append(
+                Entity(
+                    id=f"{chunk.patent_id}_app_{norm.replace(' ', '_')}",
+                    type=EntityType.APPLICATION,
+                    name=norm,
+                    properties={"source": "llm"},
+                    patent_id=chunk.patent_id,
+                    chunk_ids=[chunk.chunk_id],
+                )
+            )
+        for mat in meta.materials:
+            norm = mat.strip().lower()
+            entities.append(
+                Entity(
+                    id=f"{chunk.patent_id}_material_{norm.replace(' ', '_')}",
+                    type=EntityType.MATERIAL,
+                    name=norm,
+                    properties={"source": "llm"},
+                    patent_id=chunk.patent_id,
+                    chunk_ids=[chunk.chunk_id],
+                )
+            )
+        for prob in meta.problems:
+            norm = prob.strip()
+            entities.append(
+                Entity(
+                    id=f"{chunk.patent_id}_problem_{len(entities)}",
+                    type=EntityType.PROBLEM,
+                    name=norm,
+                    properties={"source": "llm"},
+                    patent_id=chunk.patent_id,
+                    chunk_ids=[chunk.chunk_id],
+                )
+            )
+        for sol in meta.solutions:
+            norm = sol.strip()
+            entities.append(
+                Entity(
+                    id=f"{chunk.patent_id}_solution_{len(entities)}",
+                    type=EntityType.SOLUTION,
+                    name=norm,
+                    properties={"source": "llm"},
+                    patent_id=chunk.patent_id,
+                    chunk_ids=[chunk.chunk_id],
+                )
+            )
 
         return entities
 
@@ -396,3 +530,192 @@ class EntityExtractor:
                 )
             )
         return entities
+
+    # ------------------------------------------------------------------
+    # Patent-intelligence regex extraction
+    # ------------------------------------------------------------------
+
+    def _extract_patent_references(self, text: str, chunk: PatentChunk) -> list[Entity]:
+        """Extract cited patent numbers (e.g. US 7,234,567, EP1577413)."""
+        entities: list[Entity] = []
+        seen: set[str] = set()
+        for match in self.PATENT_REF_RE.finditer(text):
+            raw = match.group(0).strip()
+            norm = raw.replace(" ", "").replace(",", "")
+            if norm in seen:
+                continue
+            seen.add(norm)
+            entities.append(
+                Entity(
+                    id=f"{chunk.patent_id}_cited_{norm}",
+                    type=EntityType.PATENT_REFERENCE,
+                    name=raw,
+                    properties={"normalized": norm},
+                    patent_id=chunk.patent_id,
+                    chunk_ids=[chunk.chunk_id],
+                )
+            )
+        return entities
+
+    def _extract_patent_doc_references(self, text: str, chunk: PatentChunk) -> list[Entity]:
+        """Extract internal patent document references (e.g. 'Patent Document 2', 'Patent Literature 1')."""
+        entities: list[Entity] = []
+        seen: set[str] = set()
+        for match in self.PATENT_DOC_RE.finditer(text):
+            num = match.group(1)
+            name = f"Patent Document {num}"
+            if name in seen:
+                continue
+            seen.add(name)
+            entities.append(
+                Entity(
+                    id=f"{chunk.patent_id}_patdoc_{num}",
+                    type=EntityType.PATENT_DOC_REFERENCE,
+                    name=name,
+                    properties={"doc_number": int(num)},
+                    patent_id=chunk.patent_id,
+                    chunk_ids=[chunk.chunk_id],
+                )
+            )
+        return entities
+
+    def _extract_inventors(self, text: str, chunk: PatentChunk) -> list[Entity]:
+        """Extract inventor names from 'Inventor(s): ...' lines."""
+        entities: list[Entity] = []
+        for match in self.INVENTOR_RE.finditer(text):
+            names_str = match.group(1)
+            for name in re.split(r"[;,]", names_str):
+                stripped_name = name.strip()
+                if len(stripped_name) < 3:
+                    continue
+                norm = stripped_name.lower().replace(" ", "_")
+                entities.append(
+                    Entity(
+                        id=f"{chunk.patent_id}_inventor_{norm}",
+                        type=EntityType.INVENTOR,
+                        name=stripped_name,
+                        properties={},
+                        patent_id=chunk.patent_id,
+                        chunk_ids=[chunk.chunk_id],
+                    )
+                )
+        return entities
+
+    def _extract_assignees(self, text: str, chunk: PatentChunk) -> list[Entity]:
+        """Extract assignee/applicant names from 'Assignee: ...' lines."""
+        entities: list[Entity] = []
+        for match in self.ASSIGNEE_RE.finditer(text):
+            names_str = match.group(1)
+            for name in re.split(r"[;,]", names_str):
+                stripped_name = name.strip()
+                if len(stripped_name) < 3:
+                    continue
+                norm = stripped_name.lower().replace(" ", "_")
+                entities.append(
+                    Entity(
+                        id=f"{chunk.patent_id}_assignee_{norm}",
+                        type=EntityType.ASSIGNEE,
+                        name=stripped_name,
+                        properties={},
+                        patent_id=chunk.patent_id,
+                        chunk_ids=[chunk.chunk_id],
+                    )
+                )
+        return entities
+
+    def _extract_applications(self, text: str, chunk: PatentChunk) -> list[Entity]:
+        """Extract application domains via vocabulary matching."""
+        entities: list[Entity] = []
+        text_lower = text.lower()
+        for app_id, aliases in APPLICATIONS.items():
+            for alias in aliases:
+                if alias.lower() in text_lower:
+                    entities.append(
+                        Entity(
+                            id=f"{chunk.patent_id}_app_{app_id}",
+                            type=EntityType.APPLICATION,
+                            name=app_id,
+                            properties={"matched_alias": alias},
+                            patent_id=chunk.patent_id,
+                            chunk_ids=[chunk.chunk_id],
+                        )
+                    )
+                    break
+        return entities
+
+    def _extract_materials(self, text: str, chunk: PatentChunk) -> list[Entity]:
+        """Extract named materials / alloy types via vocabulary matching."""
+        entities: list[Entity] = []
+        text_lower = text.lower()
+        for mat_id, aliases in MATERIALS.items():
+            for alias in aliases:
+                if alias.lower() in text_lower:
+                    entities.append(
+                        Entity(
+                            id=f"{chunk.patent_id}_material_{mat_id}",
+                            type=EntityType.MATERIAL,
+                            name=mat_id,
+                            properties={"matched_alias": alias},
+                            patent_id=chunk.patent_id,
+                            chunk_ids=[chunk.chunk_id],
+                        )
+                    )
+                    break
+        return entities
+
+    def _extract_problems(self, text: str, chunk: PatentChunk) -> list[Entity]:
+        """Extract problem/limitation sentences from background sections."""
+        entities: list[Entity] = []
+        text_lower = text.lower()
+        for phrase in self.PROBLEM_PHRASES:
+            if phrase in text_lower:
+                # Find the sentence containing the phrase
+                sentence = self._sentence_around(text, phrase)
+                if sentence:
+                    entities.append(
+                        Entity(
+                            id=f"{chunk.patent_id}_problem_{len(entities)}_{phrase}",
+                            type=EntityType.PROBLEM,
+                            name=sentence,
+                            properties={"trigger_phrase": phrase},
+                            patent_id=chunk.patent_id,
+                            chunk_ids=[chunk.chunk_id],
+                        )
+                    )
+                break  # one problem entity per chunk to avoid noise
+        return entities
+
+    def _extract_solutions(self, text: str, chunk: PatentChunk) -> list[Entity]:
+        """Extract solution/advantage sentences from description sections."""
+        entities: list[Entity] = []
+        text_lower = text.lower()
+        for phrase in self.SOLUTION_PHRASES:
+            if phrase in text_lower:
+                sentence = self._sentence_around(text, phrase)
+                if sentence:
+                    entities.append(
+                        Entity(
+                            id=f"{chunk.patent_id}_solution_{len(entities)}_{phrase.replace(' ', '_')[:20]}",
+                            type=EntityType.SOLUTION,
+                            name=sentence,
+                            properties={"trigger_phrase": phrase},
+                            patent_id=chunk.patent_id,
+                            chunk_ids=[chunk.chunk_id],
+                        )
+                    )
+                break  # one solution entity per chunk
+        return entities
+
+    @staticmethod
+    def _sentence_around(text: str, phrase: str) -> str | None:
+        """Return the sentence containing *phrase*, truncated to 300 chars."""
+        idx = text.lower().find(phrase)
+        if idx == -1:
+            return None
+        # Walk backwards to sentence start
+        start = max(0, text.rfind(".", 0, idx) + 1)
+        # Walk forwards to sentence end
+        end_dot = text.find(".", idx)
+        end = end_dot + 1 if end_dot != -1 else len(text)
+        sentence = text[start:end].strip()
+        return sentence[:300] if sentence else None

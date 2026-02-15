@@ -90,6 +90,40 @@ class KnowledgeGraphBuilder:
                 for prop in properties:
                     self._add_measured_in(prop, chunk)
 
+            # USED_FOR: Material + Application co-occurrence
+            materials = [e for e in chunk_entities if e.type == EntityType.MATERIAL]
+            applications = [e for e in chunk_entities if e.type == EntityType.APPLICATION]
+
+            for material in materials:
+                for application in applications:
+                    self._add_used_for(material, application, chunk)
+
+            # CITES: Patent reference found in chunk
+            patent_refs = [e for e in chunk_entities if e.type == EntityType.PATENT_REFERENCE]
+            for ref in patent_refs:
+                self._add_cites(ref, chunk)
+
+            # ADDRESSES_PROBLEM: Material or patent + Problem co-occurrence
+            problems = [e for e in chunk_entities if e.type == EntityType.PROBLEM]
+            for problem in problems:
+                for material in materials:
+                    self._add_addresses_problem(material, problem, chunk)
+                # If no materials, link problem to the patent itself
+                if not materials and chunk.patent_id:
+                    self._add_addresses_problem_patent(chunk.patent_id, problem, chunk)
+
+            # INVENTED_BY: Inventor entity in chunk
+            inventors = [e for e in chunk_entities if e.type == EntityType.INVENTOR]
+            for inventor in inventors:
+                if chunk.patent_id:
+                    self._add_invented_by(chunk.patent_id, inventor, chunk)
+
+            # ASSIGNEE_OF: Assignee entity in chunk
+            assignees = [e for e in chunk_entities if e.type == EntityType.ASSIGNEE]
+            for assignee in assignees:
+                if chunk.patent_id:
+                    self._add_assignee_of(assignee, chunk.patent_id, chunk)
+
     def _add_described_in(self, entity: Entity, chunk):
         """Add DESCRIBED_IN relationship."""
         rel = Relationship(
@@ -182,6 +216,108 @@ class KnowledgeGraphBuilder:
             chunk_id=chunk.chunk_id,
         )
         self.relationships.append(rel)
+
+    def _add_used_for(self, material: Entity, application: Entity, chunk):
+        """Add USED_FOR relationship between material and application."""
+        rel_id = f"used_for_{material.id}_{application.id}"
+        if any(r.id == rel_id for r in self.relationships):
+            return
+        self.relationships.append(
+            Relationship(
+                id=rel_id,
+                type=RelationType.USED_FOR,
+                source_id=material.id,
+                target_id=application.id,
+                properties={"context": chunk.content[:200]},
+                patent_id=material.patent_id,
+                chunk_id=chunk.chunk_id,
+            )
+        )
+
+    def _add_cites(self, patent_ref: Entity, chunk):
+        """Add CITES relationship from current patent to a patent reference."""
+        rel_id = f"cites_{chunk.patent_id}_{patent_ref.id}"
+        if any(r.id == rel_id for r in self.relationships):
+            return
+        self.relationships.append(
+            Relationship(
+                id=rel_id,
+                type=RelationType.CITES,
+                source_id=chunk.patent_id,
+                target_id=patent_ref.id,
+                properties={},
+                patent_id=chunk.patent_id,
+                chunk_id=chunk.chunk_id,
+            )
+        )
+
+    def _add_addresses_problem(self, material: Entity, problem: Entity, chunk):
+        """Add ADDRESSES_PROBLEM relationship between material and problem."""
+        rel_id = f"addresses_{material.id}_{problem.id}"
+        if any(r.id == rel_id for r in self.relationships):
+            return
+        self.relationships.append(
+            Relationship(
+                id=rel_id,
+                type=RelationType.ADDRESSES_PROBLEM,
+                source_id=material.id,
+                target_id=problem.id,
+                properties={"context": chunk.content[:200]},
+                patent_id=material.patent_id,
+                chunk_id=chunk.chunk_id,
+            )
+        )
+
+    def _add_addresses_problem_patent(self, patent_id: str, problem: Entity, chunk):
+        """Add ADDRESSES_PROBLEM relationship from patent to problem."""
+        rel_id = f"addresses_{patent_id}_{problem.id}"
+        if any(r.id == rel_id for r in self.relationships):
+            return
+        self.relationships.append(
+            Relationship(
+                id=rel_id,
+                type=RelationType.ADDRESSES_PROBLEM,
+                source_id=patent_id,
+                target_id=problem.id,
+                properties={"context": chunk.content[:200]},
+                patent_id=patent_id,
+                chunk_id=chunk.chunk_id,
+            )
+        )
+
+    def _add_invented_by(self, patent_id: str, inventor: Entity, chunk):
+        """Add INVENTED_BY relationship from patent to inventor."""
+        rel_id = f"invented_by_{patent_id}_{inventor.id}"
+        if any(r.id == rel_id for r in self.relationships):
+            return
+        self.relationships.append(
+            Relationship(
+                id=rel_id,
+                type=RelationType.INVENTED_BY,
+                source_id=patent_id,
+                target_id=inventor.id,
+                properties={},
+                patent_id=patent_id,
+                chunk_id=chunk.chunk_id,
+            )
+        )
+
+    def _add_assignee_of(self, assignee: Entity, patent_id: str, chunk):
+        """Add ASSIGNEE_OF relationship from assignee to patent."""
+        rel_id = f"assignee_of_{assignee.id}_{patent_id}"
+        if any(r.id == rel_id for r in self.relationships):
+            return
+        self.relationships.append(
+            Relationship(
+                id=rel_id,
+                type=RelationType.ASSIGNEE_OF,
+                source_id=assignee.id,
+                target_id=patent_id,
+                properties={},
+                patent_id=patent_id,
+                chunk_id=chunk.chunk_id,
+            )
+        )
 
     def export(self) -> dict:
         """Export KG as dictionary for storage."""

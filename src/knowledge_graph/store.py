@@ -4,6 +4,8 @@ import json
 import sqlite3
 from typing import Any
 
+import numpy as np
+
 
 class KnowledgeGraphStore:
     """SQLite storage for knowledge graph."""
@@ -35,6 +37,12 @@ class KnowledgeGraphStore:
         chunk_id TEXT,
         entity_id TEXT,
         PRIMARY KEY (chunk_id, entity_id)
+    );
+
+    -- Entity embeddings for semantic matching
+    CREATE TABLE IF NOT EXISTS entity_embeddings (
+        entity_id TEXT PRIMARY KEY,
+        embedding BLOB NOT NULL
     );
 
     -- Indices
@@ -177,6 +185,72 @@ class KnowledgeGraphStore:
         if row:
             return json.loads(row["chunk_ids"])
         return []
+
+    def save_entity_embedding(self, entity_id: str, embedding: np.ndarray) -> None:
+        """Save embedding vector for an entity."""
+        assert self.conn is not None, "Database connection not established"
+        self.conn.execute(
+            "INSERT OR REPLACE INTO entity_embeddings (entity_id, embedding) VALUES (?, ?)",
+            (entity_id, embedding.astype(np.float32).tobytes()),
+        )
+        self.conn.commit()
+
+    def save_entity_embeddings_batch(self, embeddings: list[tuple[str, np.ndarray]]) -> None:
+        """Save multiple entity embeddings in a single transaction."""
+        assert self.conn is not None, "Database connection not established"
+        self.conn.executemany(
+            "INSERT OR REPLACE INTO entity_embeddings (entity_id, embedding) VALUES (?, ?)",
+            [(eid, emb.astype(np.float32).tobytes()) for eid, emb in embeddings],
+        )
+        self.conn.commit()
+
+    def get_all_entity_embeddings(self) -> list[tuple[str, np.ndarray]]:
+        """Load all entity embeddings for in-memory search."""
+        assert self.conn is not None, "Database connection not established"
+        cursor = self.conn.execute("SELECT entity_id, embedding FROM entity_embeddings")
+        results = []
+        for row in cursor.fetchall():
+            embedding = np.frombuffer(row["embedding"], dtype=np.float32)
+            results.append((row["entity_id"], embedding))
+        return results
+
+    def find_entities_semantic(
+        self, query_embedding: np.ndarray, top_k: int = 5, threshold: float = 0.3
+    ) -> list[tuple[dict, float]]:
+        """Find entities by cosine similarity to query embedding.
+
+        Returns list of (entity_dict, similarity_score) pairs above threshold.
+        """
+        all_embeddings = self.get_all_entity_embeddings()
+        if not all_embeddings:
+            return []
+
+        entity_ids = [eid for eid, _ in all_embeddings]
+        emb_matrix = np.stack([emb for _, emb in all_embeddings])
+
+        # Cosine similarity
+        query_norm = query_embedding / (np.linalg.norm(query_embedding) + 1e-10)
+        emb_norms = emb_matrix / (np.linalg.norm(emb_matrix, axis=1, keepdims=True) + 1e-10)
+        similarities = emb_norms @ query_norm
+
+        # Filter and rank
+        results = []
+        for idx in np.argsort(similarities)[::-1][:top_k]:
+            score = float(similarities[idx])
+            if score < threshold:
+                break
+            entity = self._get_entity_by_id(entity_ids[idx])
+            if entity:
+                results.append((entity, score))
+
+        return results
+
+    def _get_entity_by_id(self, entity_id: str) -> dict | None:
+        """Get a single entity by ID."""
+        assert self.conn is not None, "Database connection not established"
+        cursor = self.conn.execute("SELECT * FROM entities WHERE id = ?", (entity_id,))
+        row = cursor.fetchone()
+        return self._row_to_entity(row) if row else None
 
     def _row_to_entity(self, row: sqlite3.Row) -> dict:
         """Convert database row to entity dict."""

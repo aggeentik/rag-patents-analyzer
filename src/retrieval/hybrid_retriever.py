@@ -1,8 +1,31 @@
 """Hybrid retrieval combining BM25, Semantic, and Graph retrievers using RRF."""
 
 import logging
+from typing import Protocol
 
 logger = logging.getLogger(__name__)
+
+# Fields managed by the fusion logic (not retriever-specific metadata)
+_FUSION_FIELDS = {
+    "bm25_rank",
+    "bm25_score",
+    "semantic_rank",
+    "semantic_score",
+    "graph_rank",
+    "graph_score",
+    "rrf_score",
+    "score_breakdown",
+    "final_rank",
+    "rerank_score",
+}
+
+
+class Reranker(Protocol):
+    """Protocol for cross-encoder rerankers."""
+
+    def score(self, query: str, chunks: list[dict]) -> list[float]:
+        """Return a relevance score for each chunk against the query."""
+        ...
 
 
 class HybridRetriever:
@@ -10,9 +33,13 @@ class HybridRetriever:
     Hybrid retrieval using Reciprocal Rank Fusion (RRF).
 
     Combines results from multiple retrievers using the RRF formula:
-        RRF_score(chunk) = sum(1 / (k + rank_i))
+        RRF_score(chunk) = sum(weight_i / (k + rank_i))
 
     where k is a constant (typically 60) and rank_i is the rank from retriever i.
+
+    Supports an optional cross-encoder reranker for "Wide Retrieval, Narrow Generation":
+    fetch a large candidate pool, fuse with RRF, then rerank with a cross-encoder
+    before returning the final top_k results.
     """
 
     def __init__(
@@ -22,6 +49,7 @@ class HybridRetriever:
         graph_retriever=None,
         weights: dict[str, float] | None = None,
         rrf_k: int = 60,
+        reranker: Reranker | None = None,
     ):
         """
         Initialize hybrid retriever.
@@ -30,16 +58,18 @@ class HybridRetriever:
             bm25_retriever: BM25 retriever instance
             semantic_retriever: Semantic retriever instance
             graph_retriever: Graph retriever instance
-            weights: Weight for each retriever {"bm25": 1.0, "semantic": 1.0, "graph": 0.5}
+            weights: Weight for each retriever {"bm25": 1.0, "semantic": 1.0, "graph": 1.2}
             rrf_k: RRF constant (typically 60)
+            reranker: Optional cross-encoder reranker for post-fusion reranking
         """
         self.bm25_retriever = bm25_retriever
         self.semantic_retriever = semantic_retriever
         self.graph_retriever = graph_retriever
         self.rrf_k = rrf_k
+        self.reranker = reranker
 
-        # Default weights: BM25 and Semantic get equal weight, Graph gets less
-        self.weights = weights or {"bm25": 1.0, "semantic": 1.0, "graph": 0.5}
+        # Default weights: Graph gets a boost for highly specific entity hits
+        self.weights = weights or {"bm25": 1.0, "semantic": 1.0, "graph": 1.2}
 
         # Track which retrievers are available
         self.active_retrievers = []
@@ -50,28 +80,62 @@ class HybridRetriever:
         if graph_retriever:
             self.active_retrievers.append("graph")
 
-        logger.info("Hybrid retriever initialized with: %s", ", ".join(self.active_retrievers))
+        logger.info(
+            "Hybrid retriever initialized with: %s (reranker: %s)",
+            ", ".join(self.active_retrievers),
+            "enabled" if reranker else "disabled",
+        )
 
-    def search(self, query: str, top_k: int = 10, retriever_top_k: int | None = None) -> list[dict]:
+    def _merge_result(self, all_results: dict, result: dict, retriever: str):
+        """Merge a retriever result into the combined results dict, preserving all metadata."""
+        chunk_id = result["chunk_id"]
+        if chunk_id not in all_results:
+            all_results[chunk_id] = result.copy()
+        else:
+            # Preserve any retriever-specific metadata fields (e.g. hop distances,
+            # relationship types) that aren't already present in the merged entry.
+            existing = all_results[chunk_id]
+            for key, value in result.items():
+                if key not in existing and key not in _FUSION_FIELDS:
+                    existing[key] = value
+
+        # Always set the retriever-specific rank/score fields
+        all_results[chunk_id][f"{retriever}_rank"] = result.get(f"{retriever}_rank", 0)
+        all_results[chunk_id][f"{retriever}_score"] = result.get(f"{retriever}_score", 0)
+
+    def search(
+        self,
+        query: str,
+        top_k: int = 10,
+        retriever_top_k: int | None = None,
+        rerank_top_n: int = 20,
+    ) -> list[dict]:
         """
-        Search using hybrid retrieval with RRF fusion.
+        Search using hybrid retrieval with RRF fusion and optional reranking.
+
+        Uses a "Wide Retrieval, Narrow Generation" strategy:
+        1. Fetch a deep pool of candidates from each retriever.
+        2. Fuse with RRF to get an initial ranking.
+        3. Optionally rerank the top candidates with a cross-encoder.
+        4. Return the final top_k results.
 
         Args:
             query: Search query
             top_k: Number of final results to return
-            retriever_top_k: Number of results to retrieve from each retriever
-                           (default: 3x top_k to ensure good coverage)
+            retriever_top_k: Number of results from each retriever
+                           (default: 50 for deep candidate pool)
+            rerank_top_n: Number of RRF results to pass to the reranker (default: 20)
 
         Returns:
             List of chunks with RRF scores and detailed scoring breakdown
         """
         if retriever_top_k is None:
-            retriever_top_k = top_k * 3
+            retriever_top_k = 50
 
         logger.info("Hybrid retrieval query: %s", query)
 
         # Collect results from all retrievers
-        all_results = {}
+        all_results: dict[str, dict] = {}
 
         # BM25 retrieval (keyword-based)
         if self.bm25_retriever:
@@ -79,11 +143,7 @@ class HybridRetriever:
             bm25_results = self.bm25_retriever.search(query, top_k=retriever_top_k)
             logger.debug("BM25 retrieved %d chunks", len(bm25_results))
             for result in bm25_results:
-                chunk_id = result["chunk_id"]
-                if chunk_id not in all_results:
-                    all_results[chunk_id] = result.copy()
-                all_results[chunk_id]["bm25_rank"] = result.get("bm25_rank", 0)
-                all_results[chunk_id]["bm25_score"] = result.get("bm25_score", 0)
+                self._merge_result(all_results, result, "bm25")
 
         # Semantic retrieval (dense vectors)
         if self.semantic_retriever:
@@ -91,11 +151,7 @@ class HybridRetriever:
             semantic_results = self.semantic_retriever.search(query, top_k=retriever_top_k)
             logger.debug("Semantic retrieved %d chunks", len(semantic_results))
             for result in semantic_results:
-                chunk_id = result["chunk_id"]
-                if chunk_id not in all_results:
-                    all_results[chunk_id] = result.copy()
-                all_results[chunk_id]["semantic_rank"] = result.get("semantic_rank", 0)
-                all_results[chunk_id]["semantic_score"] = result.get("semantic_score", 0)
+                self._merge_result(all_results, result, "semantic")
 
         # Graph retrieval (knowledge graph traversal)
         if self.graph_retriever:
@@ -103,11 +159,7 @@ class HybridRetriever:
             graph_results = self.graph_retriever.search(query, top_k=retriever_top_k)
             logger.debug("Graph retrieved %d chunks", len(graph_results))
             for result in graph_results:
-                chunk_id = result["chunk_id"]
-                if chunk_id not in all_results:
-                    all_results[chunk_id] = result.copy()
-                all_results[chunk_id]["graph_rank"] = result.get("graph_rank", 0)
-                all_results[chunk_id]["graph_score"] = result.get("graph_score", 0)
+                self._merge_result(all_results, result, "graph")
 
         # Calculate RRF scores
         logger.debug("Calculating RRF fusion scores...")
@@ -136,20 +188,32 @@ class HybridRetriever:
             chunk["rrf_score"] = rrf_score
             chunk["score_breakdown"] = " + ".join(score_breakdown)
 
-        # Sort by RRF score and return top-k
-        ranked_results = sorted(all_results.values(), key=lambda x: x["rrf_score"], reverse=True)[
-            :top_k
-        ]
+        # Sort by RRF score
+        ranked_results = sorted(all_results.values(), key=lambda x: x["rrf_score"], reverse=True)
+
+        logger.info(
+            "RRF fusion: %d unique chunks from pool",
+            len(all_results),
+        )
+
+        # Rerank with cross-encoder if available
+        if self.reranker:
+            candidates = ranked_results[:rerank_top_n]
+            logger.debug("Reranking top %d RRF results with cross-encoder...", len(candidates))
+            scores = self.reranker.score(query, candidates)
+            for chunk, rerank_score in zip(candidates, scores):
+                chunk["rerank_score"] = rerank_score
+            ranked_results = sorted(candidates, key=lambda x: x["rerank_score"], reverse=True)
+            logger.info("Reranker applied: top %d -> final %d", rerank_top_n, top_k)
+
+        # Trim to final top_k
+        ranked_results = ranked_results[:top_k]
 
         # Add final ranks
         for rank, result in enumerate(ranked_results, 1):
             result["final_rank"] = rank
 
-        logger.info(
-            "RRF fusion: %d unique chunks -> top %d results",
-            len(all_results),
-            len(ranked_results),
-        )
+        logger.info("Returning %d results", len(ranked_results))
 
         return ranked_results
 

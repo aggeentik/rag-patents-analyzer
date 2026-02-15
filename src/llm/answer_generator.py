@@ -152,12 +152,18 @@ class AnswerGenerator:
         return stream, metadata
 
     def _build_context(self, chunks: list[dict]) -> str:
-        """Build context string from chunks."""
+        """Build context string from chunks with signal-quality labels."""
         context_parts = []
 
         for i, chunk in enumerate(chunks, 1):
             # Build chunk header with metadata
             header = f"[Source {i}]"
+
+            # Label high-signal graph connections so the LLM can prioritise them
+            signal_label = self._get_signal_label(chunk)
+            if signal_label:
+                header += f" {signal_label}"
+
             if self.include_metadata:
                 metadata_parts = []
                 if "patent_id" in chunk:
@@ -177,27 +183,41 @@ class AnswerGenerator:
 
         return "\n".join(context_parts)
 
-    def _build_prompt(self, question: str, context: str) -> str:
-        """Build prompt for LLM."""
-        prompt = f"""Based on the following patent excerpts, answer the question below.
+    @staticmethod
+    def _get_signal_label(chunk: dict) -> str:
+        """Return a signal-quality label based on retrieval scores.
 
-PATENT EXCERPTS:
+        High graph_rank (low number = high rank) or high rrf_score indicate
+        chunks that came from precise entity-graph traversal rather than
+        broad keyword matching — these tend to carry the specific technical
+        data needed for faithful answers.
+        """
+        graph_rank = chunk.get("graph_rank", 0)
+        rrf_score = chunk.get("rrf_score", 0.0)
+
+        # Top-5 graph hit OR top-3 overall RRF score → high-signal
+        if (graph_rank > 0 and graph_rank <= 5) or rrf_score >= 0.03:
+            return "[HIGH-SIGNAL GRAPH CONNECTION]"
+        return ""
+
+    def _build_prompt(self, question: str, context: str) -> str:
+        """Build prompt with few-shot example for faithfulness."""
+        prompt = f"""PATENT EXCERPTS:
 {context}
 
 QUESTION:
 {question}
 
-INSTRUCTIONS:
-1. Provide a comprehensive answer based ONLY on the information in the patent excerpts
-2. Include specific technical details, numerical values, and formulas when available
-3. **CRITICAL**: When citing information, you MUST use ONLY the source number format: [Source 1], [Source 2], etc.
-   - DO NOT mention section names, page numbers, or patent IDs directly in your answer
-   - DO use: "according to [Source 1]", "as shown in [Source 2]", "[Source 1, Source 3]"
-   - DO NOT use: "Section 0002 (Page 2)", "EP1816226", "Page 10", etc.
-   Example: "The steel contains 0.05% Si [Source 1], which improves yield stress [Source 2]."
-4. If the excerpts don't contain enough information to answer completely, state what's missing
-5. Organize your answer clearly with sections if answering multiple aspects
-6. Use technical language appropriate for patent analysis
+EXAMPLE of a good answer:
+Q: What is the Si content range?
+A: The Si content is 2.5% to 10% by mass [Source 1], which increases electrical resistance [Source 3].
+
+EXAMPLE of a bad answer (DO NOT do this):
+Q: What is the Si content range?
+A: Silicon is commonly used in electrical steel to improve properties. The Si content is typically around 2-10%.
+(Problems: no citations, "typically" is an estimate, first sentence is background noise)
+
+Now answer the QUESTION above. Provide 3-4 sentences with citations
 
 ANSWER:"""
 
@@ -205,21 +225,14 @@ ANSWER:"""
 
     def _get_system_message(self) -> str:
         """Get system message for LLM."""
-        return """You are a patent analysis assistant specializing in steel manufacturing and metallurgy.
+        return """You are a Senior Patent Metallurgist. Follow these rules strictly:
 
-Your role is to:
-- Analyze patent documents and extract relevant technical information
-- Provide accurate, detailed answers based on patent content
-- Cite sources using ONLY the [Source X] format provided in the excerpts (never mention section names, page numbers, or patent IDs directly)
-- Explain complex metallurgical processes and compositions
-- Identify key innovations, methods, and technical specifications
-
-CITATION FORMAT RULES:
-- Use [Source 1], [Source 2], etc. when referencing information
-- NEVER write section numbers, page numbers, or patent IDs in your answer text
-- The source numbers are clickable links that will show the user the exact location
-
-Always base your answers on the provided patent excerpts. If information is not available in the excerpts, clearly state this limitation."""
+1. Use ONLY information explicitly written in the provided sources. Never add outside knowledge.
+2. Every sentence must cite [Source X]. If no source supports a claim, do not write it.
+3. Use exact values from sources (e.g., "Si: 2.5%"). If a specific value is not found, write "data not available in sources" — never estimate or generalize.
+4. Prioritize sources marked [HIGH-SIGNAL GRAPH CONNECTION] — they contain precise entity-linked data.
+5. Ignore generic background (definitions of steel, broad industry context) unless directly asked.
+6. Use ONLY [Source 1], [Source 2] etc. for citations. Never write section names, page numbers, or patent IDs."""
 
     def generate_summary(self, chunks: list[dict]) -> str:
         """

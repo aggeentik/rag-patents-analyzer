@@ -9,7 +9,7 @@ This demonstrates the complete RAG pipeline:
 5. Generate comprehensive answers using LLM
 
 Usage:
-    uv run python scripts/retrieval_generation.py
+    uv run python src/retrieval_generation.py
 """
 
 import json
@@ -21,10 +21,16 @@ from pathlib import Path
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-from src.knowledge_graph.store import KnowledgeGraphStore
-from src.llm import AnswerGenerator, LLMClient
-from src.logging_config import setup_logging
-from src.retrieval import BM25Retriever, GraphRetriever, HybridRetriever, SemanticRetriever
+from src.knowledge_graph.store import KnowledgeGraphStore  # noqa: E402
+from src.llm import AnswerGenerator, LLMClient  # noqa: E402
+from src.logging_config import setup_logging  # noqa: E402
+from src.retrieval import (  # noqa: E402
+    BM25Retriever,
+    GraphRetriever,
+    HybridRetriever,
+    SemanticRetriever,
+    reranker_from_env,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -200,9 +206,10 @@ def main():
         weights={
             "bm25": 1.0,  # Keyword matching
             "semantic": 1.0,  # Semantic similarity
-            "graph": 0.5,  # Knowledge graph (less weight)
+            "graph": 1.2,  # Knowledge graph (boosted for precise entity hits)
         },
         rrf_k=60,
+        reranker=reranker_from_env(),
     )
     logger.info("=" * 80)
 

@@ -1,16 +1,30 @@
 """Graph traversal and query operations."""
 
-import networkx as nx
+from __future__ import annotations
 
-from src.knowledge_graph.store import KnowledgeGraphStore
+import logging
+from typing import TYPE_CHECKING
+
+import networkx as nx
+import numpy as np
+
+if TYPE_CHECKING:
+    from sentence_transformers import SentenceTransformer
+
+    from src.knowledge_graph.store import KnowledgeGraphStore
+
+logger = logging.getLogger(__name__)
 
 
 class KnowledgeGraphTraversal:
     """Graph traversal and query operations."""
 
-    def __init__(self, store: KnowledgeGraphStore):
+    def __init__(
+        self, store: KnowledgeGraphStore, embedding_model: SentenceTransformer | None = None
+    ):
         self.store = store
         self.graph = None
+        self.embedding_model = embedding_model
 
     def build_networkx_graph(self):
         """Build NetworkX graph for traversal algorithms."""
@@ -35,6 +49,32 @@ class KnowledgeGraphTraversal:
                 type=row["type"],
             )
 
+    def find_semantic_start_nodes(
+        self, query_entities: list[str], top_k: int = 3, threshold: float = 0.3
+    ) -> list[dict]:
+        """Find start nodes using semantic similarity on entity names.
+
+        Returns deduplicated entity dicts with highest similarity scores.
+        """
+        if not self.embedding_model:
+            return []
+
+        seen: dict[str, tuple[dict, float]] = {}  # entity_id -> (entity, score)
+
+        for entity_name in query_entities:
+            query_embedding = np.asarray(self.embedding_model.encode(entity_name))
+            matches = self.store.find_entities_semantic(
+                query_embedding, top_k=top_k, threshold=threshold
+            )
+            for entity, score in matches:
+                eid = entity["id"]
+                if eid not in seen or score > seen[eid][1]:
+                    seen[eid] = (entity, score)
+
+        # Sort by score descending
+        sorted_entities = sorted(seen.values(), key=lambda x: x[1], reverse=True)
+        return [entity for entity, _score in sorted_entities]
+
     def find_related_chunks(
         self, query_entities: list[str], max_hops: int = 2, max_chunks: int = 10
     ) -> list[str]:
@@ -42,32 +82,50 @@ class KnowledgeGraphTraversal:
         Find chunks related to query entities via graph traversal.
 
         Algorithm:
-        1. Start from query entity nodes
-        2. BFS/DFS up to max_hops
+        1. Start from query entity nodes (semantic or lexical matching)
+        2. BFS up to max_hops
         3. Collect all chunks containing traversed entities
         4. Rank by number of connections
         """
         chunk_scores: dict[str, float] = {}
 
-        # BFS from each query entity
-        for entity_name in query_entities:
-            # Find matching entities
-            entities = self.store.find_entities(entity_name)
+        use_lexical = True
 
-            for entity in entities:
-                # Get chunks for this entity
-                chunks = entity["chunk_ids"]
-                for chunk_id in chunks:
-                    chunk_scores[chunk_id] = chunk_scores.get(chunk_id, 0) + 2  # Direct match
+        if self.embedding_model:
+            # Semantic matching for start nodes
+            entities = self.find_semantic_start_nodes(query_entities)
+            if entities:
+                use_lexical = False
+                logger.debug("Semantic matching found %d start entities", len(entities))
+                for entity in entities:
+                    for chunk_id in entity["chunk_ids"]:
+                        chunk_scores[chunk_id] = chunk_scores.get(chunk_id, 0) + 2
 
-                # Traverse relationships
-                related = self._bfs_traverse(entity["id"], max_hops)
-                for rel_entity_id, distance in related:
-                    rel_chunks = self.store.get_chunks_for_entity(rel_entity_id)
-                    for chunk_id in rel_chunks:
-                        # Score decreases with distance
-                        score = 1 / (distance + 1)
-                        chunk_scores[chunk_id] = chunk_scores.get(chunk_id, 0) + score
+                    related = self._bfs_traverse(entity["id"], max_hops)
+                    for rel_entity_id, distance in related:
+                        rel_chunks = self.store.get_chunks_for_entity(rel_entity_id)
+                        for chunk_id in rel_chunks:
+                            score = 1 / (distance + 1)
+                            chunk_scores[chunk_id] = chunk_scores.get(chunk_id, 0) + score
+            else:
+                logger.debug("Semantic matching found no entities, falling back to lexical")
+
+        if use_lexical:
+            # Lexical LIKE matching (fallback or no embedding model)
+            for entity_name in query_entities:
+                entities = self.store.find_entities(entity_name)
+
+                for entity in entities:
+                    chunks = entity["chunk_ids"]
+                    for chunk_id in chunks:
+                        chunk_scores[chunk_id] = chunk_scores.get(chunk_id, 0) + 2
+
+                    related = self._bfs_traverse(entity["id"], max_hops)
+                    for rel_entity_id, distance in related:
+                        rel_chunks = self.store.get_chunks_for_entity(rel_entity_id)
+                        for chunk_id in rel_chunks:
+                            score = 1 / (distance + 1)
+                            chunk_scores[chunk_id] = chunk_scores.get(chunk_id, 0) + score
 
         # Sort by score
         ranked = sorted(chunk_scores.items(), key=lambda x: x[1], reverse=True)

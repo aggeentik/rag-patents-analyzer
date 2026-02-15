@@ -19,15 +19,15 @@ from tqdm import tqdm
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-from src.logging_config import setup_logging
+from src.logging_config import setup_logging  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
-from src.chunking.chunker import PatentChunker
-from src.extraction.entity_extractor import EntityExtractor
-from src.extraction.pdf_parser import PatentPDFParser
-from src.knowledge_graph.builder import KnowledgeGraphBuilder
-from src.knowledge_graph.store import KnowledgeGraphStore
+from src.chunking.chunker import PatentChunker  # noqa: E402
+from src.extraction.entity_extractor import EntityExtractor  # noqa: E402
+from src.extraction.pdf_parser import PatentPDFParser  # noqa: E402
+from src.knowledge_graph.builder import KnowledgeGraphBuilder  # noqa: E402
+from src.knowledge_graph.store import KnowledgeGraphStore  # noqa: E402
 
 # Import retrieval modules (optional)
 try:
@@ -106,7 +106,7 @@ def main(patent_names=None, use_llm_extraction=False):
     # Entity extractor: optionally with LLM
     llm_client = None
     if use_llm_extraction:
-        from src.llm.llm_client import LLMClient
+        from src.llm.llm_client import LLMClient  # noqa: PLC0415
 
         llm_client = LLMClient.from_env()
         logger.info("LLM extraction enabled: %s", llm_client.model)
@@ -216,6 +216,19 @@ def main(patent_names=None, use_llm_extraction=False):
 
     for rel in tqdm(kg_data["relationships"], desc="  Saving relationships"):
         kg_store.save_relationship(rel)
+
+    # Embed entity names for semantic matching
+    logger.info("Embedding entity names for semantic matching...")
+    from sentence_transformers import SentenceTransformer  # noqa: PLC0415
+
+    embed_model = SentenceTransformer("all-MiniLM-L6-v2")
+    entity_items = list(kg_data["entities"].items())
+    entity_names = [entity["name"] for _, entity in entity_items]
+    embeddings = embed_model.encode(entity_names, show_progress_bar=False)
+
+    embedding_pairs = [(entity["id"], embeddings[i]) for i, (_, entity) in enumerate(entity_items)]
+    kg_store.save_entity_embeddings_batch(embedding_pairs)
+    logger.info("Saved %d entity embeddings", len(embedding_pairs))
 
     kg_store.close()
     logger.info(
