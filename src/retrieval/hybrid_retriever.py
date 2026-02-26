@@ -20,12 +20,24 @@ _FUSION_FIELDS = {
 }
 
 
+class Retriever(Protocol):
+    """Protocol for individual retrievers (BM25, Semantic, Graph)."""
+
+    def search(self, query: str, top_k: int = 10) -> list[dict]:
+        """Return ranked chunks matching the query."""
+        ...
+
+
 class Reranker(Protocol):
     """Protocol for cross-encoder rerankers."""
 
     def score(self, query: str, chunks: list[dict]) -> list[float]:
         """Return a relevance score for each chunk against the query."""
         ...
+
+
+# Short labels for RRF score breakdown display
+_DISPLAY_LABELS = {"bm25": "BM25", "semantic": "Sem", "graph": "Graph"}
 
 
 class HybridRetriever:
@@ -62,27 +74,24 @@ class HybridRetriever:
             rrf_k: RRF constant (typically 60)
             reranker: Optional cross-encoder reranker for post-fusion reranking
         """
-        self.bm25_retriever = bm25_retriever
-        self.semantic_retriever = semantic_retriever
-        self.graph_retriever = graph_retriever
         self.rrf_k = rrf_k
         self.reranker = reranker
 
         # Default weights: Graph gets a boost for highly specific entity hits
         self.weights = weights or {"bm25": 1.0, "semantic": 1.0, "graph": 1.2}
 
-        # Track which retrievers are available
-        self.active_retrievers = []
+        # Map retriever names to instances (only those provided)
+        self._retrievers: dict[str, Retriever] = {}
         if bm25_retriever:
-            self.active_retrievers.append("bm25")
+            self._retrievers["bm25"] = bm25_retriever
         if semantic_retriever:
-            self.active_retrievers.append("semantic")
+            self._retrievers["semantic"] = semantic_retriever
         if graph_retriever:
-            self.active_retrievers.append("graph")
+            self._retrievers["graph"] = graph_retriever
 
         logger.info(
             "Hybrid retriever initialized with: %s (reranker: %s)",
-            ", ".join(self.active_retrievers),
+            ", ".join(self._retrievers),
             "enabled" if reranker else "disabled",
         )
 
@@ -134,56 +143,28 @@ class HybridRetriever:
 
         logger.info("Hybrid retrieval query: %s", query)
 
-        # Collect results from all retrievers
+        # Collect results from all active retrievers
         all_results: dict[str, dict] = {}
 
-        # BM25 retrieval (keyword-based)
-        if self.bm25_retriever:
-            logger.debug("Running BM25 retrieval...")
-            bm25_results = self.bm25_retriever.search(query, top_k=retriever_top_k)
-            logger.debug("BM25 retrieved %d chunks", len(bm25_results))
-            for result in bm25_results:
-                self._merge_result(all_results, result, "bm25")
-
-        # Semantic retrieval (dense vectors)
-        if self.semantic_retriever:
-            logger.debug("Running semantic retrieval...")
-            semantic_results = self.semantic_retriever.search(query, top_k=retriever_top_k)
-            logger.debug("Semantic retrieved %d chunks", len(semantic_results))
-            for result in semantic_results:
-                self._merge_result(all_results, result, "semantic")
-
-        # Graph retrieval (knowledge graph traversal)
-        if self.graph_retriever:
-            logger.debug("Running graph retrieval...")
-            graph_results = self.graph_retriever.search(query, top_k=retriever_top_k)
-            logger.debug("Graph retrieved %d chunks", len(graph_results))
-            for result in graph_results:
-                self._merge_result(all_results, result, "graph")
+        for name, retriever in self._retrievers.items():
+            logger.debug("Running %s retrieval...", name)
+            results = retriever.search(query, top_k=retriever_top_k)
+            logger.debug("%s retrieved %d chunks", name, len(results))
+            for result in results:
+                self._merge_result(all_results, result, name)
 
         # Calculate RRF scores
         logger.debug("Calculating RRF fusion scores...")
-        for _chunk_id, chunk in all_results.items():
+        for chunk in all_results.values():
             rrf_score = 0.0
             score_breakdown = []
 
-            # BM25 contribution
-            if "bm25_rank" in chunk and chunk["bm25_rank"] > 0:
-                bm25_rrf = 1 / (self.rrf_k + chunk["bm25_rank"])
-                rrf_score += self.weights["bm25"] * bm25_rrf
-                score_breakdown.append(f"BM25: {bm25_rrf:.4f}")
-
-            # Semantic contribution
-            if "semantic_rank" in chunk and chunk["semantic_rank"] > 0:
-                sem_rrf = 1 / (self.rrf_k + chunk["semantic_rank"])
-                rrf_score += self.weights["semantic"] * sem_rrf
-                score_breakdown.append(f"Sem: {sem_rrf:.4f}")
-
-            # Graph contribution
-            if "graph_rank" in chunk and chunk["graph_rank"] > 0:
-                graph_rrf = 1 / (self.rrf_k + chunk["graph_rank"])
-                rrf_score += self.weights["graph"] * graph_rrf
-                score_breakdown.append(f"Graph: {graph_rrf:.4f}")
+            for name in self._retrievers:
+                rank = chunk.get(f"{name}_rank", 0)
+                if rank > 0:
+                    contribution = 1 / (self.rrf_k + rank)
+                    rrf_score += self.weights[name] * contribution
+                    score_breakdown.append(f"{_DISPLAY_LABELS[name]}: {contribution:.4f}")
 
             chunk["rrf_score"] = rrf_score
             chunk["score_breakdown"] = " + ".join(score_breakdown)

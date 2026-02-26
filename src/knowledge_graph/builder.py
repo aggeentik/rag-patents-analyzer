@@ -13,6 +13,7 @@ class KnowledgeGraphBuilder:
     def __init__(self):
         self.entities: dict[str, Entity] = {}
         self.relationships: list[Relationship] = []
+        self._relationship_ids: set[str] = set()
         self._table_chunks: dict[str, str] = {}  # "Table 1" -> chunk_id
 
     def add_entities(self, entities: list[Entity]):
@@ -124,39 +125,52 @@ class KnowledgeGraphBuilder:
                 if chunk.patent_id:
                     self._add_assignee_of(assignee, chunk.patent_id, chunk)
 
+    def _add_relationship(self, rel: Relationship, deduplicate: bool = False) -> None:
+        """Append a relationship, optionally skipping if its ID was already seen.
+
+        Using a set for dedup (O(1) lookup) instead of scanning the full list.
+        """
+        if deduplicate:
+            if rel.id in self._relationship_ids:
+                return
+            self._relationship_ids.add(rel.id)
+        self.relationships.append(rel)
+
     def _add_described_in(self, entity: Entity, chunk):
         """Add DESCRIBED_IN relationship."""
-        rel = Relationship(
-            id=f"described_{entity.id}_{chunk.chunk_id}",
-            type=RelationType.DESCRIBED_IN,
-            source_id=entity.id,
-            target_id=chunk.chunk_id,
-            properties={},
-            patent_id=entity.patent_id,
-            chunk_id=chunk.chunk_id,
+        self._add_relationship(
+            Relationship(
+                id=f"described_{entity.id}_{chunk.chunk_id}",
+                type=RelationType.DESCRIBED_IN,
+                source_id=entity.id,
+                target_id=chunk.chunk_id,
+                properties={},
+                patent_id=entity.patent_id,
+                chunk_id=chunk.chunk_id,
+            )
         )
-        self.relationships.append(rel)
 
     def _add_affects(self, element: Entity, prop: Entity, chunk):
         """Add AFFECTS relationship between element and property."""
-        rel = Relationship(
-            id=f"affects_{element.id}_{prop.id}",
-            type=RelationType.AFFECTS,
-            source_id=element.id,
-            target_id=prop.id,
-            properties={
-                "context": chunk.content[:200],
-            },
-            patent_id=element.patent_id,
-            chunk_id=chunk.chunk_id,
+        self._add_relationship(
+            Relationship(
+                id=f"affects_{element.id}_{prop.id}",
+                type=RelationType.AFFECTS,
+                source_id=element.id,
+                target_id=prop.id,
+                properties={"context": chunk.content[:200]},
+                patent_id=element.patent_id,
+                chunk_id=chunk.chunk_id,
+            )
         )
-        self.relationships.append(rel)
 
     def _add_requires_temperature(self, process: Entity, chunk):
         """Add REQUIRES relationship for process temperature."""
         temp_value = process.properties.get("temperature")
-        if temp_value:
-            rel = Relationship(
+        if not temp_value:
+            return
+        self._add_relationship(
+            Relationship(
                 id=f"requires_{process.id}_temp",
                 type=RelationType.REQUIRES,
                 source_id=process.id,
@@ -169,154 +183,139 @@ class KnowledgeGraphBuilder:
                 patent_id=process.patent_id,
                 chunk_id=chunk.chunk_id,
             )
-            self.relationships.append(rel)
+        )
 
     def _add_references(self, chunk, ref_entity: Entity):
         """Add REFERENCES relationship from chunk to table/formula."""
-        rel = Relationship(
-            id=f"ref_{chunk.chunk_id}_{ref_entity.id}",
-            type=RelationType.REFERENCES,
-            source_id=chunk.chunk_id,
-            target_id=ref_entity.id,
-            properties={},
-            patent_id=chunk.patent_id,
-            chunk_id=chunk.chunk_id,
+        self._add_relationship(
+            Relationship(
+                id=f"ref_{chunk.chunk_id}_{ref_entity.id}",
+                type=RelationType.REFERENCES,
+                source_id=chunk.chunk_id,
+                target_id=ref_entity.id,
+                properties={},
+                patent_id=chunk.patent_id,
+                chunk_id=chunk.chunk_id,
+            )
         )
-        self.relationships.append(rel)
 
     def _add_mentions(self, chunk, table_chunk_id: str):
         """Add MENTIONS relationship from a text chunk to a table chunk."""
-        rel_id = f"mentions_{chunk.chunk_id}_{table_chunk_id}"
-        # Avoid duplicates within the same chunk
-        if any(r.id == rel_id for r in self.relationships):
-            return
-        self.relationships.append(
+        self._add_relationship(
             Relationship(
-                id=rel_id,
+                id=f"mentions_{chunk.chunk_id}_{table_chunk_id}",
                 type=RelationType.MENTIONS,
                 source_id=chunk.chunk_id,
                 target_id=table_chunk_id,
                 properties={},
                 patent_id=chunk.patent_id,
                 chunk_id=chunk.chunk_id,
-            )
+            ),
+            deduplicate=True,
         )
 
     def _add_measured_in(self, prop: Entity, chunk):
         """Add MEASURED_IN relationship for property in table."""
-        rel = Relationship(
-            id=f"measured_{prop.id}_{chunk.chunk_id}",
-            type=RelationType.MEASURED_IN,
-            source_id=prop.id,
-            target_id=chunk.chunk_id,
-            properties={
-                "table_type": "data_table",
-            },
-            patent_id=prop.patent_id,
-            chunk_id=chunk.chunk_id,
+        self._add_relationship(
+            Relationship(
+                id=f"measured_{prop.id}_{chunk.chunk_id}",
+                type=RelationType.MEASURED_IN,
+                source_id=prop.id,
+                target_id=chunk.chunk_id,
+                properties={"table_type": "data_table"},
+                patent_id=prop.patent_id,
+                chunk_id=chunk.chunk_id,
+            )
         )
-        self.relationships.append(rel)
 
     def _add_used_for(self, material: Entity, application: Entity, chunk):
         """Add USED_FOR relationship between material and application."""
-        rel_id = f"used_for_{material.id}_{application.id}"
-        if any(r.id == rel_id for r in self.relationships):
-            return
-        self.relationships.append(
+        self._add_relationship(
             Relationship(
-                id=rel_id,
+                id=f"used_for_{material.id}_{application.id}",
                 type=RelationType.USED_FOR,
                 source_id=material.id,
                 target_id=application.id,
                 properties={"context": chunk.content[:200]},
                 patent_id=material.patent_id,
                 chunk_id=chunk.chunk_id,
-            )
+            ),
+            deduplicate=True,
         )
 
     def _add_cites(self, patent_ref: Entity, chunk):
         """Add CITES relationship from current patent to a patent reference."""
-        rel_id = f"cites_{chunk.patent_id}_{patent_ref.id}"
-        if any(r.id == rel_id for r in self.relationships):
-            return
-        self.relationships.append(
+        self._add_relationship(
             Relationship(
-                id=rel_id,
+                id=f"cites_{chunk.patent_id}_{patent_ref.id}",
                 type=RelationType.CITES,
                 source_id=chunk.patent_id,
                 target_id=patent_ref.id,
                 properties={},
                 patent_id=chunk.patent_id,
                 chunk_id=chunk.chunk_id,
-            )
+            ),
+            deduplicate=True,
         )
 
     def _add_addresses_problem(self, material: Entity, problem: Entity, chunk):
         """Add ADDRESSES_PROBLEM relationship between material and problem."""
-        rel_id = f"addresses_{material.id}_{problem.id}"
-        if any(r.id == rel_id for r in self.relationships):
-            return
-        self.relationships.append(
+        self._add_relationship(
             Relationship(
-                id=rel_id,
+                id=f"addresses_{material.id}_{problem.id}",
                 type=RelationType.ADDRESSES_PROBLEM,
                 source_id=material.id,
                 target_id=problem.id,
                 properties={"context": chunk.content[:200]},
                 patent_id=material.patent_id,
                 chunk_id=chunk.chunk_id,
-            )
+            ),
+            deduplicate=True,
         )
 
     def _add_addresses_problem_patent(self, patent_id: str, problem: Entity, chunk):
         """Add ADDRESSES_PROBLEM relationship from patent to problem."""
-        rel_id = f"addresses_{patent_id}_{problem.id}"
-        if any(r.id == rel_id for r in self.relationships):
-            return
-        self.relationships.append(
+        self._add_relationship(
             Relationship(
-                id=rel_id,
+                id=f"addresses_{patent_id}_{problem.id}",
                 type=RelationType.ADDRESSES_PROBLEM,
                 source_id=patent_id,
                 target_id=problem.id,
                 properties={"context": chunk.content[:200]},
                 patent_id=patent_id,
                 chunk_id=chunk.chunk_id,
-            )
+            ),
+            deduplicate=True,
         )
 
     def _add_invented_by(self, patent_id: str, inventor: Entity, chunk):
         """Add INVENTED_BY relationship from patent to inventor."""
-        rel_id = f"invented_by_{patent_id}_{inventor.id}"
-        if any(r.id == rel_id for r in self.relationships):
-            return
-        self.relationships.append(
+        self._add_relationship(
             Relationship(
-                id=rel_id,
+                id=f"invented_by_{patent_id}_{inventor.id}",
                 type=RelationType.INVENTED_BY,
                 source_id=patent_id,
                 target_id=inventor.id,
                 properties={},
                 patent_id=patent_id,
                 chunk_id=chunk.chunk_id,
-            )
+            ),
+            deduplicate=True,
         )
 
     def _add_assignee_of(self, assignee: Entity, patent_id: str, chunk):
         """Add ASSIGNEE_OF relationship from assignee to patent."""
-        rel_id = f"assignee_of_{assignee.id}_{patent_id}"
-        if any(r.id == rel_id for r in self.relationships):
-            return
-        self.relationships.append(
+        self._add_relationship(
             Relationship(
-                id=rel_id,
+                id=f"assignee_of_{assignee.id}_{patent_id}",
                 type=RelationType.ASSIGNEE_OF,
                 source_id=assignee.id,
                 target_id=patent_id,
                 properties={},
                 patent_id=patent_id,
                 chunk_id=chunk.chunk_id,
-            )
+            ),
+            deduplicate=True,
         )
 
     def export(self) -> dict:

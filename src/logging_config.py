@@ -33,72 +33,23 @@ def setup_logging(
         stream: Output stream (default: sys.stdout)
     """
     if level is None:
-        # Read from environment variable, default to INFO
         log_level_str = os.getenv("LOG_LEVEL", "INFO").upper()
-        level_map = {
-            "DEBUG": logging.DEBUG,
-            "INFO": logging.INFO,
-            "WARNING": logging.WARNING,
-            "ERROR": logging.ERROR,
-            "CRITICAL": logging.CRITICAL,
-        }
-        level = level_map.get(log_level_str, logging.INFO)
+        level = int(getattr(logging, log_level_str, logging.INFO))
+
     if format_string is None:
         format_string = "%(asctime)s | %(levelname)-8s | %(name)s | %(message)s"
 
     if stream is None:
         stream = sys.stdout
 
-    # Set up the src logger hierarchy
-    src_logger = logging.getLogger("src")
-    src_logger.setLevel(level)
+    formatter = logging.Formatter(format_string, datefmt="%H:%M:%S")
 
-    # Only add handler if none exist (prevents duplicates on Streamlit reruns)
-    if not src_logger.handlers:
-        handler = logging.StreamHandler(stream)
-        handler.setFormatter(logging.Formatter(format_string, datefmt="%H:%M:%S"))
-        src_logger.addHandler(handler)
-    src_logger.propagate = False
-
-    # Also configure scripts logger
-    scripts_logger = logging.getLogger("scripts")
-    scripts_logger.setLevel(level)
-
-    # Only add handler if none exist
-    if not scripts_logger.handlers:
-        handler = logging.StreamHandler(stream)
-        handler.setFormatter(logging.Formatter(format_string, datefmt="%H:%M:%S"))
-        scripts_logger.addHandler(handler)
-    scripts_logger.propagate = False
-
-    # Configure __main__ logger for scripts run directly
-    main_logger = logging.getLogger("__main__")
-    main_logger.setLevel(level)
-
-    if not main_logger.handlers:
-        handler = logging.StreamHandler(stream)
-        handler.setFormatter(logging.Formatter(format_string, datefmt="%H:%M:%S"))
-        main_logger.addHandler(handler)
-    main_logger.propagate = False
-
-
-def get_logger(name: str) -> logging.Logger:
-    """Get a logger with the given name.
-
-    This is a convenience function that ensures consistent logger naming.
-
-    Args:
-        name: Logger name (typically __name__)
-
-    Returns:
-        Configured logger instance
-    """
-    return logging.getLogger(name)
-
-
-# Log level constants for convenience
-DEBUG = logging.DEBUG
-INFO = logging.INFO
-WARNING = logging.WARNING
-ERROR = logging.ERROR
-CRITICAL = logging.CRITICAL
+    for logger_name in ("src", "scripts", "__main__"):
+        logger = logging.getLogger(logger_name)
+        logger.setLevel(level)
+        logger.propagate = False
+        # Only add handler if none exist (prevents duplicates on Streamlit reruns)
+        if not logger.handlers:
+            handler = logging.StreamHandler(stream)
+            handler.setFormatter(formatter)
+            logger.addHandler(handler)
