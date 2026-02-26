@@ -186,7 +186,7 @@ def main():
     if not patents_path.exists():
         logger.error("patents.json not found!")
         logger.info("Please run the data ingestion pipeline first:")
-        logger.info("  uv run python scripts/data_ingestion_pipeline.py")
+        logger.info("  uv run python src/data_ingestion.py")
         return
 
     # Load chunks
@@ -223,8 +223,8 @@ def main():
         llm_client = LLMClient.from_env()
     except Exception as e:
         logger.warning("Could not load from env: %s", e)
-        logger.info("Using default: ollama/llama2")
-        llm_client = LLMClient(model="ollama/llama2")
+        logger.info("Using default: ollama/llama3.1:8b")
+        llm_client = LLMClient(model="ollama/llama3.1:8b")
 
     logger.info("=" * 80)
 
@@ -269,9 +269,10 @@ def main():
     logger.info("  AWS_ACCESS_KEY_ID=your_key")
     logger.info("  AWS_SECRET_ACCESS_KEY=your_secret")
     logger.info("  AWS_REGION_NAME=us-east-1")
-    logger.info("To use different Ollama models:")
+    logger.info("To use different models:")
+    logger.info("  LLM_MODEL=ollama/llama3.1:8b")
     logger.info("  LLM_MODEL=ollama/mistral")
-    logger.info("  LLM_MODEL=ollama/llama2")
+    logger.info("  LLM_MODEL=azure_ai/gpt-4.1")
     logger.info("=" * 80)
 
 

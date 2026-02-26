@@ -60,13 +60,13 @@ def parse_arguments():
         epilog="""
 Examples:
   # Process all PDFs in data/raw/
-  python data_ingestion_pipeline.py
+  uv run python src/data_ingestion.py
 
   # Process specific patents
-  python data_ingestion_pipeline.py patent1.pdf patent2.pdf
+  uv run python src/data_ingestion.py patent1.pdf patent2.pdf
 
   # Process with LLM-based entity extraction
-  python data_ingestion_pipeline.py --use-llm-extraction
+  uv run python src/data_ingestion.py --use-llm-extraction
         """,
     )
     parser.add_argument(

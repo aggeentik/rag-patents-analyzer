@@ -170,11 +170,14 @@ Answer + Sources
 - `reranker.py` - Cross-encoder reranking using HuggingFace models (optional, post-fusion)
 
 **`src/llm/`** - LLM integration and answer generation ✓
-- `llm_client.py` - Unified LLM interface using LiteLLM (Ollama/Bedrock/OpenAI)
+- `llm_client.py` - Unified LLM interface using LiteLLM (Ollama/Bedrock/Azure AI/OpenAI)
 - `answer_generator.py` - RAG pipeline for generating answers from retrieved chunks
 
 **`src/app/`** - Streamlit web application
-- `app.py` - Interactive UI for patent search with hybrid retrieval, LLM-generated answers, PDF viewer with highlighting, and clickable source citations
+- `app.py` - Interactive UI: hybrid retrieval search, streaming LLM answers, PDF viewer with text
+  highlighting, inline citation badges with click-to-scroll, patent selection filter
+  - `_render_pdf_page_base()` — cached page render keyed by (path, page) only; `render_pdf_page()` applies highlights fresh via PIL overlay on top of the cached base
+  - Empty-results guard: skips LLM call and shows a warning when retrieval returns no passages
 - `static/` - Static assets for UI
 
 **`evals/`** - Evaluation framework (RAGAS)
@@ -293,8 +296,8 @@ data/
 ### Adding New Retrievers
 1. Create class in `src/retrieval/` inheriting common interface
 2. Implement `build_index(chunks)`, `search(query, top_k)`, `save()`, `load()` methods
-3. Integrate into `data_ingestion_pipeline.py` build phase
-4. Add to hybrid fusion in future `hybrid_retriever.py`
+3. Integrate into `src/data_ingestion.py` build phase
+4. Add to `src/retrieval/hybrid_retriever.py` fusion logic
 
 ### Working with Knowledge Graph
 ```python
@@ -370,10 +373,11 @@ kg_store.close()
 ```python
 from src.llm import LLMClient, AnswerGenerator
 
-# Initialize LLM (loads from .env or defaults to ollama/llama2)
+# Initialize LLM (loads from .env or defaults to ollama/llama3.1:8b)
 llm = LLMClient.from_env()
 # Or explicitly:
-# llm = LLMClient(model="ollama/llama2")
+# llm = LLMClient(model="ollama/llama3.1:8b")
+# llm = LLMClient(model="azure_ai/gpt-4.1")
 # llm = LLMClient(model="bedrock/anthropic.claude-3-sonnet-20240229-v1:0")
 
 # Create answer generator
@@ -444,8 +448,7 @@ RERANKER_MODEL=BAAI/bge-reranker-v2-m3
 1. Place PDFs in `data/raw/`
 2. Run `uv run python src/data_ingestion.py`
 3. Validate output: check `data/processed/patents.json` has expected chunk count
-4. Test retrieval: `uv run python src/retrieval.py`
-5. Run the web app: `uv run streamlit run src/app/app.py`
+4. Run the web app and test retrieval interactively: `uv run streamlit run src/app/app.py`
 
 ### Configuring PDF Extraction
 The PDF parser uses Docling's DocumentConverter with pypdfium2 backend:
@@ -485,6 +488,8 @@ The PDF parser uses Docling's DocumentConverter with pypdfium2 backend:
 - **Phase 3b:** ✅ Graph retriever + hybrid fusion with RRF + optional cross-encoder reranking
 - **Phase 4:** ✅ LLM integration (Bedrock/Ollama/Azure AI/OpenAI) for answer generation
 - **Phase 5:** ✅ Streamlit UI with PDF viewer, citation linking, and streaming answers
+  - PDF rendering split: cached base render (`_render_pdf_page_base`) + fresh PIL highlight overlay
+  - Empty-results guard: skips LLM call, clears stale session state, shows actionable warning
 - **Evaluation:** ✅ RAGAS evaluation framework with synthetic dataset generation
 
 ## Troubleshooting
@@ -518,6 +523,12 @@ sys.path.insert(0, str(project_root))
 
 **Warning: "embeddings.position_ids | UNEXPECTED" when loading sentence-transformers**
 → This is normal and safe to ignore. The model was trained for a different task and is being repurposed for embeddings. Does not affect quality.
+
+**Search returns no results / "No matching passages found" warning in the UI**
+→ The query likely contains no recognised chemical symbols, property names, or process terms (BM25 and Graph retrievers need entity overlap). Add specific terms: element symbols (Si, Mn, Al), temperatures (850°C), or properties (yield stress, iron loss). Semantic retrieval always returns candidates, so a completely empty result set is rare but possible when all selected patents are filtered out by the patent filter.
+
+**LLM answer stream stops mid-sentence with no error**
+→ Network interruption to the LLM provider (Azure AI, Bedrock, etc.). The partial answer is already displayed. Re-submit the same query — subsequent calls hit cached retrieval results so only the LLM call repeats. Alternatively switch to a local provider: set `LLM_MODEL=ollama/llama3.1:8b` and ensure `ollama serve` is running.
 
 ## References
 
