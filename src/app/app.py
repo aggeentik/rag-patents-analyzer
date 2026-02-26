@@ -458,8 +458,14 @@ def render_sources(results: list[dict], patent_files: dict[str, str]):
                     }
                     st.session_state.fresh_source = True
                     st.rerun()
+            chunk_id = r.get("chunk_id", "")
+            caption_parts = []
             if retriever_tags:
-                st.caption("Found by: " + ", ".join(retriever_tags))
+                caption_parts.append("Found by: " + ", ".join(retriever_tags))
+            if chunk_id:
+                caption_parts.append("ID: " + chunk_id)
+            if caption_parts:
+                st.caption("  |  ".join(caption_parts))
 
 
 
