@@ -1,6 +1,7 @@
 """Knowledge graph-based retrieval."""
 
 import logging
+import os
 
 from sentence_transformers import SentenceTransformer
 
@@ -17,7 +18,13 @@ EMBEDDING_MODEL_NAME = "all-MiniLM-L6-v2"
 class GraphRetriever:
     """Knowledge graph-based retrieval using entity extraction and traversal."""
 
-    def __init__(self, kg_store: KnowledgeGraphStore, max_hops: int = 2, score_decay: float = 0.5):
+    def __init__(
+        self,
+        kg_store: KnowledgeGraphStore,
+        max_hops: int = 2,
+        score_decay: float = 0.5,
+        use_semantic_entity_search: bool | None = None,
+    ):
         """
         Initialize graph retriever.
 
@@ -25,10 +32,24 @@ class GraphRetriever:
             kg_store: Knowledge graph store instance
             max_hops: Maximum number of hops for graph traversal
             score_decay: Score decay factor per hop distance (0-1)
+            use_semantic_entity_search: Use cosine-similarity entity lookup instead of
+                exact/pattern matching. Reads GRAPH_SEMANTIC_ENTITY_SEARCH env var when
+                None (default: true).
         """
         self.kg_store = kg_store
         self.max_hops = max_hops
         self.score_decay = score_decay
+
+        if use_semantic_entity_search is None:
+            use_semantic_entity_search = os.getenv(
+                "GRAPH_SEMANTIC_ENTITY_SEARCH", "false"
+            ).lower() in ("true", "1", "yes")
+        self.use_semantic_entity_search = use_semantic_entity_search
+        logger.info(
+            "Graph retriever: semantic entity search %s",
+            "enabled" if use_semantic_entity_search else "disabled (set GRAPH_SEMANTIC_ENTITY_SEARCH=true to enable)",
+        )
+
         self.embedding_model = SentenceTransformer(EMBEDDING_MODEL_NAME)
         self.traversal = KnowledgeGraphTraversal(kg_store, embedding_model=self.embedding_model)
         self.entity_extractor = EntityExtractor()
@@ -74,25 +95,39 @@ class GraphRetriever:
 
         # Use traversal to find related chunks
         chunk_scores: dict[str, float] = {}
+        _seed_id_seen: set[str] = set()  # entity IDs — skip duplicate BFS traversals
 
         for entity_name in entity_names:
             # Find matching entities in KG
-            matching_entities = self.kg_store.find_entities(entity_name)
+            if self.use_semantic_entity_search:
+                # Returns list[tuple[dict, float]] — unpack to entity dicts only
+                matching_entities = [
+                    entity
+                    for entity, _score in self.kg_store.find_entities_semantic(
+                        self.embedding_model.encode(entity_name)
+                    )
+                ]
+            else:
+                matching_entities = self.kg_store.find_entities(entity_name)
 
             for entity in matching_entities:
+                eid = entity["id"]
+
                 # Score chunks containing this entity directly (highest score)
                 for chunk_id in entity["chunk_ids"]:
                     chunk_scores[chunk_id] = chunk_scores.get(chunk_id, 0) + 1.0
 
-                # Traverse graph to find related entities
-                related = self.traversal._bfs_traverse(entity["id"], self.max_hops)
+                # Traverse graph to find related entities (skip if already traversed from this node)
+                if eid not in _seed_id_seen:
+                    _seed_id_seen.add(eid)
+                    related = self.traversal._bfs_traverse(entity["id"], self.max_hops)
 
-                for rel_entity_id, distance in related:
-                    rel_chunks = self.kg_store.get_chunks_for_entity(rel_entity_id)
-                    for chunk_id in rel_chunks:
-                        # Score decreases exponentially with distance
-                        score = self.score_decay**distance
-                        chunk_scores[chunk_id] = chunk_scores.get(chunk_id, 0) + score
+                    for rel_entity_id, distance in related:
+                        rel_chunks = self.kg_store.get_chunks_for_entity(rel_entity_id)
+                        for chunk_id in rel_chunks:
+                            # Score decreases exponentially with distance
+                            score = self.score_decay**distance
+                            chunk_scores[chunk_id] = chunk_scores.get(chunk_id, 0) + score
 
         # Sort by score and return top-k
         ranked_chunk_ids = sorted(chunk_scores.items(), key=lambda x: x[1], reverse=True)[:top_k]
@@ -120,8 +155,9 @@ class GraphRetriever:
         kg_store: KnowledgeGraphStore,
         max_hops: int = 2,
         score_decay: float = 0.5,
+        use_semantic_entity_search: bool | None = None,
     ) -> "GraphRetriever":
         """Load graph retriever (rebuilds index from chunks)."""
-        retriever = cls(kg_store, max_hops, score_decay)
+        retriever = cls(kg_store, max_hops, score_decay, use_semantic_entity_search)
         retriever.build_index(chunks)
         return retriever

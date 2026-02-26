@@ -462,6 +462,8 @@ def render_sources(results: list[dict], patent_files: dict[str, str]):
                 st.caption("Found by: " + ", ".join(retriever_tags))
 
 
+
+
 def render_empty_state():
     """Show a helpful message when no search has been performed yet."""
 
@@ -663,7 +665,7 @@ def main():
     query = st.text_area(
         "Query",
         height=120,
-        placeholder="What Si content is needed for yield stress above 700 MPa?",
+        placeholder="Ask your question about the selected patents...",
         key="query_input",
         label_visibility="collapsed",
     )
@@ -792,11 +794,28 @@ def main():
 
             # Retriever stats (at the bottom)
             st.divider()
+            total = stats.get("total_results", len(results))
             stat_cols = st.columns(4)
-            stat_cols[0].metric("BM25 hits", stats.get("bm25_hits", 0))
-            stat_cols[1].metric("Semantic hits", stats.get("semantic_hits", 0))
-            stat_cols[2].metric("Graph hits", stats.get("graph_hits", 0))
-            stat_cols[3].metric("Multi-retriever", stats.get("multi_retriever_hits", 0))
+            stat_cols[0].metric(
+                "Keyword search",
+                stats.get("bm25_hits", 0),
+                help=f"Results found by exact keyword matching (BM25). {stats.get('bm25_hits', 0)} of {total} passages matched your search terms directly.",
+            )
+            stat_cols[1].metric(
+                "Semantic search",
+                stats.get("semantic_hits", 0),
+                help=f"Results found by meaning similarity (vector search). {stats.get('semantic_hits', 0)} of {total} passages are conceptually related to your query.",
+            )
+            stat_cols[2].metric(
+                "Knowledge graph",
+                stats.get("graph_hits", 0),
+                help=f"Results found via entity relationships in the knowledge graph. {stats.get('graph_hits', 0)} of {total} passages were discovered by traversing concept connections.",
+            )
+            stat_cols[3].metric(
+                "Found by 2+ methods",
+                stats.get("multi_retriever_hits", 0),
+                help=f"{stats.get('multi_retriever_hits', 0)} of {total} passages were independently confirmed by more than one search method — these are the most reliable results.",
+            )
 
             meta = answer["metadata"]
             reranker_status = "on" if init_reranker() is not None else "off"
@@ -810,6 +829,7 @@ def main():
                 + "  |  Reranker: "
                 + reranker_status
             )
+
 
         # PDF viewer panel
         if has_selected:

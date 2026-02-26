@@ -244,6 +244,9 @@ def main():
    - Default weights: BM25=1.0, Semantic=1.0, Graph=1.2
 5. **Reranker** (optional) - Cross-encoder post-fusion reranking using `BAAI/bge-reranker-v2-m3`
    - Enabled via `RERANKER_ENABLED=true` in `.env`
+   - **Graph entity lookup mode** - controls how query entities are matched in the KG:
+     - Default (`GRAPH_SEMANTIC_ENTITY_SEARCH=false`): exact/pattern matching via SQL LIKE — fast, no embeddings required
+     - Optional (`GRAPH_SEMANTIC_ENTITY_SEARCH=true`): cosine-similarity lookup — requires entity embeddings pre-built in the KG
 
 ### LLM Integration ✓ IMPLEMENTED
 - **LiteLLM** - Unified interface for multiple LLM providers
@@ -429,6 +432,10 @@ RETRIEVER_BM25_WEIGHT=1.0
 RETRIEVER_SEMANTIC_WEIGHT=1.0
 RETRIEVER_GRAPH_WEIGHT=1.2
 RETRIEVER_RRF_K=60
+
+# Graph Retriever: semantic entity lookup (cosine similarity vs exact pattern match)
+# Set to true only if entity embeddings have been built in the knowledge graph
+GRAPH_SEMANTIC_ENTITY_SEARCH=false
 
 # Reranker (optional)
 RERANKER_ENABLED=false
