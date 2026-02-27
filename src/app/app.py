@@ -80,17 +80,11 @@ def load_patents_data():
     return patents_info, all_chunks, patent_files
 
 
-@st.cache_data(show_spinner=False)
-def render_pdf_page(pdf_path: str, page_number: int, highlight_text: str) -> bytes | None:
-    """Render a PDF page as PNG with yellow highlights on matching text.
+@st.cache_data(show_spinner=False, max_entries=50)
+def _render_pdf_page_base(pdf_path: str, page_number: int) -> tuple[bytes, float, float, int, int] | None:
+    """Render a PDF page to PNG without highlights. Cached by (path, page) only.
 
-    Args:
-        pdf_path: Absolute path to the PDF file.
-        page_number: 1-indexed page number (as stored in chunk metadata).
-        highlight_text: Chunk content to search for and highlight.
-
-    Returns:
-        PNG image bytes, or None if rendering fails.
+    Returns (png_bytes, pdf_width, pdf_height, px_width, px_height), or None if rendering fails.
     """
     import fitz  # PyMuPDF
 
@@ -105,31 +99,83 @@ def render_pdf_page(pdf_path: str, page_number: int, highlight_text: str) -> byt
         return None
 
     page = doc[page_idx]
+    pdf_w, pdf_h = page.rect.width, page.rect.height
+
+    # Render at 150 DPI for good readability
+    pixmap = page.get_pixmap(dpi=150)
+    img_bytes = pixmap.tobytes("png")
+    px_w, px_h = pixmap.width, pixmap.height
+
+    doc.close()
+    return img_bytes, pdf_w, pdf_h, px_w, px_h
+
+
+def render_pdf_page(pdf_path: str, page_number: int, highlight_text: str) -> bytes | None:
+    """Render a PDF page as PNG with yellow highlights on matching text.
+
+    The base page render is cached by (path, page) only, so viewing different
+    chunks on the same page always reuses the cached render. Highlights are
+    applied fresh on every call to ensure the correct text is highlighted.
+
+    Args:
+        pdf_path: Absolute path to the PDF file.
+        page_number: 1-indexed page number (as stored in chunk metadata).
+        highlight_text: Chunk content to search for and highlight.
+
+    Returns:
+        PNG image bytes, or None if rendering fails.
+    """
+    import fitz  # PyMuPDF
+    import io
+    from PIL import Image, ImageDraw
+
+    base = _render_pdf_page_base(pdf_path, page_number)
+    if base is None:
+        return None
+
+    img_bytes, pdf_w, pdf_h, px_w, px_h = base
+    scale_x = px_w / pdf_w
+    scale_y = px_h / pdf_h
+
+    # Re-open the document only for text search (no re-rendering)
+    path = Path(pdf_path)
+    doc = fitz.open(str(path))
+    page_idx = page_number - 1
+    page = doc[page_idx]
 
     # Extract short phrases from the chunk text for searching.
     # Full content is too long for exact match; use first ~80 chars of each
     # sentence to get better hit rate on the actual PDF text.
     sentences = [s.strip() for s in highlight_text.replace("\n", " ").split(".") if s.strip()]
-    highlight_color = fitz.utils.getColor("yellow")
-
+    rects_px: list[tuple[float, float, float, float]] = []
     for sentence in sentences:
-        # Use first 80 chars of each sentence as search query
         snippet = sentence[:80]
         if len(snippet) < 10:
             continue
-        rects = page.search_for(snippet)
-        for rect in rects:
-            annot = page.add_highlight_annot(rect)
-            annot.set_colors(stroke=highlight_color)
-            annot.set_opacity(0.4)
-            annot.update()
-
-    # Render at 150 DPI for good readability
-    pixmap = page.get_pixmap(dpi=150)
-    img_bytes = pixmap.tobytes("png")
+        for rect in page.search_for(snippet):
+            rects_px.append((
+                rect.x0 * scale_x,
+                rect.y0 * scale_y,
+                rect.x1 * scale_x,
+                rect.y1 * scale_y,
+            ))
 
     doc.close()
-    return img_bytes
+
+    if not rects_px:
+        return img_bytes  # No text matches found; return the base image as-is
+
+    # Overlay semi-transparent yellow highlights using PIL
+    img = Image.open(io.BytesIO(img_bytes)).convert("RGBA")
+    overlay = Image.new("RGBA", img.size, (0, 0, 0, 0))
+    draw = ImageDraw.Draw(overlay)
+    for x0, y0, x1, y1 in rects_px:
+        draw.rectangle([x0, y0, x1, y1], fill=(255, 220, 0, 120))
+    highlighted = Image.alpha_composite(img, overlay).convert("RGB")
+
+    buf = io.BytesIO()
+    highlighted.save(buf, format="PNG")
+    return buf.getvalue()
 
 
 @st.cache_resource(show_spinner=False)
@@ -178,7 +224,7 @@ def init_llm():
     try:
         return LLMClient.from_env()
     except Exception:
-        return LLMClient(model="ollama/llama2")
+        return LLMClient(model="ollama/llama3.1:8b")
 
 
 # ---------------------------------------------------------------------------
@@ -370,6 +416,9 @@ def inject_source_scroll_js():
 def render_sources(results: list[dict], patent_files: dict[str, str]):
     """Render source chunks as expandable cards with View PDF buttons."""
     st.subheader("Sources")
+    if not results:
+        st.info("No matching passages to display.")
+        return
     for i, r in enumerate(results):
         metadata = r.get("metadata", {})
         patent_id = r.get("patent_id", "?")
@@ -409,8 +458,16 @@ def render_sources(results: list[dict], patent_files: dict[str, str]):
                     }
                     st.session_state.fresh_source = True
                     st.rerun()
+            chunk_id = r.get("chunk_id", "")
+            caption_parts = []
             if retriever_tags:
-                st.caption("Found by: " + ", ".join(retriever_tags))
+                caption_parts.append("Found by: " + ", ".join(retriever_tags))
+            if chunk_id:
+                caption_parts.append("ID: " + chunk_id)
+            if caption_parts:
+                st.caption("  |  ".join(caption_parts))
+
+
 
 
 def render_empty_state():
@@ -522,7 +579,7 @@ def main():
     if patents_info is None:
         st.error(
             "**Data not found.** Run the ingestion pipeline first:\n\n"
-            "```\nuv run python scripts/data_ingestion_pipeline.py\n```"
+            "```\nuv run python src/data_ingestion.py\n```"
         )
         return
 
@@ -614,7 +671,7 @@ def main():
     query = st.text_area(
         "Query",
         height=120,
-        placeholder="What Si content is needed for yield stress above 700 MPa?",
+        placeholder="Ask your question about the selected patents...",
         key="query_input",
         label_visibility="collapsed",
     )
@@ -658,6 +715,16 @@ def main():
                 return
 
             results, stats = retrieval_result
+
+        if not results:
+            # Clear any stale previous results so the old answer isn't re-displayed
+            for key in ("last_result", "last_query", "last_elapsed", "fresh_search"):
+                st.session_state.pop(key, None)
+            st.warning(
+                "No matching passages found for your query. "
+                "Try rephrasing it or adjusting the search weights in **Settings**."
+            )
+            return
 
         # Phase 2: Prepare LLM stream (consumed inside bordered container below)
         try:
@@ -733,11 +800,28 @@ def main():
 
             # Retriever stats (at the bottom)
             st.divider()
+            total = stats.get("total_results", len(results))
             stat_cols = st.columns(4)
-            stat_cols[0].metric("BM25 hits", stats.get("bm25_hits", 0))
-            stat_cols[1].metric("Semantic hits", stats.get("semantic_hits", 0))
-            stat_cols[2].metric("Graph hits", stats.get("graph_hits", 0))
-            stat_cols[3].metric("Multi-retriever", stats.get("multi_retriever_hits", 0))
+            stat_cols[0].metric(
+                "Keyword search",
+                stats.get("bm25_hits", 0),
+                help=f"Results found by exact keyword matching (BM25). {stats.get('bm25_hits', 0)} of {total} passages matched your search terms directly.",
+            )
+            stat_cols[1].metric(
+                "Semantic search",
+                stats.get("semantic_hits", 0),
+                help=f"Results found by meaning similarity (vector search). {stats.get('semantic_hits', 0)} of {total} passages are conceptually related to your query.",
+            )
+            stat_cols[2].metric(
+                "Knowledge graph",
+                stats.get("graph_hits", 0),
+                help=f"Results found via entity relationships in the knowledge graph. {stats.get('graph_hits', 0)} of {total} passages were discovered by traversing concept connections.",
+            )
+            stat_cols[3].metric(
+                "Found by 2+ methods",
+                stats.get("multi_retriever_hits", 0),
+                help=f"{stats.get('multi_retriever_hits', 0)} of {total} passages were independently confirmed by more than one search method — these are the most reliable results.",
+            )
 
             meta = answer["metadata"]
             reranker_status = "on" if init_reranker() is not None else "off"
@@ -751,6 +835,7 @@ def main():
                 + "  |  Reranker: "
                 + reranker_status
             )
+
 
         # PDF viewer panel
         if has_selected:

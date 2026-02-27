@@ -67,6 +67,26 @@ class LLMClient:
                 ", ".join(missing),
             )
 
+    def _build_kwargs(
+        self,
+        messages: list[dict],
+        temperature: float | None = None,
+        max_tokens: int | None = None,
+        stream: bool = False,
+    ) -> dict:
+        """Build the keyword arguments dict for litellm.completion()."""
+        kwargs = {
+            "model": self.model,
+            "messages": messages,
+            "temperature": temperature if temperature is not None else self.temperature,
+            "max_tokens": max_tokens if max_tokens is not None else self.max_tokens,
+        }
+        if stream:
+            kwargs["stream"] = True
+        if self.model.startswith("ollama/"):
+            kwargs["api_base"] = self.api_base
+        return kwargs
+
     def generate(
         self,
         messages: list[dict],
@@ -86,23 +106,14 @@ class LLMClient:
         Returns:
             Generated text response
         """
-        kwargs = {
-            "model": self.model,
-            "messages": messages,
-            "temperature": temperature if temperature is not None else self.temperature,
-            "max_tokens": max_tokens if max_tokens is not None else self.max_tokens,
-        }
-
-        # Add api_base for Ollama
-        if self.model.startswith("ollama/"):
-            kwargs["api_base"] = self.api_base
+        kwargs = self._build_kwargs(messages, temperature, max_tokens, stream=stream)
 
         try:
             if stream:
                 return self._stream_completion(kwargs)
-            else:
-                response = completion(**kwargs)
-                return response.choices[0].message.content
+
+            response = completion(**kwargs)
+            return response.choices[0].message.content
 
         except Exception as e:
             error_msg = str(e)
@@ -125,15 +136,7 @@ class LLMClient:
         Same arguments as generate(), but yields str chunks instead of
         returning the full text.  Intended for use with st.write_stream().
         """
-        kwargs = {
-            "model": self.model,
-            "messages": messages,
-            "temperature": temperature if temperature is not None else self.temperature,
-            "max_tokens": max_tokens if max_tokens is not None else self.max_tokens,
-            "stream": True,
-        }
-        if self.model.startswith("ollama/"):
-            kwargs["api_base"] = self.api_base
+        kwargs = self._build_kwargs(messages, temperature, max_tokens, stream=True)
 
         for chunk in completion(**kwargs):
             if chunk.choices[0].delta.content:

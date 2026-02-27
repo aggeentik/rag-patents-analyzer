@@ -629,7 +629,9 @@ class EntityExtractor:
         text_lower = text.lower()
         for app_id, aliases in APPLICATIONS.items():
             for alias in aliases:
-                if alias.lower() in text_lower:
+                # Use word-boundary matching to prevent short aliases (e.g. "EV")
+                # from matching inside longer words (e.g. "achieve", "ever").
+                if re.search(rf"\b{re.escape(alias.lower())}\b", text_lower):
                     entities.append(
                         Entity(
                             id=f"{chunk.patent_id}_app_{app_id}",
@@ -649,7 +651,7 @@ class EntityExtractor:
         text_lower = text.lower()
         for mat_id, aliases in MATERIALS.items():
             for alias in aliases:
-                if alias.lower() in text_lower:
+                if re.search(rf"\b{re.escape(alias.lower())}\b", text_lower):
                     entities.append(
                         Entity(
                             id=f"{chunk.patent_id}_material_{mat_id}",

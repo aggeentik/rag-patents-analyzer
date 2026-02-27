@@ -33,6 +33,48 @@ class AnswerGenerator:
         self.max_context_chunks = max_context_chunks
         self.include_metadata = include_metadata
 
+    def _build_sources(self, chunks: list[dict]) -> list[dict]:
+        """Build source metadata list from context chunks."""
+        sources = []
+        for chunk in chunks:
+            content = chunk["content"]
+            preview = content[:200] + "..." if len(content) > 200 else content
+            sources.append(
+                {
+                    "chunk_id": chunk["chunk_id"],
+                    "patent_id": chunk.get("patent_id", "unknown"),
+                    "section": chunk.get("metadata", {}).get("section", "unknown"),
+                    "page": chunk.get("metadata", {}).get("page", "unknown"),
+                    "rrf_score": chunk.get("rrf_score", 0.0),
+                    "preview": preview,
+                }
+            )
+        return sources
+
+    def _build_result_metadata(
+        self, context_chunks: list[dict], retrieved_chunks: list[dict], temperature: float
+    ) -> dict:
+        """Build the result dict skeleton (sources + metadata, no answer yet)."""
+        return {
+            "answer": "",
+            "sources": self._build_sources(context_chunks),
+            "metadata": {
+                "model": self.llm_client.model,
+                "chunk_count": len(context_chunks),
+                "total_retrieved": len(retrieved_chunks),
+                "temperature": temperature,
+            },
+        }
+
+    def _build_messages(self, question: str, context_chunks: list[dict]) -> list[dict]:
+        """Build the LLM message list from question and context chunks."""
+        context = self._build_context(context_chunks)
+        prompt = self._build_prompt(question, context)
+        return [
+            {"role": "system", "content": self._get_system_message()},
+            {"role": "user", "content": prompt},
+        ]
+
     def generate_answer(
         self,
         question: str,
@@ -55,50 +97,15 @@ class AnswerGenerator:
                 - sources: List of chunks used as context
                 - metadata: Additional information (model, chunk_count, etc.)
         """
-        # Select top chunks for context
         context_chunks = retrieved_chunks[: self.max_context_chunks]
-
-        # Build context from chunks
-        context = self._build_context(context_chunks)
-
-        # Build prompt
-        prompt = self._build_prompt(question, context)
-
-        # System message for the LLM
-        system_message = self._get_system_message()
-
-        # Generate answer
         logger.info("Generating answer with %d context chunks...", len(context_chunks))
 
-        messages = [
-            {"role": "system", "content": system_message},
-            {"role": "user", "content": prompt},
-        ]
-
+        messages = self._build_messages(question, context_chunks)
         answer = self.llm_client.generate(messages, temperature=temperature, stream=stream)
 
-        return {
-            "answer": answer,
-            "sources": [
-                {
-                    "chunk_id": chunk["chunk_id"],
-                    "patent_id": chunk.get("patent_id", "unknown"),
-                    "section": chunk.get("metadata", {}).get("section", "unknown"),
-                    "page": chunk.get("metadata", {}).get("page", "unknown"),
-                    "rrf_score": chunk.get("rrf_score", 0.0),
-                    "preview": chunk["content"][:200] + "..."
-                    if len(chunk["content"]) > 200
-                    else chunk["content"],
-                }
-                for chunk in context_chunks
-            ],
-            "metadata": {
-                "model": self.llm_client.model,
-                "chunk_count": len(context_chunks),
-                "total_retrieved": len(retrieved_chunks),
-                "temperature": temperature,
-            },
-        }
+        result = self._build_result_metadata(context_chunks, retrieved_chunks, temperature)
+        result["answer"] = answer
+        return result
 
     def stream_answer(
         self,
@@ -115,40 +122,9 @@ class AnswerGenerator:
             with sources and model info.
         """
         context_chunks = retrieved_chunks[: self.max_context_chunks]
-        context = self._build_context(context_chunks)
-        prompt = self._build_prompt(question, context)
-        system_message = self._get_system_message()
-
-        messages = [
-            {"role": "system", "content": system_message},
-            {"role": "user", "content": prompt},
-        ]
-
+        messages = self._build_messages(question, context_chunks)
         stream = self.llm_client.generate_stream(messages, temperature=temperature)
-
-        metadata = {
-            "answer": "",  # placeholder, filled by caller after streaming
-            "sources": [
-                {
-                    "chunk_id": chunk["chunk_id"],
-                    "patent_id": chunk.get("patent_id", "unknown"),
-                    "section": chunk.get("metadata", {}).get("section", "unknown"),
-                    "page": chunk.get("metadata", {}).get("page", "unknown"),
-                    "rrf_score": chunk.get("rrf_score", 0.0),
-                    "preview": chunk["content"][:200] + "..."
-                    if len(chunk["content"]) > 200
-                    else chunk["content"],
-                }
-                for chunk in context_chunks
-            ],
-            "metadata": {
-                "model": self.llm_client.model,
-                "chunk_count": len(context_chunks),
-                "total_retrieved": len(retrieved_chunks),
-                "temperature": temperature,
-            },
-        }
-
+        metadata = self._build_result_metadata(context_chunks, retrieved_chunks, temperature)
         return stream, metadata
 
     def _build_context(self, chunks: list[dict]) -> str:
